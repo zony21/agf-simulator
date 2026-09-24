@@ -1,0 +1,15 @@
+# Local/private source material: never publish actual site data
+private/
+*.dwg
+*.dxf
+*.dwt
+*.bak
+*.sv$
+*CAD*preview*.png
+*.pdf
+*.zip
+.env
+.env.*
+node_modules/
+dist/
+coverage/

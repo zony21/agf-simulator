@@ -56,13 +56,16 @@ export function addNode(annotation, {id, type, u, v}) {
       ...coordinates(fraction(u),fraction(v),annotation.cadViewBox)}]
   };
 }
-export function addRoute(annotation, {id, taskType, phase, nodeIds}) {
-  verify(typeof id === 'string' && ID.test(id), 'route ID: 1–32 Latin letters, digits, _ or -');
+function validateClassification(taskType,phase) {
   verify(TASK_TYPES.includes(taskType), 'unsupported transport type');
   verify(PHASES.includes(phase) &&
     (taskType === 'charge' ? phase === 'charge' :
       taskType === 'guide' ? phase === 'guide' : (phase === 'empty' || phase === 'loaded')),
     'guide/charge routes require matching phase; transports require empty or loaded phase');
+}
+export function addRoute(annotation, {id, taskType, phase, nodeIds}) {
+  verify(typeof id === 'string' && ID.test(id), 'route ID: 1–32 Latin letters, digits, _ or -');
+  validateClassification(taskType,phase);
   verify(Array.isArray(nodeIds) && nodeIds.length >= 2 && nodeIds.length <= 200,
     'route needs 2–200 explicitly selected points');
   verify(annotation.routes.length < 200, 'route limit reached');
@@ -74,6 +77,17 @@ export function addRoute(annotation, {id, taskType, phase, nodeIds}) {
     'consecutive route points must differ');
   return {...annotation, routes:[...annotation.routes,
     {id, taskType,phase,nodeIds:[...nodeIds],status:'draft'}]};
+}
+
+/**
+ * Classification is an operator's explicit input, not route approval.
+ * Guides can be assigned to a transport after manual review of endpoints.
+ */
+export function classifyRoute(annotation,{routeId,taskType,phase}) {
+  verify(annotation.routes.some(route=>route.id===routeId),'undefined route');
+  validateClassification(taskType,phase);
+  return {...annotation,routes:annotation.routes.map(route=>route.id===routeId
+    ? {...route,taskType,phase,status:'draft'}:route)};
 }
 
 /**

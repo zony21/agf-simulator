@@ -82,7 +82,8 @@ export function validateLogicalMap(map) {
     requireThat(corridors.has(item.corridor), 'Unknown interface corridor: ' + item.id);
     requireThat(Array.isArray(item.ids) && item.individualStopNodes === 'unresolved',
       'Interface points cannot be invented: ' + item.id);
-    requireThat(item.count === null || item.count === item.ids.length,
+    requireThat(item.count === null || item.count === item.ids.length ||
+      (item.endpointCount === item.ids.length && item.endpointCount >= item.count),
       'Interface count mismatch: ' + item.id);
     for (const id of item.ids) {
       requireThat(!usedInterfaces.has(id), 'Duplicate interface ID: ' + id);

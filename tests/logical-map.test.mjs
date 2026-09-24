@@ -55,13 +55,14 @@ test('cross-area connector cannot be marked confirmed without reviewed gate data
   const changed = copy();
   changed.corridors.find(x => x.id === 'PZ-EXT').access = 'allowed';
   changed.links.find(x => x.id === 'L-AREA-CONNECT').status = 'confirmed';
+  changed.links.find(x => x.id === 'L-AREA-CONNECT').reviewState = 'user-confirmed-abstract';
   assert.throws(() => validateLogicalMap(changed), /inter-area link/);
 });
 
 test('west warehouse gate is forbidden even if a route is fabricated', () => {
   const changed = copy();
   changed.links.push({
-    id: 'IMPROPER', from: 'WH-W-GATE', to: 'WH-W-V', direction: 'both', status: 'confirmed'
+    id: 'IMPROPER', from: 'WH-W-GATE', to: 'WH-W-V', direction: 'both', status: 'confirmed', reviewState: 'user-confirmed-abstract'
   });
   assert.throws(() => validateLogicalMap(changed), /unapproved corridor/);
 });

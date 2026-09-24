@@ -110,6 +110,18 @@ class TestDxfMap(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "walkable"):
             make_grid(geometry, config)
 
+    def test_pallet_location_is_not_automatically_blocked(self):
+        geometry = {
+            "walkable": [{"id": "W1", "kind": "polygon", "pointsMm": [[0, 0], [100, 0], [100, 100], [0, 100]]}],
+            "walls": [],
+            "fixtures": [],
+            "equipment": [],
+            "palletLocations": [{"id": "L1", "kind": "polygon", "pointsMm": [[0, 0], [100, 0], [100, 100], [0, 100]]}],
+        }
+        grid = make_grid(geometry, {"cellMm": 50, "agfRadiusMm": 0, "wallHalfWidthMm": 1})
+        self.assertEqual(grid["cells"], [[1, 1], [1, 1]])
+        self.assertIn("Pallet locations are not assumed blocked", grid["warning"])
+
     def test_optional_grid_geometry_only(self):
         with TemporaryDirectory() as td:
             path = Path(td) / "synthetic.dxf"

@@ -44,19 +44,32 @@ def configured_layers(config):
             if not isinstance(layer, str) or not layer.strip() or layer.casefold() in inverse:
                 raise ValueError("invalid or duplicate layer")
             inverse[layer.casefold()] = category
-    return inverse
+    excluded = config.get("excludeLayers")
+    if not isinstance(excluded, list) or not excluded or not all(
+        isinstance(layer, str) and layer.strip() for layer in excluded
+    ):
+        raise ValueError("excludeLayers must explicitly list the private AGF drawing layer(s)")
+    denied = {layer.casefold() for layer in excluded}
+    if len(denied) != len(excluded) or denied.intersection(inverse):
+        raise ValueError("excluded AGF layers cannot also be selected as equipment")
+    return inverse, denied
 
 
-def iter_geometry(entities, problems, inherited=None, depth=0):
+def iter_geometry(entities, problems, inherited=None, depth=0, excluded=frozenset()):
     if depth > 20:
         raise ValueError("nested INSERT depth exceeded")
     for entity in entities:
         kind = entity.dxftype()
         layer = entity.dxf.get("layer", "0")
         layer = inherited if layer == "0" and inherited else layer
+        # Skip an excluded INSERT before virtual expansion, including nested
+        # entities that carry a different layer name inside the block.
+        if layer.casefold() in excluded:
+            problems["AGF_LAYER_EXCLUDED"] += 1
+            continue
         if kind == "INSERT":
             try:
-                yield from iter_geometry(entity.virtual_entities(), problems, layer, depth + 1)
+                yield from iter_geometry(entity.virtual_entities(), problems, layer, depth + 1, excluded)
             except (ValueError, KeyError, TypeError, ezdxf.DXFError):
                 problems["INSERT_UNRESOLVED"] += 1
         else:
@@ -91,18 +104,18 @@ def export_preview(source, config, out_svg, out_report, *, assume_mm=False, tole
         raise ValueError("input must be .dxf and preview output must be .svg")
     if not math.isfinite(tolerance_mm) or tolerance_mm <= 0:
         raise ValueError("curve tolerance must be positive")
-    selected = configured_layers(config)
+    selected, excluded = configured_layers(config)
     doc = ezdxf.readfile(source)
     unit = int(doc.header.get("$INSUNITS", 0))
     if unit != 4 and not (unit == 0 and assume_mm):
         raise ValueError("DXF $INSUNITS is not mm; unitless DXF requires explicit --assume-mm")
     existing = {layer.dxf.name.casefold() for layer in doc.layers}
-    if not set(selected).issubset(existing):
+    if not set(selected).union(excluded).issubset(existing):
         raise ValueError("a configured DXF layer does not exist")
     paths = {category: [] for category in COLORS}
     counts, skipped = Counter(), Counter()
     bounds = [math.inf, math.inf, -math.inf, -math.inf]
-    for entity, layer in iter_geometry(doc.modelspace(), skipped):
+    for entity, layer in iter_geometry(doc.modelspace(), skipped, excluded=excluded):
         category = selected.get(layer.casefold())
         if category is None:
             continue
@@ -157,6 +170,8 @@ def export_preview(source, config, out_svg, out_report, *, assume_mm=False, tole
         "displayOnly": True,
         "routable": False,
         "physicalEtaAllowed": False,
+        "agfLayerExclusionConfigured": True,
+        "excludedDrawingLayerCount": len(excluded),
         "selectedFeatureCounts": dict(counts),
         "skippedSelectedEntityTypes": dict(skipped),
         "totalSelectedFeatures": sum(counts.values()),
@@ -165,6 +180,8 @@ def export_preview(source, config, out_svg, out_report, *, assume_mm=False, tole
             "This SVG is derived from a private CAD drawing and must not be committed.",
             "The display viewBox is not an approved coordinate origin.",
             "Unresolved INSERT references and skipped entities require review.",
+            "AGF drawing layers are excluded, including block inserts on those layers.",
+            "A mixed equipment/AGF layer cannot be safely separated by layer filter.",
             "Layer shape is not a confirmed walkable path or AGF location.",
         ],
     }

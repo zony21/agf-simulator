@@ -33,13 +33,27 @@ test('replenishment requires source-ready confirmation',()=>{
 });
 test('area-first and low-battery-first produce distinct, stable selections',()=>{
   const agfs=[{id:'A',status:'idle',area:'west',batteryPct:55},{id:'B',status:'idle',area:'east',batteryPct:75},{id:'C',status:'charging',area:'east',batteryPct:41}];
-  assert.equal(selectAgf(agfs,{originArea:'east'},{mode:'area_first',reservePct:40})?.id,'B');
+  assert.equal(selectAgf(agfs,{destinationArea:'east'},{mode:'area_first',reservePct:40})?.id,'B');
   assert.equal(selectAgf(agfs,{originArea:'east'},{mode:'low_battery_first',reservePct:40})?.id,'A');
   assert.equal(selectAgf(agfs,{originArea:'east'},{mode:'low_battery_first',reservePct:60})?.id,'B');
 });
 test('equal battery breaks ties by ID',()=>{
   const agfs=[{id:'B',status:'idle',area:'x',batteryPct:70},{id:'A',status:'idle',area:'x',batteryPct:70}];
-  assert.equal(selectAgf(agfs,{originArea:'x'},{mode:'low_battery_first',reservePct:40})?.id,'A');
+  assert.equal(selectAgf(agfs,{destinationArea:'x'},{mode:'low_battery_first',reservePct:40})?.id,'A');
+});
+test('destination differs from origin; origin-area AGF cannot take precedence',()=>{
+  const agfs=[
+    {id:'A',status:'idle',area:'pickup',batteryPct:41},
+    {id:'B',status:'idle',area:'drop',batteryPct:75},
+    {id:'C',status:'idle',area:'drop',batteryPct:60}
+  ];
+  assert.equal(selectAgf(agfs,{originArea:'pickup',destinationArea:'drop'},{mode:'area_first',reservePct:40})?.id,'C');
+});
+test('area-first missing destination is rejected and fallback is explicit',()=>{
+  const agfs=[{id:'A',status:'idle',area:'pickup',batteryPct:60}];
+  assert.throws(()=>selectAgf(agfs,{originArea:'pickup'},{mode:'area_first',reservePct:40}),/destinationArea/);
+  assert.equal(selectAgf(agfs,{destinationArea:'drop'},{mode:'area_first',reservePct:40}),null);
+  assert.equal(selectAgf(agfs,{destinationArea:'drop'},{mode:'area_first',reservePct:40,fallback:'any'})?.id,'A');
 });
 test('out-of-order timestamps fail',()=>{
   assert.throws(()=>validateTrace(scenario,[ev('PALLET_EXITED',{palletId:'P',lineId:'L'},2),ev('PALLET_EXITED',{palletId:'Q',lineId:'L'},1)]),/out of order/);

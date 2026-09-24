@@ -112,3 +112,15 @@ test('synthetic per-line interval creates traceable input, not claimed PLC histo
   assert.deepEqual(p.map(e=>e.timeMs),[300_000,600_000]);
   assert.ok(p.every(e=>e.inputKind==='synthetic-interval'));
 });
+
+
+test('02 reserves a destination and records same-row hold until prior put completes',()=>{
+  const a=simulate(fixture({productionEvents:[
+    {timeMs:0,lineId:'L1',palletId:'P1',destinationLocationId:'S1'},
+    {timeMs:0,lineId:'L2',palletId:'P2',destinationLocationId:'S1'}
+  ]}));
+  assert.ok(a.events.some(e=>e.type==='TASK_02_HELD' && e.reason==='SAME_ROW_ACTIVE'));
+  assert.equal(a.metrics.byKind['02'],2);
+  assert.deepEqual(a.final.warehouse.S1.palletIds.sort(),['P1','P2']);
+  assert.ok(a.snapshots.every(s=>s.warehouse.S1.reserved.length<=1));
+});

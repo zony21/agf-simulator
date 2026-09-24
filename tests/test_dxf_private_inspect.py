@@ -11,7 +11,7 @@ import unittest
 import ezdxf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from inspect_dxf_private import inspect
+from inspect_dxf_private import inspect, require_private_destination
 
 
 class TestPrivateDxfInspection(unittest.TestCase):
@@ -65,6 +65,12 @@ class TestPrivateDxfInspection(unittest.TestCase):
             input_file = self.create_dxf(folder)
             with self.assertRaisesRegex(ValueError, "layer configuration"):
                 inspect(input_file, None, folder / "private.json.gz")
+
+    def test_cad_derived_public_repo_output_is_rejected(self):
+        repo = Path(__file__).resolve().parents[1]
+        with self.assertRaisesRegex(ValueError, "gitignored private"):
+            require_private_destination(repo / "data" / "site-map.json.gz")
+        require_private_destination(repo / "private" / "site-map.json.gz")
 
     def test_geometry_output_is_compressed(self):
         with TemporaryDirectory() as temporary:

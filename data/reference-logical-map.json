@@ -505,7 +505,8 @@
       ],
       "corridor": "PZ-DEV",
       "individualStopNodes": "unresolved",
-      "note": "Input and output are distinct"
+      "note": "Input and output are distinct",
+      "endpointCount": 2
     },
     {
       "id": "OT",

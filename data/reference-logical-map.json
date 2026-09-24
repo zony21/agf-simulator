@@ -273,7 +273,8 @@
       "to": "PZ-CON-W",
       "direction": "both",
       "status": "confirmed",
-      "reason": "West-end connection"
+      "reason": "West-end connection",
+      "reviewState": "user-confirmed-abstract"
     },
     {
       "id": "L-PZ-WEST-2",
@@ -281,7 +282,8 @@
       "to": "PZ-A2",
       "direction": "both",
       "status": "confirmed",
-      "reason": "West-end connection"
+      "reason": "West-end connection",
+      "reviewState": "user-confirmed-abstract"
     },
     {
       "id": "L-PZ-EAST-1",
@@ -289,7 +291,8 @@
       "to": "PZ-CON-E",
       "direction": "both",
       "status": "confirmed",
-      "reason": "East-end connection"
+      "reason": "East-end connection",
+      "reviewState": "user-confirmed-abstract"
     },
     {
       "id": "L-PZ-EAST-2",
@@ -297,7 +300,8 @@
       "to": "PZ-A2",
       "direction": "both",
       "status": "confirmed",
-      "reason": "East-end connection"
+      "reason": "East-end connection",
+      "reviewState": "user-confirmed-abstract"
     },
     {
       "id": "L-PZ-DEV",
@@ -305,7 +309,8 @@
       "to": "PZ-DEV",
       "direction": "both",
       "status": "confirmed",
-      "reason": "Equipment connects from corridor 1"
+      "reason": "Equipment connects from corridor 1",
+      "reviewState": "user-confirmed-abstract"
     },
     {
       "id": "L-PZ-OT",
@@ -313,7 +318,8 @@
       "to": "PZ-OT",
       "direction": "both",
       "status": "confirmed",
-      "reason": "OTs connect from corridor 1"
+      "reason": "OTs connect from corridor 1",
+      "reviewState": "user-confirmed-abstract"
     },
     {
       "id": "L-PZ-IN-ATTACH",
@@ -321,7 +327,8 @@
       "to": "PZ-A1",
       "direction": "forward",
       "status": "unresolved",
-      "reason": "Exact entry attachment not yet specified"
+      "reason": "Exact entry attachment not yet specified",
+      "reviewState": "pending-confirmation"
     },
     {
       "id": "L-PZ-OUT-ATTACH",
@@ -329,7 +336,8 @@
       "to": "PZ-E-OUT",
       "direction": "forward",
       "status": "unresolved",
-      "reason": "Exact exit attachment not yet specified"
+      "reason": "Exact exit attachment not yet specified",
+      "reviewState": "pending-confirmation"
     },
     {
       "id": "L-AREA-CONNECT",
@@ -337,7 +345,8 @@
       "to": "PZ-EXT",
       "direction": "forward",
       "status": "unresolved",
-      "reason": "Inter-area lane and shutter stops not yet specified"
+      "reason": "Inter-area lane and shutter stops not yet specified",
+      "reviewState": "pending-confirmation"
     },
     {
       "id": "L-EXT-WH",
@@ -345,7 +354,8 @@
       "to": "WH-E-GATE",
       "direction": "both",
       "status": "unresolved",
-      "reason": "Inter-area route not fully specified"
+      "reason": "Inter-area route not fully specified",
+      "reviewState": "pending-confirmation"
     },
     {
       "id": "L-WH-GATE",
@@ -353,7 +363,8 @@
       "to": "WH-E-V",
       "direction": "both",
       "status": "unresolved",
-      "reason": "Specific gate stop and link to vertical aisle not yet specified"
+      "reason": "Specific gate stop and link to vertical aisle not yet specified",
+      "reviewState": "pending-confirmation"
     },
     {
       "id": "L-WH-U-E",
@@ -361,7 +372,8 @@
       "to": "WH-X-U",
       "direction": "both",
       "status": "confirmed",
-      "reason": "Upper cross-aisle from east corridor"
+      "reason": "Upper cross-aisle from east corridor",
+      "reviewState": "user-confirmed-abstract"
     },
     {
       "id": "L-WH-U-W",
@@ -369,7 +381,8 @@
       "to": "WH-W-V",
       "direction": "both",
       "status": "confirmed",
-      "reason": "Upper cross-aisle to west corridor"
+      "reason": "Upper cross-aisle to west corridor",
+      "reviewState": "user-confirmed-abstract"
     },
     {
       "id": "L-WH-L-E",
@@ -377,7 +390,8 @@
       "to": "WH-X-L",
       "direction": "both",
       "status": "confirmed",
-      "reason": "Lower cross-aisle from east corridor"
+      "reason": "Lower cross-aisle from east corridor",
+      "reviewState": "user-confirmed-abstract"
     },
     {
       "id": "L-WH-L-W",
@@ -385,7 +399,8 @@
       "to": "WH-W-V",
       "direction": "both",
       "status": "confirmed",
-      "reason": "Lower cross-aisle to west corridor"
+      "reason": "Lower cross-aisle to west corridor",
+      "reviewState": "user-confirmed-abstract"
     },
     {
       "id": "L-WH-W-1",
@@ -393,7 +408,8 @@
       "to": "WH-W-A",
       "direction": "both",
       "status": "confirmed",
-      "reason": "Access to west storage group"
+      "reason": "Access to west storage group",
+      "reviewState": "user-confirmed-abstract"
     },
     {
       "id": "L-WH-W-2",
@@ -401,7 +417,8 @@
       "to": "WH-W-B",
       "direction": "both",
       "status": "confirmed",
-      "reason": "Access to west storage group"
+      "reason": "Access to west storage group",
+      "reviewState": "user-confirmed-abstract"
     },
     {
       "id": "L-WH-W-3",
@@ -409,7 +426,8 @@
       "to": "WH-W-C",
       "direction": "both",
       "status": "confirmed",
-      "reason": "Access to west storage group"
+      "reason": "Access to west storage group",
+      "reviewState": "user-confirmed-abstract"
     },
     {
       "id": "L-WH-E-1",
@@ -417,7 +435,8 @@
       "to": "WH-E-A",
       "direction": "both",
       "status": "confirmed",
-      "reason": "Access to east storage group"
+      "reason": "Access to east storage group",
+      "reviewState": "user-confirmed-abstract"
     },
     {
       "id": "L-WH-E-2",
@@ -425,7 +444,8 @@
       "to": "WH-E-B",
       "direction": "both",
       "status": "confirmed",
-      "reason": "Access to east storage group"
+      "reason": "Access to east storage group",
+      "reviewState": "user-confirmed-abstract"
     },
     {
       "id": "L-WH-ROW",
@@ -433,7 +453,8 @@
       "to": "WH-ROW",
       "direction": "both",
       "status": "unresolved",
-      "reason": "Each actual row must be split and mapped before use"
+      "reason": "Each actual row must be split and mapped before use",
+      "reviewState": "pending-confirmation"
     },
     {
       "id": "L-WH-SERVICE",
@@ -441,7 +462,8 @@
       "to": "WH-SERVICE",
       "direction": "both",
       "status": "unresolved",
-      "reason": "Actual service access not verified"
+      "reason": "Actual service access not verified",
+      "reviewState": "pending-confirmation"
     }
   ],
   "interfaces": [

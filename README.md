@@ -32,7 +32,7 @@ The ten standalone documents cover overview, equipment, normal transport 01 thro
 
 ## CAD/DXF-to-JSON map pipeline
 
-The [DXF map pipeline guide](docs/map-dxf-pipeline.md) describes exporting the source CAD to millimetre DXF with an explicit origin, mapping layers, extracting geometry with ezdxf, supplying reviewed gates/area connectivity, and optionally rasterizing a geometric grid. The converter is [tools/dxf_to_map.py](tools/dxf_to_map.py). Run synthetic-only Python tests with `python -m unittest discover -s tests -p 'test_dxf_to_map.py' -v` after `pip install -r requirements-map.txt`. **No real site geometry or generated private map has been committed; an externally exported DXF and reviewed layer/topology inputs are still required.**
+The [DXF map pipeline guide](docs/map-dxf-pipeline.md) describes exporting the source CAD to millimetre DXF with an explicit origin, mapping layers, extracting geometry with ezdxf, supplying reviewed gates/area connectivity, and optionally rasterizing a geometric grid. The converter is [tools/dxf_to_map.py](tools/dxf_to_map.py). Run synthetic-only Python tests with `python -m unittest discover -s tests -p 'test_*.py' -v` after `pip install -r requirements-map.txt`. The [private DXF inspector](tools/inspect_dxf_private.py) accepts a DXF whose unit header is unset and retains original drawing coordinates with **unverified units**. An uploaded DXF has been examined and selected CAD-native shapes extracted privately, but **mm scale, reference origin, complete block geometry and site-specific routing remain unverified**. No real CAD or derived coordinates are committed.
 
 ## DXF-free logical map
 

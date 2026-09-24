@@ -31,7 +31,7 @@ test('builder rejects unsupported file or coordinates rather than inferring geom
   assert.throws(()=>buildPrivateGuide(Buffer.from('<svg/>'),config),/approved private/);
   assert.throws(()=>buildPrivateGuide(svg,{guides:[{id:'X',points:[[0,0],[1.2,.3]]}]}),/fractions/);
   assert.throws(()=>buildPrivateGuide(svg,{guides:[{id:'X',points:[[0,0]]}]}),/explicit normalized/);
-  assert.throws(()=>buildPrivateGuide(svg,{guides:[{id:'X',points:[[0,0],[.2,.2]]},{id:'X',points:[[0,0],[.3,.3]]}]}),/duplicate guide point/);
+  assert.throws(()=>buildPrivateGuide(svg,{guides:[{id:'X',points:[[0,0],[.2,.2]]},{id:'X',points:[[0,0],[.3,.3]]}]}),/duplicate route ID/);
 });
 test('CLI writes only to explicitly supplied private destination and refuses overwrite',async()=>{
   const dir=await mkdtemp(join(tmpdir(),'agf-seed-'));
@@ -45,4 +45,19 @@ test('CLI writes only to explicitly supplied private destination and refuses ove
     await assert.rejects(()=>main(['--svg',svgPath,'--config',cfg,'--out',
       new URL('../assets/public.json',import.meta.url).pathname]),/gitignored private/);
   }finally {await rm(dir,{recursive:true,force:true});}
+});
+
+test('explicit shared guide junction is one node and moves all connected drafts',()=>{
+  const junction={id:'JOIN',u:.5,v:.5};
+  const candidate=buildPrivateGuide(svg,{guides:[
+    {id:'G1',points:[[0,.5],junction]},
+    {id:'G2',points:[junction,[.5,1]]}
+  ]});
+  assert.equal(candidate.nodes.length,3);
+  assert.equal(candidate.routes[0].nodeIds.at(-1),'JOIN');
+  assert.equal(candidate.routes[1].nodeIds[0],'JOIN');
+  assert.throws(()=>buildPrivateGuide(svg,{guides:[
+    {id:'G1',points:[[0,.5],junction]},
+    {id:'G2',points:[{id:'JOIN',u:.7,v:.5},[.5,1]]}
+  ]}),/inconsistent/);
 });

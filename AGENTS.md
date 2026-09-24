@@ -1,6 +1,6 @@
 # Agent instructions
 
-This is a **public-safe development harness**. Read README.md and docs/harness-contract.md before editing.
+This is a **public-safe development harness**. Read README.md, docs/specification.md and docs/harness-contract.md before editing.
 
 ## Source-of-truth order
 
@@ -9,7 +9,7 @@ This is a **public-safe development harness**. Read README.md and docs/harness-c
 3. docs/open-decisions.md for unresolved points.
 4. Clearly marked synthetic fixtures for automated tests.
 
-Never convert a proposal, an example trace, a screenshot guess, or a past assistant simulation into a confirmed physical fact. Do not commit confidential PDFs/DWGs, CAD screenshots, actual site maps, customer identifiers, or derived operational parameters to this public repository without explicit approval.
+Never convert a proposal, an example trace, a screenshot guess, or a past assistant simulation into a confirmed physical fact. Do not commit confidential source files, source-document names, layout screenshots, actual site maps, customer identifiers, exact coordinates, or derived operational parameters to this public repository. Use synthetic fixtures and external approved scenarios instead.
 
 ## Engineering rules
 

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AGF搬送シミュレーター｜概念モデル</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,"Yu Gothic",Meiryo,sans-serif;color:#e9f1f6;background:#0b1421;font-size:14px}
+    *{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer;border:1px solid #426078;background:#193448;color:#f0faff;padding:.55rem .9rem;border-radius:8px}button:hover{background:#285371}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #72d9d0;outline-offset:2px}
+    .top{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.5rem;background:#112438;border-bottom:1px solid #2d4b61}
+    h1{font-size:1.4rem;margin:0}h2{font-size:1.05rem;margin:0 0 1rem}h3{font-size:.91rem;margin:.8rem 0}.muted{color:#abc2d0}.warning{background:#473818;border:1px solid #937239;color:#ffefb4;padding:.8rem 1rem;border-radius:8px;margin:1rem 1.5rem}
+    .layout{display:grid;grid-template-columns:minmax(260px,310px) minmax(350px,1fr) minmax(260px,320px);gap:12px;padding:0 1.5rem 1rem}
+    .panel{background:#14283a;border:1px solid #304a60;border-radius:12px;padding:1rem;min-width:0}
+    label{display:flex;flex-direction:column;gap:.3rem;color:#bed1df}input,select{min-width:0;max-width:100%;width:100%;padding:.5rem;background:#0c1d2d;border:1px solid #426078;border-radius:7px;color:#f5fbff}
+    input[type=checkbox]{width:auto}.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}.fields .wide{grid-column:1/-1}
+    .actions{display:flex;flex-wrap:wrap;gap:.45rem}.primary{background:#1d827f;border-color:#54bdb0;font-weight:700}.primary:hover{background:#249e96}.section{margin:1rem 0;padding-top:.85rem;border-top:1px solid #304a60}
+    #map{width:100%;height:auto;background:#0b1c2c;border:1px solid #345267;border-radius:10px}
+    #map text{fill:#dcebf4;font-size:15px}#map .small{font-size:11px;fill:#b7d0dc}#map .area{fill:#15354b;stroke:#7393a5;stroke-width:2;stroke-dasharray:8 4}
+    #map .wh{fill:#153746}.pill{border:1px solid #466477;padding:.2rem .55rem;border-radius:999px;display:inline-block;margin:.15rem}.key{font-weight:700;color:#76d8cd}
+    .stat{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem}.metric{background:#102334;padding:.7rem;border-radius:8px}.metric b{display:block;font-size:1.3rem;color:#72d9d0}
+    .rows{display:flex;flex-direction:column;gap:.5rem}.entry{border-bottom:1px solid #2b4459;padding:.45rem 0}
+    #log{height:280px;overflow:auto;background:#0d1e2b;padding:.5rem;border-radius:8px;font:12px ui-monospace,monospace;white-space:pre-wrap}
+    .play{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}.play input[type=range]{flex:1;min-width:140px}
+    #error{white-space:pre-wrap;background:#5a2833;color:#fff0f0;border-radius:8px;padding:.8rem;margin:0 1.5rem 1rem}
+    [hidden]{display:none!important}.tag{color:#ffdd88}.status{font-size:.85rem;color:#c5dae4}
+    @media(max-width:1050px){.layout{grid-template-columns:1fr 1fr}.center{grid-column:1/-1;grid-row:1}}
+    @media(max-width:650px){.layout{display:flex;flex-direction:column}.top{align-items:flex-start;flex-direction:column}.warning{margin:1rem}.layout{padding:0 1rem 1rem}}
+  </style>
+</head>
+<body>
+  <header class="top"><div><h1>AGF 搬送シミュレーター</h1><div class="muted">離散イベント・01～05／充電／包装／入庫の再生</div></div><span class="pill">オフライン分析用・設備制御不可</span></header>
+  <div class="warning">表示図は公開用の<strong>概念図（実寸・実CAD配置ではありません）</strong>。移動・荷役時間は編集可能な仮定値で、実測ETAや衝突安全性を示しません。系列の間隔から作る搬出は模擬入力でありPLC実績ではありません。</div>
+  <div id="error" role="alert" hidden></div>
+  <main class="layout">
+    <aside class="panel">
+      <h2>シナリオ設定</h2>
+      <div class="fields">
+        <label>対象時間（分）<input id="duration" type="number" min="1" max="1440" value="180"></label>
+        <label>選定方式<select id="mode"><option value="area_first">目的地エリア優先</option><option value="low_battery_first">低残量優先（エリアなし）</option></select></label>
+        <label class="wide">目的地エリアに適格機なし<select id="fallback"><option value="wait">待機（仕様未確定のため保守的）</option><option value="any" selected>他エリア選定（模擬シナリオ仮定）</option></select></label>
+      </div>
+      <div class="section"><h3>系列別搬出間隔（分・0は停止）</h3><div class="fields" id="line-fields"></div><div class="status">8系列それぞれ独立設定。初回発生は設定間隔経過後です。</div></div>
+      <div class="section"><h3>工程時間（すべて仮定値・分）</h3><div class="fields" id="time-fields"></div></div>
+      <div class="section"><h3>電池設定</h3><div class="fields" id="battery-fields"></div></div>
+      <div class="section actions"><button class="primary" id="run">シミュレーション実行</button><button id="compare">2方式比較</button><button id="csv">イベントCSV</button></div>
+    </aside>
+    <section class="panel center">
+      <h2>概念マップ・イベント再生</h2>
+      <div class="play"><button id="play">▶ 再生</button><button id="reset">先頭</button><select id="speed" aria-label="再生速度" style="width:90px"><option value="1">1イベント</option><option value="3">3イベント</option><option value="10">10イベント</option></select><input id="seek" type="range" min="0" max="0" value="0" aria-label="イベント位置"><b id="clock">00:00:00</b></div>
+      <p class="status">速度はイベントの送り数です。再生位置は保存済みスナップショットから復元します。</p>
+      <svg id="map" viewBox="0 0 720 480" role="img" aria-label="設備エリアを概念的に表示する模式図">
+        <rect class="area" x="20" y="25" width="680" height="195" rx="12"/>
+        <text x="38" y="50">パレタイズエリア（概念配置）</text>
+        <rect x="42" y="70" width="270" height="35" rx="6" fill="#305a70"/><text x="54" y="92">パレタイザ 8系列</text>
+        <rect x="350" y="70" width="152" height="35" rx="6" fill="#305a70"/><text x="364" y="92">包装機：投入／出口</text>
+        <rect x="533" y="70" width="145" height="35" rx="6" fill="#305a70"/><text x="545" y="92">マガジン 5台</text>
+        <path d="M45 136 H675 M45 172 H675" stroke="#63b0b7" stroke-width="3" stroke-dasharray="10 7"/>
+        <text class="small" x="50" y="128">通路1・2（各1車線／概念のみ）</text>
+        <rect x="20" y="260" width="680" height="190" rx="12" class="area wh"/>
+        <text x="38" y="286">製品倉庫（概念配置）</text>
+        <rect x="45" y="301" width="175" height="40" rx="6" fill="#305a70"/><text x="58" y="325">整列機 5台</text>
+        <rect x="264" y="301" width="170" height="40" rx="6" fill="#305a70"/><text x="279" y="325">充電器 2台</text>
+        <rect x="477" y="301" width="194" height="40" rx="6" fill="#305a70"/><text x="490" y="325">倉庫ロケーション</text>
+        <path d="M45 373 H672 M45 408 H672" stroke="#63b0b7" stroke-width="3" stroke-dasharray="10 7"/>
+        <text class="small" x="50" y="365">2車線・1車線の詳細は交通仕様書参照</text>
+        <path d="M610 222 v35" stroke="#ffc97e" stroke-dasharray="4 4" stroke-width="3"/>
+        <text class="small" x="430" y="241">エリア間リンク未確定</text>
+        <g id="agf-markers"></g>
+      </svg>
+      <p class="status">車両アイコンは所属エリアごとに表示した<strong>模式配置</strong>です。実走行軌跡・停止点・実位置ではありません。</p>
+      <div class="stat" id="metrics"></div>
+      <div class="section"><h3>イベント履歴</h3><div id="log" aria-live="polite"></div></div>
+      <div class="section" id="comparison" hidden><h3>同一入力の2方式比較</h3><div class="stat" id="comparison-body"></div></div>
+    </section>
+    <aside class="panel">
+      <h2>設備・車両状態</h2>
+      <div id="agf-list" class="rows"></div>
+      <div class="section"><h3>系列バッファ</h3><div id="line-list" class="rows"></div></div>
+      <div class="section"><h3>包装機・入庫</h3><div id="equipment-list"></div></div>
+      <div class="section"><h3>手動搬送予約 04／05</h3><p class="status">合成データの仮置きパレットを使用。入庫／再投入許可を明示したうえで予約します。</p>
+        <div class="fields"><label>対象パレット<select id="temp-pallet"></select></label><label>仮置き場<select id="temp-location"><option>OT1</option><option>OT2</option><option>OT3</option></select></label>
+          <label class="wide">05入庫先<select id="manual-slot"></select></label><label class="wide"><span><input id="permission" type="checkbox"> 許可済みとして模擬入力する</span></label></div>
+        <div class="actions" style="margin-top:.6rem"><button id="manual04">04を予約</button><button id="manual05">05を予約</button></div>
+      </div>
+      <div class="section"><h3>03補充トリガー（模擬操作）</h3><div class="fields"><label>マガジン<select id="mag-select"></select></label><label>整列機<select id="align-select"></select></label></div><div class="actions" style="margin-top:.6rem"><button id="mag-use">空PLを1枚使用</button><button id="align-ready">整列機 搬送OK</button></div></div>
+      <div class="section"><h3>充電器</h3><div id="charger-list" class="rows"></div></div>
+    </aside>
+  </main>
+  <script type="module" src="./src/ui/app.mjs"></script>
+</body>
+</html>

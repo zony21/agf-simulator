@@ -6,6 +6,7 @@ test('three-hour default UI synthetic scenario is reproducible and capacity safe
   const scenario={
     durationMin:180,mode:'area_first',fallback:'any',
     lineCapacity:2,lineIntervalsMin:[41,41,41,41,41,41,41,41],
+    lineStartOffsetsMin:Array.from({length:8},(_,i)=>Number((i*41/8).toFixed(3))),
     generatedDestinationIds:Array.from({length:6},(_,i)=>'SYN-W'+(i+1)),
     wrapper:{inputCapacity:1,outputCapacity:2},
     agfs:['AGF1','AGF2','AGF3','AGF4'].map((id,i)=>({id,area:i<2?'PZ':'WH',batteryPct:100,status:'idle'})),
@@ -19,7 +20,7 @@ test('three-hour default UI synthetic scenario is reproducible and capacity safe
   };
   const first=simulate(scenario),second=simulate(scenario);
   assert.deepEqual(first.events,second.events);
-  assert.equal(first.metrics.created,32);
+  assert.equal(first.metrics.created,28);
   assert.ok(first.metrics.stored>0);
   for(const snap of first.snapshots) {
     assert.ok(Object.values(snap.lines).every(line=>line.length<=2));

@@ -1,6 +1,6 @@
 # Agent instructions
 
-This is a **public-safe development harness**. Read README.md, docs/specification.md, docs/specs/00-overview.md, docs/specs/08-map.md for layout or path tasks, the relevant individual specifications under docs/specs/, docs/route-annotation-guide.md for route handoffs, and docs/harness-contract.md before editing.
+This is a **public-safe development harness**. Read README.md, docs/specification.md, docs/specs/00-overview.md, docs/specs/08-map.md and docs/specs/09-traffic.md for layout or path tasks, the relevant individual specifications under docs/specs/, docs/route-annotation-guide.md for route handoffs, and docs/harness-contract.md before editing.
 
 ## Source-of-truth order
 
@@ -19,7 +19,7 @@ Never convert a proposal, an example trace, a screenshot guess, or a past assist
 - Never create a downstream transport independently of its upstream completion and equipment-ready conditions.
 - Maintain individual pallet IDs, source line IDs, device IDs, and AGF IDs through the trace.
 - Define battery and processing assumptions in scenario input; never silently hard-code unverified site values.
-- Provisional positions and route edges must be visually labeled provisional. Do not derive travel time from unfinished route geometry. Never infer missing turns, shutter stop points, pickup positions or reverse-direction permissions from an image: ask for an annotated route or mark unresolved.
+- Confirm traversable segments before asking or deciding direction and lane count. Bidirectional operation, lane count, and simultaneous passing are separate fields. Provisional positions and route edges must be visually labeled provisional. Do not derive travel time from unfinished route geometry. Never infer missing turns, shutter stop points, pickup positions or reverse-direction permissions from an image: ask for an annotated route or mark unresolved.
 - Dispatch variants receive the *same* exogenous production stream and scenario, differing only in the selection strategy.
 - Tests must cover normal and impossible events, determinism, boundary capacities, charging limits, replenishment trigger semantics, and tie breaks.
 - Keep core logic independent of the UI. Render from snapshots/events, not a second timer-based simulation.

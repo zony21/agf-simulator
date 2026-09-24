@@ -13,6 +13,31 @@
 - Gitに含む設定は**架空の合成サンプルのみ**。元のCAD図形・実座標・元レイヤー名・生成した私有JSONは公開GitHubに保存しない。
 - DXFが提供されたため、非公開領域でヘッダーとレイヤーを検査し、選択した図形を私有JSONへ抽出した。**単位・原点の検証が終わっていないため、mm確定の実レイアウトと実走行距離への変換は保留**している。
 
+## 非公開のmm仮定・図形プレビュー（実走行不可）
+
+提供図のヘッダーが \`$INSUNITS=0\` の場合でも、利用者から「mmのはず」との暫定情報があるため、**表示専用に限り**明示オプション \`--assume-mm\` で1 CAD単位=1 mmとして描画できる。これはCAD原点・既知寸法との照合による実寸検証ではなく、実走行グラフ・ETAへの昇格許可ではない。ヘッダーに他単位が明記されている図面は同オプションでも拒否する。
+
+[tools/private_cad_preview.py](../tools/private_cad_preview.py) は、非公開設定に完全一致で指定したレイヤーの図形だけを、ブラウザで読み込めるSVGに描画する。図面レイヤー名や元図名称は公開リポジトリに保存しない。TEXT・寸法は出力しない。対応できないINSERTや図形は報告し、**完全抽出と見なさない**。出力SVG/レポートは必ずGit管理外のprivate/等に保持する。
+
+~~~bash
+python tools/private_cad_preview.py \
+  --dxf private/input.dxf \
+  --layer-config private/preview-layers.json \
+  --out-svg private/generated/preview.svg \
+  --out-report private/generated/preview-report.json \
+  --assume-mm
+~~~
+
+設定形式（以下のレイヤー名は架空の合成例）：
+
+~~~json
+{"categories":{"architecture":["SYN-BUILDING"],"equipment":["SYN-MACHINES"]}}
+~~~
+
+出力レポートには \`unitEvidence=user-provisional\`、\`metricScaleVerified=false\`、\`referenceOriginVerified=false\`、\`displayOnly=true\`、\`routable=false\` を明示する。SVGはブラウザ画面の「非公開CADプレビュー」から**端末内で読み込む**。読み込み時、模式図のAGF仮位置を非表示にし、正確な位置合わせ済みとは表示しない。PNGも図形プレビューとして読み込めるが、SVGほど拡大時の解像度は保てない。
+
+これは上記 \`dxf_to_map.py\` の**単位と原点を明示して走行トポロジーを渡す工程とは独立**である。次の物理経路検証には、既知長さの寸法、基準原点、未解決INSERT、設備・荷役停止点、シャッター通行線とルート承認が必要。
+
 ## 1. DXFへ書き出し：単位・原点を統一
 
 1. 使用するCADで対象階のモデル空間を確認する。外部参照があれば必要なものをバインドし、書き出しの欠落がないことを確認する。

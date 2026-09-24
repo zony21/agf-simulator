@@ -39,7 +39,7 @@
         <label>選定方式<select id="mode"><option value="area_first">目的地エリア優先</option><option value="low_battery_first">低残量優先（エリアなし）</option></select></label>
         <label class="wide">目的地エリアに適格機なし<select id="fallback"><option value="wait">待機（仕様未確定のため保守的）</option><option value="any" selected>他エリア選定（模擬シナリオ仮定）</option></select></label>
       </div>
-      <div class="section"><h3>系列別搬出間隔（分・0は停止）</h3><div class="fields" id="line-fields"></div><div class="status">8系列それぞれ独立設定。初回発生は設定間隔経過後です。</div></div>
+      <div class="section"><h3>系列別搬出間隔（分・0は停止）</h3><div class="fields" id="line-fields"></div><div class="status">8系列それぞれ独立設定。初回発生は「間隔＋初回ずらし」の経過後。ずらし値は同時発生を避ける合成シナリオの仮定で、PLC実績ではありません。</div></div>
       <div class="section"><h3>工程時間（すべて仮定値・分）</h3><div class="fields" id="time-fields"></div></div>
       <div class="section"><h3>電池設定</h3><div class="fields" id="battery-fields"></div></div>
       <div class="section actions"><button class="primary" id="run">シミュレーション実行</button><button id="compare">2方式比較</button><button id="csv">イベントCSV</button></div>

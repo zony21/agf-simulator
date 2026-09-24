@@ -38,6 +38,35 @@ The [DXF map pipeline guide](docs/map-dxf-pipeline.md) describes exporting the s
 
 The [public-safe abstract map JSON](data/reference-logical-map.json), [schematic 2D SVG](assets/logical-map.svg), [logical map guide](docs/logical-map.md), and [conceptual path validator](src/map/logical-map.mjs) are now available. They use confirmed corridor relationships but **not measured coordinates, detailed stop/turn points or travel times**. Run `npm run check:map`. Inter-area geometry and individual warehouse slot links remain unresolved, so a physical 01–05 route engine is not yet implemented.
 
+
+## Experimental interactive simulator (feature branch)
+
+The repository includes a **scenario-driven discrete-event model** and Japanese replay UI. It is an offline, **synthetic/conceptual** simulator, not a CAD-calibrated physical or safety simulation.
+
+Run with Node.js 22+ for tests, and serve the repository root with any static HTTP server for the UI:
+
+    npm run check
+    python -m http.server 8000
+
+Then open http://localhost:8000/ . No frontend packages or build process are needed.
+
+### Implemented simulation slice
+
+- Four AGFs, two exclusive charger slots, scenario-configurable consumption and charging rates.
+- Independent per-line minute intervals or an explicit external production event stream. Interval-generated events have inputKind=synthetic-interval, never PLC history.
+- Task 01 → wrapper (input 1, process 1, output 2) → label → exit-ready → task 02 → explicitly declared synthetic warehouse slot. The same pallet ID persists across stages. Same-row task issuance is held and location reservations prevent overbooking.
+- Task 03 only on observed magazine consumption down to the trigger, with an explicitly ready aligner and a +10 refill only on drop-off.
+- UI-requested tasks 04/05 use preloaded synthetic temporary pallets; reentry/storage permission and individual destination must be explicitly supplied; duplicate reservations are rejected.
+- Destination-area-first/lowest-battery selection, optional explicitly selected cross-area fallback (wait is the core default), independent low-battery comparison.
+- Deterministic event history/snapshots, seek/replay, state panels, same-input mode comparison, and UTF-8 BOM events CSV with run/config metadata.
+
+The UI's warehouse slots, initial AGF areas, production intervals, source supplies and journey/handling durations are **synthetic demo values**, not confirmed site settings. Travel duration inputs are modeled constants, not derived from CAD, route geometry, speed, interlocks or traffic. The displayed floor layout is a **conceptual diagram** with schematic AGF area markers, not the uploaded drawing.
+
+### Not implemented or approved
+
+Actual CAD-aligned background and coordinates, reviewed physical node/edge graph, route-dependent times, collision/traffic/shutter/interlock model, real production stream import UI, full exception recovery, runtime WCS/PLC/RCS integration, and physical charge-route timing. The map import pipeline and private inspector are intentionally separate. Only public-safe synthetic fixtures belong in this repository.
+
+
 ## Planned implementation
 
 1. Confirm equipment positions and graph nodes with the user.

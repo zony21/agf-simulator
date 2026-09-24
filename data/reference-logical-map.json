@@ -9,7 +9,7 @@
     "hasActualSiteCoordinates": false,
     "hasMeasuredDistances": false,
     "hasConfirmedTurnOrStopPoints": false,
-    "diagram": "../../assets/logical-map.svg"
+    "diagram": "../assets/logical-map.svg"
   },
   "orientation": {
     "top": "palletizing",

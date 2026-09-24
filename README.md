@@ -1,0 +1,28 @@
+# AGF Simulator
+
+A development harness for a deterministic, event-driven AGF logistics simulator and a simple 2D replay UI.
+
+**Public repository notice:** The source procurement specification and CAD drawings supplied for this project are marked confidential. Do not commit their files, screenshots, exact geometry, customer/site names, or derived operational details here. Keep the full project specification outside this public repository until its visibility and publication scope are approved.
+
+## Current scope
+
+This repository initially contains a **development harness**, not a finished logistics simulator. It establishes trace validation, AGF dispatch selection, synthetic test fixtures, agent instructions, and CI. The later UI can use Vue 3 + TypeScript + SVG; do not interpret the synthetic fixture as facility data.
+
+## Run
+
+Requires Node.js 22 or later. No dependency installation is necessary for the current harness.
+
+```bash
+npm test
+npm run check:fixtures
+npm run check
+```
+
+## Planned implementation
+
+1. Confirm equipment positions and graph nodes with the user.
+2. Implement discrete-event simulation with production, transport, packaging/labeling, replenishment, charging and physical occupancy.
+3. Render a simplified CAD-aligned 2D SVG map. Unconfirmed routes must appear as provisional, not measured geometry.
+4. Add deterministic replay, playback controls, event log, metrics, and like-for-like dispatch-mode comparison.
+
+See [AGENTS.md](AGENTS.md), [docs/harness-contract.md](docs/harness-contract.md), and [docs/open-decisions.md](docs/open-decisions.md).

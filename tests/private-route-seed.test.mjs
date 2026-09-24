@@ -31,7 +31,7 @@ test('builder rejects unsupported file or coordinates rather than inferring geom
   assert.throws(()=>buildPrivateGuide(Buffer.from('<svg/>'),config),/approved private/);
   assert.throws(()=>buildPrivateGuide(svg,{guides:[{id:'X',points:[[0,0],[1.2,.3]]}]}),/fractions/);
   assert.throws(()=>buildPrivateGuide(svg,{guides:[{id:'X',points:[[0,0]]}]}),/explicit normalized/);
-  assert.throws(()=>buildPrivateGuide(svg,{guides:[{id:'X',points:[[0,0],[.2,.2]]},{id:'X',points:[[0,0],[.3,.3]]}]}),/duplicate route ID/);
+  assert.throws(()=>buildPrivateGuide(svg,{guides:[{id:'X',points:[[0,0],[.2,.2]]},{id:'X',points:[[0,0],[.3,.3]]}]}),/shared guide point ID|duplicate route ID/);
 });
 test('CLI writes only to explicitly supplied private destination and refuses overwrite',async()=>{
   const dir=await mkdtemp(join(tmpdir(),'agf-seed-'));

@@ -1,0 +1,25 @@
+name: Map DXF tools (synthetic only)
+on:
+  push:
+    paths:
+      - "tools/dxf_to_map.py"
+      - "tests/test_dxf_to_map.py"
+      - "requirements-map.txt"
+      - ".github/workflows/map-tools.yml"
+  pull_request:
+    paths:
+      - "tools/dxf_to_map.py"
+      - "tests/test_dxf_to_map.py"
+      - "requirements-map.txt"
+      - ".github/workflows/map-tools.yml"
+  workflow_dispatch:
+jobs:
+  test-map-tools:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -r requirements-map.txt
+      - run: python -m unittest discover -s tests -p "test_dxf_to_map.py" -v

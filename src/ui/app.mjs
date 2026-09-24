@@ -211,6 +211,7 @@ $('private-cad-file').addEventListener('change',async()=>{
   clearError();
   let url=null;
   try {
+    if(!$('cad-agf-excluded').checked)throw new Error('AGF図形を除外済みのプレビューであることを確認してください。');
     if(file.size>80_000_000)throw new Error('プレビューの上限は80MBです。レイヤーを絞って再出力してください。');
     const svg=/\.svg$/i.test(file.name),png=/\.png$/i.test(file.name);
     if(!svg&&!png)throw new Error('ローカルのSVGまたはPNGプレビューを指定してください。');
@@ -244,7 +245,7 @@ $('private-cad-file').addEventListener('change',async()=>{
         cadBlobUrl=url;
         $('map').hidden=true;
         $('cad-stage').hidden=false;
-        $('cad-state').textContent='AGF除外の非公開CADプレビュー表示中。1 CAD単位＝1 mm（指定値）。経路・点は手動下書きで、AGF実位置・所要時間は未確定です。';
+        $('cad-state').textContent='AGF除外を利用者が確認した非公開CADプレビュー表示中。1 CAD単位＝1 mm（指定値）。経路・点は手動下書きで、AGF実位置・所要時間は未確定です。';
       }catch(error){URL.revokeObjectURL(url);showError(error);}
     };
     image.onerror=()=>{
@@ -264,6 +265,7 @@ $('show-schematic').addEventListener('click',()=>{
   $('cad-stage').hidden=true;
   $('map').hidden=false;
   $('private-cad-file').value='';
+  $('cad-agf-excluded').checked=false;
   if(cadBlobUrl)URL.revokeObjectURL(cadBlobUrl);
   cadBlobUrl=null;
   routeEditor.clearBackground();

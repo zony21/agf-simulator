@@ -228,13 +228,16 @@ export function simulate(rawScenario) {
     const destinations=scenario.generatedDestinationIds ?? [];
     required(destinations.length && destinations.every(id=>slots.has(id)),
       'synthetic interval input needs explicit generatedDestinationIds');
+    const offsets=scenario.lineStartOffsetsMin ?? Array(8).fill(0);
+    required(Array.isArray(offsets) && offsets.length===8,'eight start offsets required');
     let n=0;
     scenario.lineIntervalsMin.forEach((interval,i) => {
       required(Number.isFinite(interval) && interval>=0, 'invalid line interval');
+      required(Number.isFinite(offsets[i]) && offsets[i]>=0,'invalid line start offset');
       if (!interval) return;
-      const step=minute(interval);
+      const step=minute(interval), start=step+minute(offsets[i]);
       required(step>0,'line interval is below millisecond precision');
-      for (let t=step,k=1;t<=durationMs;t+=step,k++) {
+      for (let t=start,k=1;t<=durationMs;t+=step,k++) {
         schedule(t,'PALLET_EXITED',{timeMs:t,lineId:'L'+(i+1),
           palletId:'SIM-L'+(i+1)+'-'+k,
           destinationLocationId:destinations[n++%destinations.length],inputKind:'synthetic-interval'});

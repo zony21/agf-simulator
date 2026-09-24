@@ -74,6 +74,44 @@ export function addRoute(annotation, {id, taskType, phase, nodeIds}) {
   return {...annotation, routes:[...annotation.routes,
     {id, taskType,phase,nodeIds:[...nodeIds],status:'draft'}]};
 }
+
+/**
+ * Drag operations update only user-authored draft geometry. Millimetre fields
+ * are always recomputed from normalized coordinates and the bound SVG viewBox.
+ */
+export function moveNode(annotation, nodeId, u, v) {
+  verify(finite(u) && finite(v) && u >= 0 && u <= 1 && v >= 0 && v <= 1,
+    'point must be on the preview image');
+  verify(annotation.nodes.some(node => node.id === nodeId),'undefined point');
+  const x=fraction(u), y=fraction(v);
+  return {...annotation,nodes:annotation.nodes.map(node=>node.id===nodeId
+    ? {...node,u:x,v:y,...coordinates(x,y,annotation.cadViewBox)} : node)};
+}
+export function insertRoutePoint(annotation,{routeId,segmentIndex,id,u,v,type='waypoint'}) {
+  const route=annotation.routes.find(item=>item.id===routeId);
+  verify(route,'undefined route');
+  verify(Number.isInteger(segmentIndex) && segmentIndex>=0 &&
+    segmentIndex<route.nodeIds.length-1,'invalid route segment');
+  verify(route.nodeIds.length<200,'route point limit reached');
+  const withPoint=addNode(annotation,{id,type,u,v});
+  return {...withPoint,routes:withPoint.routes.map(item=>item.id===routeId
+    ? {...item,nodeIds:[...item.nodeIds.slice(0,segmentIndex+1),id,
+      ...item.nodeIds.slice(segmentIndex+1)]}:item)};
+}
+export function removeRoutePoint(annotation,{routeId,nodeIndex}) {
+  const route=annotation.routes.find(item=>item.id===routeId);
+  verify(route,'undefined route');
+  verify(Number.isInteger(nodeIndex) && nodeIndex>=0 &&
+    nodeIndex<route.nodeIds.length,'invalid route point index');
+  verify(route.nodeIds.length>2,'route needs at least two points');
+  return {...annotation,routes:annotation.routes.map(item=>item.id===routeId
+    ? {...item,nodeIds:item.nodeIds.filter((_,index)=>index!==nodeIndex)}:item)};
+}
+export function deleteRoute(annotation,routeId) {
+  verify(annotation.routes.some(item=>item.id===routeId),'undefined route');
+  return {...annotation,routes:annotation.routes.filter(item=>item.id!==routeId)};
+}
+
 /**
  * Import is tied to the exact same image bytes and viewBox. Ignore untrusted
  * computed millimetre fields, and never import a confirmed/routable status.

@@ -14,7 +14,7 @@
     label{display:flex;flex-direction:column;gap:.3rem;color:#bed1df}input,select{min-width:0;max-width:100%;width:100%;padding:.5rem;background:#0c1d2d;border:1px solid #426078;border-radius:7px;color:#f5fbff}
     input[type=checkbox]{width:auto}.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}.fields .wide{grid-column:1/-1}
     .actions{display:flex;flex-wrap:wrap;gap:.45rem}.primary{background:#1d827f;border-color:#54bdb0;font-weight:700}.primary:hover{background:#249e96}.section{margin:1rem 0;padding-top:.85rem;border-top:1px solid #304a60}
-    #map{width:100%;height:auto;background:#0b1c2c;border:1px solid #345267;border-radius:10px}
+    #map,#cad-image{width:100%;height:auto;background:#0b1c2c;border:1px solid #345267;border-radius:10px}
     #map text{fill:#dcebf4;font-size:15px}#map .small{font-size:11px;fill:#b7d0dc}#map .area{fill:#15354b;stroke:#7393a5;stroke-width:2;stroke-dasharray:8 4}
     #map .wh{fill:#153746}.pill{border:1px solid #466477;padding:.2rem .55rem;border-radius:999px;display:inline-block;margin:.15rem}.key{font-weight:700;color:#76d8cd}
     .stat{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem}.metric{background:#102334;padding:.7rem;border-radius:8px}.metric b{display:block;font-size:1.3rem;color:#72d9d0}
@@ -48,6 +48,12 @@
       <h2>概念マップ・イベント再生</h2>
       <div class="play"><button id="play">▶ 再生</button><button id="reset">先頭</button><select id="speed" aria-label="再生速度" style="width:90px"><option value="1">1イベント</option><option value="3">3イベント</option><option value="10">10イベント</option></select><input id="seek" type="range" min="0" max="0" value="0" aria-label="イベント位置"><b id="clock">00:00:00</b></div>
       <p class="status">速度はイベントの送り数です。再生位置は保存済みスナップショットから復元します。</p>
+      <div class="section">
+        <label>非公開CADプレビュー（ローカル読み込み・SVGまたはPNG）<input id="private-cad-file" type="file" accept=".svg,image/svg+xml,.png,image/png"></label>
+        <div class="actions" style="margin-top:.5rem"><button id="show-schematic">概念図へ戻す</button></div>
+        <p class="status" id="cad-state" role="status">CAD未読み込み：概念図を表示しています。変換済みプレビューはブラウザ内のみで開き、サーバーへ送信しません。</p>
+      </div>
+      <img id="cad-image" alt="非公開CAD図形プレビュー。AGF位置・走行経路は未重畳" hidden>
       <svg id="map" viewBox="0 0 720 480" role="img" aria-label="設備エリアを概念的に表示する模式図">
         <rect class="area" x="20" y="25" width="680" height="195" rx="12"/>
         <text x="38" y="50">パレタイズエリア（概念配置）</text>
@@ -67,7 +73,7 @@
         <text class="small" x="430" y="241">エリア間リンク未確定</text>
         <g id="agf-markers"></g>
       </svg>
-      <p class="status">車両アイコンは所属エリアごとに表示した<strong>模式配置</strong>です。実走行軌跡・停止点・実位置ではありません。</p>
+      <p class="status">模式図の車両アイコンは所属エリアを示す仮位置です。CADプレビュー表示中は車両アイコンを重ねません。個別停止点・走行経路・位置合わせは別途確認が必要です。</p>
       <div class="stat" id="metrics"></div>
       <div class="section"><h3>イベント履歴</h3><div id="log" aria-live="polite"></div></div>
       <div class="section" id="comparison" hidden><h3>同一入力の2方式比較</h3><div class="stat" id="comparison-body"></div></div>

@@ -14,6 +14,7 @@ const SHA = /^[0-9a-f]{64}$/;
 const verify = (test, message) => { if (!test) throw new Error(message); };
 const finite = x => typeof x === 'number' && Number.isFinite(x);
 const rounded = x => Math.round(x * 1000) / 1000;
+const fraction = x => Math.round(x * 100_000_000) / 100_000_000;
 
 function sourceBox(value) {
   if (value === null) return null;
@@ -51,8 +52,8 @@ export function addNode(annotation, {id, type, u, v}) {
   verify(!annotation.nodes.some(node => node.id === id), 'duplicate point ID');
   return {
     ...annotation,
-    nodes:[...annotation.nodes, {id,type,u:rounded(u),v:rounded(v),
-      ...coordinates(u,v,annotation.cadViewBox)}]
+    nodes:[...annotation.nodes, {id,type,u:fraction(u),v:fraction(v),
+      ...coordinates(fraction(u),fraction(v),annotation.cadViewBox)}]
   };
 }
 export function addRoute(annotation, {id, taskType, phase, nodeIds}) {

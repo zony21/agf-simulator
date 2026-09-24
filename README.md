@@ -18,6 +18,14 @@ npm run check:fixtures
 npm run check
 ```
 
+## Newly confirmed requirements
+
+- The finished simulator must follow the CAD layout; the committed SVG is still a schematic, not a verified CAD reproduction.
+- A settings screen must make simulation values editable, including independent per-line discharge intervals measured in minutes.
+- Operators can reserve manual transport tasks 04 and 05 via UI buttons.
+- Simulation results must be exportable to CSV.
+- Primary AGF dispatch prioritizes eligible vehicles in the **destination/drop-off area**, then chooses the one with the lowest battery. **The current test harness still prefers the pickup/origin area and requires an implementation change**. Fallback when no eligible vehicle is in the destination area remains open.
+
 ## Specifications
 
 The ten standalone documents cover overview, equipment, normal transport 01 through 05, AGF operation, the overall 2D map, and phased AGF access/lane rules. The overview defines cross-document event, configuration, and acceptance rules. Each individual specification defines its own inputs, event sequence, state, outputs, acceptance criteria, and unresolved details.

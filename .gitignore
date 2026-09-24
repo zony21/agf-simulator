@@ -4,7 +4,6 @@ private/
 *.dxf
 *.dwt
 *.bak
-*.sv$
 *CAD*preview*.png
 *.pdf
 *.zip

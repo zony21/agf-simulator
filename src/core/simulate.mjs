@@ -103,8 +103,17 @@ export function simulate(rawScenario) {
       if (p.stage !== 'exit_ready') continue;
       if (!p.destinationLocationId || !slots.has(p.destinationLocationId))
         throw new Error('02 needs an explicit destinationLocationId for ' + p.palletId);
-      if (!reserveSlot(p.destinationLocationId,p.palletId)) continue;
-      p.stage='queued_02';
+      if (!reserveSlot(p.destinationLocationId,p.palletId)) {
+        const s=slots.get(p.destinationLocationId);
+        const reason=s.permission===false?'LOCATION_PERMISSION':
+          rowBusy.has(s.rowId)?'SAME_ROW_ACTIVE':'LOCATION_FULL_OR_RESERVED';
+        if (p.waitReason!==reason) {
+          p.waitReason=reason;
+          record('TASK_02_HELD',{palletId:p.palletId,locationId:s.id,reason});
+        }
+        continue;
+      }
+      p.waitReason=null; p.stage='queued_02';
       request('02',{palletId:p.palletId,originArea:'PZ',destinationArea:'WH',
         originId:'WRAP-OUTPUT',destinationId:p.destinationLocationId});
       changed=true;

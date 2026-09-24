@@ -9,7 +9,7 @@ This is a **public-safe development harness**. Read README.md, docs/specificatio
 3. docs/open-decisions.md for unresolved points.
 4. Clearly marked synthetic fixtures for automated tests.
 
-Never convert a proposal, an example trace, a screenshot guess, or a past assistant simulation into a confirmed physical fact. Do not commit confidential source files, source-document names, layout screenshots, actual site maps, customer identifiers, exact coordinates, or derived operational parameters to this public repository. Use synthetic fixtures and external approved scenarios instead.
+Never convert a proposal, an example trace, a screenshot guess, or a past assistant simulation into a confirmed physical fact. Do not commit confidential source files, source-document names, layout screenshots, actual site maps, customer identifiers, exact coordinates, or identifiable operational records. The explicitly approved baseline simulation settings in docs/specification.md are documented requirements, not permission to publish the underlying sources. Use synthetic fixtures and external approved scenarios for testing.
 
 ## Engineering rules
 

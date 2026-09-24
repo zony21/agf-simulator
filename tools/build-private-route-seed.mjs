@@ -44,13 +44,22 @@ export function buildPrivateGuide(buffer,config) {
       fail('each guide requires an ID and 2–200 explicit normalized points');
     const ids=[];
     for(const [index,point] of guide.points.entries()) {
-      if(!Array.isArray(point)||point.length!==2||
-         point.some(x=>typeof x!=='number'||!Number.isFinite(x)||x<0||x>1))
-        fail('guide points must be [u,v] fractions inside the preview');
-      const pointId=guide.id+'_'+String(index+1).padStart(2,'0');
-      if(usedIds.has(pointId))fail('duplicate guide point ID');
-      usedIds.add(pointId);
-      result=addNode(result,{id:pointId,type:'waypoint',u:point[0],v:point[1]});
+      // Explicit {id,u,v} permits a junction shared by multiple draft guides.
+      const shared=point&&!Array.isArray(point)&&typeof point==='object';
+      const pointId=shared?point.id:guide.id+'_'+String(index+1).padStart(2,'0');
+      const u=shared?point.u:point?.[0],v=shared?point.v:point?.[1];
+      if((!shared&&(!Array.isArray(point)||point.length!==2))||
+         typeof u!=='number'||!Number.isFinite(u)||u<0||u>1||
+         typeof v!=='number'||!Number.isFinite(v)||v<0||v>1)
+        fail('guide points must be [u,v] or {id,u,v} fractions inside the preview');
+      if(usedIds.has(pointId)) {
+        const existing=result.nodes.find(n=>n.id===pointId);
+        if(!shared||!existing||existing.u!==u||existing.v!==v)
+          fail('shared guide point ID has inconsistent coordinates');
+      } else {
+        result=addNode(result,{id:pointId,type:'waypoint',u,v});
+        usedIds.add(pointId);
+      }
       ids.push(pointId);
     }
     result=addRoute(result,{id:guide.id,taskType:'guide',phase:'guide',nodeIds:ids});

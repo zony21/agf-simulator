@@ -14,7 +14,13 @@
     label{display:flex;flex-direction:column;gap:.3rem;color:#bed1df}input,select{min-width:0;max-width:100%;width:100%;padding:.5rem;background:#0c1d2d;border:1px solid #426078;border-radius:7px;color:#f5fbff}
     input[type=checkbox]{width:auto}.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}.fields .wide{grid-column:1/-1}
     .actions{display:flex;flex-wrap:wrap;gap:.45rem}.primary{background:#1d827f;border-color:#54bdb0;font-weight:700}.primary:hover{background:#249e96}.section{margin:1rem 0;padding-top:.85rem;border-top:1px solid #304a60}
-    #map,#cad-image{width:100%;height:auto;background:#0b1c2c;border:1px solid #345267;border-radius:10px}
+    #map,#cad-stage{width:100%;height:auto;background:#0b1c2c;border:1px solid #345267;border-radius:10px}
+    #cad-stage{position:relative;overflow:hidden;line-height:0}#cad-image{display:block;width:100%;height:auto}
+    #cad-overlay,#cad-node-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+    .cad-node{position:absolute;transform:translate(-50%,-50%);padding:0;width:25px;height:25px;border-radius:50%;border:2px solid #effaff;background:#135d7d;color:white;font-size:10px;font-weight:700;pointer-events:auto;line-height:20px}
+    .cad-node.pickup{background:#178765}.cad-node.dropoff{background:#ac6425}.cad-node.turn{background:#8b5abb}.cad-node.shutter_wait{background:#9e4539}
+    .cad-node:focus-visible{outline:3px solid #ffee89}.route-info{margin-top:.5rem;max-height:140px;overflow:auto}
+    .route-info .entry{overflow-wrap:anywhere}.cad-editor[hidden]{display:none}
     #map text{fill:#dcebf4;font-size:15px}#map .small{font-size:11px;fill:#b7d0dc}#map .area{fill:#15354b;stroke:#7393a5;stroke-width:2;stroke-dasharray:8 4}
     #map .wh{fill:#153746}.pill{border:1px solid #466477;padding:.2rem .55rem;border-radius:999px;display:inline-block;margin:.15rem}.key{font-weight:700;color:#76d8cd}
     .stat{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem}.metric{background:#102334;padding:.7rem;border-radius:8px}.metric b{display:block;font-size:1.3rem;color:#72d9d0}
@@ -53,7 +59,31 @@
         <div class="actions" style="margin-top:.5rem"><button id="show-schematic">概念図へ戻す</button></div>
         <p class="status" id="cad-state" role="status">CAD未読み込み：概念図を表示しています。変換済みプレビューはブラウザ内のみで開き、サーバーへ送信しません。</p>
       </div>
-      <img id="cad-image" alt="非公開CAD図形プレビュー。AGF位置・走行経路は未重畳" hidden>
+      <div id="cad-stage" hidden>
+        <img id="cad-image" alt="非公開CAD図形プレビュー。図上の点と下書き経路はユーザー登録内容のみ表示">
+        <svg id="cad-overlay" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <div id="cad-node-layer"></div>
+      </div>
+      <div id="cad-editor" class="section cad-editor" hidden>
+        <h3>停止点・経路の図上登録（下書き）</h3>
+        <p class="status">AGFを除外したCADプレビューの上で点を指定します。描画した点・経路はユーザー入力の下書きで、走行許可・距離・ETAには使用しません。</p>
+        <div class="fields">
+          <label>操作<select id="annotation-mode"><option value="point">点をクリック登録</option><option value="route">既存点を順番に選んで経路作成</option></select></label>
+          <label>点ID<input id="annotation-point-id" value="P01" maxlength="32" autocomplete="off"></label>
+          <label>点種別<select id="annotation-point-type"><option value="waypoint">通過・経由</option><option value="pickup">荷受け</option><option value="dropoff">荷下ろし</option><option value="shutter_wait">シャッター手前停止</option><option value="shutter_passage">シャッター通過</option><option value="turn">旋回</option><option value="junction">分岐・交差</option><option value="home">待機・HP</option><option value="charger">充電位置</option></select></label>
+          <label>経路ID<input id="annotation-route-id" value="R01" maxlength="32" autocomplete="off"></label>
+          <label>搬送<select id="annotation-task"><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="charge">充電</option></select></label>
+          <label>区間<select id="annotation-phase"><option value="loaded">積載走行</option><option value="empty">空走</option><option value="charge">充電移動</option></select></label>
+        </div>
+        <div class="actions" style="margin-top:.6rem">
+          <button id="annotation-save-route">選択点から経路下書き保存</button>
+          <button id="annotation-undo">末尾点を取消</button>
+          <button id="annotation-export">下書きJSONを端末に保存</button>
+          <label style="display:inline-flex;align-items:center">下書きJSON読込<input id="annotation-import" type="file" accept=".json,application/json"></label>
+        </div>
+        <p class="status" id="annotation-state" role="status">CADプレビューを読み込むと図上編集を開始できます。</p>
+        <div class="route-info" id="annotation-list"></div>
+      </div>
       <svg id="map" viewBox="0 0 720 480" role="img" aria-label="設備エリアを概念的に表示する模式図">
         <rect class="area" x="20" y="25" width="680" height="195" rx="12"/>
         <text x="38" y="50">パレタイズエリア（概念配置）</text>

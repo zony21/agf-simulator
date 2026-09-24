@@ -5,7 +5,7 @@ This file describes the generic test harness, **not a facility specification**.
 ## Included now
 
 - Node 22+ built-in tests, no npm dependencies.
-- A pure AGF selector with `area_first` and `low_battery_first` modes. Only idle, unblocked AGFs above scenario reserve threshold are eligible.
+- A pure AGF selector with `area_first` and `low_battery_first` modes. Only idle, unblocked AGFs above scenario reserve threshold are eligible. **Implementation gap:** the current `area_first` uses the pickup/origin area; the approved updated spec uses the destination/drop-off area. Do not present the current selection behavior as compliant until code and tests are revised.
 - A deterministic validation pass over a synthetic event trace.
 - Validation of line buffer, wrapper input/output, one wrapper process, AGF exclusive assignment, downstream readiness, charging slot exclusivity, and inventory refill trigger.
 - Synthetic fixture and GitHub Actions CI.
@@ -32,4 +32,4 @@ This is a *validation harness*. It does not yet schedule events, calculate traje
 
 ## Not yet implemented
 
-Event queue, travel-time engine, graph routing, task 03 full physical transfer, 04/05, battery curves, map importer, collision/interlock model, metrics and UI. Do not represent these as completed features.
+Event queue, travel-time engine, graph routing, task 03 full physical transfer, 04/05 button-based reservation, settings UI (including per-line minute intervals), battery curves, physical map importer, collision/interlock model, full simulation metrics, and results CSV export. The approved destination-first dispatch behavior also remains to be implemented. Do not represent these as completed features.

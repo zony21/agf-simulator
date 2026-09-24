@@ -26,6 +26,10 @@ The ten standalone documents cover overview, equipment, normal transport 01 thro
 
 The [DXF map pipeline guide](docs/map-dxf-pipeline.md) describes exporting the source CAD to millimetre DXF with an explicit origin, mapping layers, extracting geometry with ezdxf, supplying reviewed gates/area connectivity, and optionally rasterizing a geometric grid. The converter is [tools/dxf_to_map.py](tools/dxf_to_map.py). Run synthetic-only Python tests with `python -m unittest discover -s tests -p 'test_dxf_to_map.py' -v` after `pip install -r requirements-map.txt`. **No real site geometry or generated private map has been committed; an externally exported DXF and reviewed layer/topology inputs are still required.**
 
+## DXF-free logical map
+
+The [public-safe abstract map JSON](data/reference-logical-map.json), [schematic 2D SVG](assets/logical-map.svg), [logical map guide](docs/logical-map.md), and [conceptual path validator](src/map/logical-map.mjs) are now available. They use confirmed corridor relationships but **not measured coordinates, detailed stop/turn points or travel times**. Run `npm run check:map`. Inter-area geometry and individual warehouse slot links remain unresolved, so a physical 01–05 route engine is not yet implemented.
+
 ## Planned implementation
 
 1. Confirm equipment positions and graph nodes with the user.
@@ -33,6 +37,6 @@ The [DXF map pipeline guide](docs/map-dxf-pipeline.md) describes exporting the s
 3. Render a simplified CAD-aligned 2D SVG map. Unconfirmed routes must appear as provisional, not measured geometry.
 4. Add deterministic replay, playback controls, event log, metrics, and like-for-like dispatch-mode comparison.
 
-See the [specification index (1 overall + 9 individual documents)](docs/specification.md), [overall map specification](docs/specs/08-map.md), [DXF map pipeline guide](docs/map-dxf-pipeline.md), [AGF access and lane specification](docs/specs/09-traffic.md), [route annotation guide](docs/route-annotation-guide.md), [AGENTS.md](AGENTS.md), [harness contract](docs/harness-contract.md), and [open decisions](docs/open-decisions.md).
+See the [specification index (1 overall + 9 individual documents)](docs/specification.md), [overall map specification](docs/specs/08-map.md), [DXF-free logical map](docs/logical-map.md), [DXF map pipeline guide](docs/map-dxf-pipeline.md), [AGF access and lane specification](docs/specs/09-traffic.md), [route annotation guide](docs/route-annotation-guide.md), [AGENTS.md](AGENTS.md), [harness contract](docs/harness-contract.md), and [open decisions](docs/open-decisions.md).
 
 The public specification includes the agreed baseline simulation settings and marks provisional values explicitly. Identifying source-document titles, original drawings, site coordinates, and operational records stay outside the repository; individual scenario values remain configurable.

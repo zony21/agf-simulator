@@ -6,12 +6,16 @@ on:
       - "tests/test_dxf_to_map.py"
       - "tests/test_dxf_private_inspect.py"
       - "tools/inspect_dxf_private.py"
+      - "tools/private_cad_preview.py"
+      - "tests/test_private_cad_preview.py"
       - "requirements-map.txt"
       - ".github/workflows/map-tools.yml"
   pull_request:
     paths:
       - "tools/dxf_to_map.py"
       - "tools/inspect_dxf_private.py"
+      - "tools/private_cad_preview.py"
+      - "tests/test_private_cad_preview.py"
       - "tests/test_dxf_to_map.py"
       - "tests/test_dxf_private_inspect.py"
       - "requirements-map.txt"

@@ -248,7 +248,7 @@ def make_grid(geometry, config):
     if not walk.is_valid:
         fail("walkable polygon is invalid; repair DXF before rasterization")
     obstacles = []
-    for category in ("walls", "fixtures", "equipment", "palletLocations"):
+    for category in ("walls", "fixtures", "equipment"):
         for f in geometry.get(category, []):
             if f["kind"] == "polygon":
                 shape = Polygon(f["pointsMm"])
@@ -280,7 +280,7 @@ def make_grid(geometry, config):
         "type": "geometric_only", "units": "mm", "cellMm": cell,
         "originMm": [xmin, ymin], "rows": rows, "cols": cols,
         "cells": cells, "agfRadiusMm": clearance,
-        "warning": "Dynamic shutter states, traffic lanes, reservations and route permissions are NOT encoded by this grid; use the topology graph.",
+        "warning": "Geometric occupancy only. Pallet locations are not assumed blocked; their current occupancy, dynamic shutter states, lanes, reservations and permissions MUST be applied separately.",
     }
 
 

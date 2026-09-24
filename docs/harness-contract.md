@@ -5,7 +5,7 @@ This file describes the generic test harness, **not a facility specification**.
 ## Included now
 
 - Node 22+ built-in tests, no npm dependencies.
-- A pure AGF selector with `area_first` and `low_battery_first` modes. Only idle, unblocked AGFs above scenario reserve threshold are eligible. **Implementation gap:** the current `area_first` uses the pickup/origin area; the approved updated spec uses the destination/drop-off area. Do not present the current selection behavior as compliant until code and tests are revised.
+- A pure AGF selector with `area_first` and `low_battery_first` modes. Only idle, unblocked AGFs above scenario reserve threshold are eligible. The first mode prioritizes **destination** area, then lowest battery. Cross-area fallback is explicit (`wait` core default; `any` must be chosen as a model assumption).
 - A deterministic validation pass over a synthetic event trace.
 - Validation of line buffer, wrapper input/output, one wrapper process, AGF exclusive assignment, downstream readiness, charging slot exclusivity, and inventory refill trigger.
 - Synthetic fixture and GitHub Actions CI.
@@ -30,6 +30,10 @@ This is a *validation harness*. It does not yet schedule events, calculate traje
 7. Refill is completion only, requires an outstanding request and explicit source-ready flag.
 8. The entire replay is deterministic with a scenario and ordered stream.
 
+## Experimental scenario event engine / UI
+
+The independent `src/core/simulate.mjs` model now schedules deterministic integer-millisecond events from scenario input. It models 01/02 packaging flow, 03 source-ready replenishment, permission-gated 04/05 reservations, warehouse slot/row reservations, charger exclusivity, configurable discharge/charge assumptions, and immutable per-event replay snapshots. `index.html` / `src/ui/app.mjs` provide Japanese settings, independent minute intervals and synthetic first-event offsets for eight lines, operator buttons, conceptual area markers, two-mode comparisons, event logs and CSV. This engine is **separate** from the older synthetic `validateTrace` contract above.
+
 ## Not yet implemented
 
-Event queue, travel-time engine, graph routing, task 03 full physical transfer, 04/05 button-based reservation, settings UI (including per-line minute intervals), battery curves, physical map importer, collision/interlock model, full simulation metrics, and results CSV export. The approved destination-first dispatch behavior also remains to be implemented. Do not represent these as completed features.
+Measured path durations, complete CAD-aligned and approved map, physical graph routing, lane/head-on occupancy, shutter and equipment interlocks, exact battery curves by segment, detailed exception recovery and authoritative operational throughput. The UI's time constants, warehouse slots, initial AGF areas, and phase offsets are **synthetic scenario assumptions**. The abstract map cannot be promoted to a traversable inter-area path. Neither the model nor the SVG is a safety or physical-performance validation.

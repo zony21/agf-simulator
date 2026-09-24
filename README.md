@@ -20,7 +20,7 @@ npm run check
 
 ## Specifications
 
-The nine standalone documents cover overview, equipment, normal transport 01 through 05, AGF operation, and the overall 2D map. The overview defines cross-document event, configuration, and acceptance rules. Each individual specification defines its own inputs, event sequence, state, outputs, acceptance criteria, and unresolved details.
+The ten standalone documents cover overview, equipment, normal transport 01 through 05, AGF operation, the overall 2D map, and phased AGF access/lane rules. The overview defines cross-document event, configuration, and acceptance rules. Each individual specification defines its own inputs, event sequence, state, outputs, acceptance criteria, and unresolved details.
 
 ## Planned implementation
 
@@ -29,6 +29,6 @@ The nine standalone documents cover overview, equipment, normal transport 01 thr
 3. Render a simplified CAD-aligned 2D SVG map. Unconfirmed routes must appear as provisional, not measured geometry.
 4. Add deterministic replay, playback controls, event log, metrics, and like-for-like dispatch-mode comparison.
 
-See the [specification index (1 overall + 8 individual documents)](docs/specification.md), [overall map specification](docs/specs/08-map.md), [route annotation guide](docs/route-annotation-guide.md), [AGENTS.md](AGENTS.md), [harness contract](docs/harness-contract.md), and [open decisions](docs/open-decisions.md).
+See the [specification index (1 overall + 9 individual documents)](docs/specification.md), [overall map specification](docs/specs/08-map.md), [AGF access and lane specification](docs/specs/09-traffic.md), [route annotation guide](docs/route-annotation-guide.md), [AGENTS.md](AGENTS.md), [harness contract](docs/harness-contract.md), and [open decisions](docs/open-decisions.md).
 
 The public specification includes the agreed baseline simulation settings and marks provisional values explicitly. Identifying source-document titles, original drawings, site coordinates, and operational records stay outside the repository; individual scenario values remain configurable.

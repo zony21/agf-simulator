@@ -1,4 +1,4 @@
-# 搬送エリア全体図：DXF → JSON 取込仕様 v0.1
+# 搬送エリア全体図：DXF → JSON 取込仕様 v0.2
 
 関連：[全体マップ仕様書](specs/08-map.md)／[AGF通行・車線仕様書](specs/09-traffic.md)
 
@@ -6,11 +6,12 @@
 
 ## 0. 運用状況
 
-- DXF変換プログラム： [tools/dxf_to_map.py](../tools/dxf_to_map.py)
+- mm確定DXF向け変換プログラム：[tools/dxf_to_map.py](../tools/dxf_to_map.py)
+- 単位未設定DXFの非公開点検・抽出：[tools/inspect_dxf_private.py](../tools/inspect_dxf_private.py)
 - 依存関係： [requirements-map.txt](../requirements-map.txt)
-- 合成テスト： [tests/test_dxf_to_map.py](../tests/test_dxf_to_map.py)
-- Gitに含む設定は**架空の合成サンプルのみ**。現場の全体マップJSONは未生成。
-- 既に提供されたCADはDWG形式。現環境にDWG→DXF用の対応変換器がないため、このプロジェクトではまずCAD側でDXFに書き出す必要がある。ezdxfはDWGを直接読まない。PDFやスクリーンショットから寸法・経路を推定して変換完了としない。
+- 合成テスト：[tests/test_dxf_to_map.py](../tests/test_dxf_to_map.py)・[tests/test_dxf_private_inspect.py](../tests/test_dxf_private_inspect.py)
+- Gitに含む設定は**架空の合成サンプルのみ**。元のCAD図形・実座標・元レイヤー名・生成した私有JSONは公開GitHubに保存しない。
+- DXFが提供されたため、非公開領域でヘッダーとレイヤーを検査し、選択した図形を私有JSONへ抽出した。**単位・原点の検証が終わっていないため、mm確定の実レイアウトと実走行距離への変換は保留**している。
 
 ## 1. DXFへ書き出し：単位・原点を統一
 
@@ -20,7 +21,25 @@
 4. 全レイヤーで統一した原点（元の図面座標での x,y）を明記し、入力設定の originMm に登録する。実図面から勝手に原点を推定しない。
 5. 回転・縮尺・各参照図の位置合わせをCAD側で確認する。X,Yの2D投影の扱いを記録し、現場との距離の一致を確認する。
 
-**変換は単位がmmでないDXF・原点未指定を拒否**する。DXFに原寸法があっても、走行可能領域・AGF旋回可否・シャッターの制御が自動確定するわけではない。
+**mm確定の変換は、DXFヘッダーがmm以外または原点未指定なら拒否**する。一方、非公開の事前点検ツールは単位未設定でも読み込み、`unverified`として区別する。単位コードを勝手に4へ書き換えたり、CAD座標をmmと断定しない。DXFから走行可能領域や安全な旋回・すれ違いを自動確定しない。
+
+## 1.1 単位・原点が未確定の場合の私有抽出
+
+元のCAD座標を維持した**私有CAD-native形式**で、図形確認を先行できる。実寸法を保証しないため、単位・原点・距離を未検証と明示し、経路探索に無条件に流用しない。元のレイヤーと分類は非公開の設定ファイルで管理し、寸法・ハッチ・注記は抽出対象外とする。INSERTの参照形状はこの私有抽出では未展開であり、元図照合が必要。
+
+~~~bash
+python tools/inspect_dxf_private.py \
+  --dxf private/input.dxf \
+  --out-report private/report.json
+
+python tools/inspect_dxf_private.py \
+  --dxf private/input.dxf \
+  --layer-config private/layers.json \
+  --out-report private/report.json \
+  --out-geometry private/geometry.json.gz
+~~~
+
+実CAD派生の出力はprivate/等の非公開場所限定。ツールは公開リポジトリ内の追跡対象パスへの書き出しを拒否する。単位・原点・実際の通行線・設備別停止点を確認できた場合に限り、mm確定変換と物理経路へ進める。
 
 ## 2. レイヤー整理
 
@@ -111,4 +130,4 @@ python tools/dxf_to_map.py \
 - エリアをまたぐ接続は明示的なgateがないとエラー。
 - 未確定・禁止エッジはroutableEdgeIdsへ入れない。
 - グリッドは明示されたwalkableがないと生成しない。
-- 合成DXFでPythonの自動テストを行う。本物のレイアウトの「完成」はDXFの現物、レイヤー設定、トポロジー確認がそろって初めて判断する。
+- 合成DXFでPythonの自動テストを行う。単位未設定をmmと誤認しないこと、注記除外、実CADの公開パスへの出力拒否を確認する。CAD準拠レイアウトの完成は単位・原点・レイヤー・INSERTの展開・トポロジーを検証した後に判断する。

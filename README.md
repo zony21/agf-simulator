@@ -18,6 +18,10 @@ npm run check:fixtures
 npm run check
 ```
 
+## Specifications
+
+The eight standalone documents cover overview, equipment, normal transport 01 through 05, and AGF operation. The overview defines cross-document event, configuration, and acceptance rules. Each individual specification defines its own inputs, event sequence, state, outputs, acceptance criteria, and unresolved details.
+
 ## Planned implementation
 
 1. Confirm equipment positions and graph nodes with the user.
@@ -25,6 +29,6 @@ npm run check
 3. Render a simplified CAD-aligned 2D SVG map. Unconfirmed routes must appear as provisional, not measured geometry.
 4. Add deterministic replay, playback controls, event log, metrics, and like-for-like dispatch-mode comparison.
 
-See the [public development specification](docs/specification.md), [AGENTS.md](AGENTS.md), [harness contract](docs/harness-contract.md), and [open decisions](docs/open-decisions.md).
+See the [specification index (1 overall + 7 individual documents)](docs/specification.md), [AGENTS.md](AGENTS.md), [harness contract](docs/harness-contract.md), and [open decisions](docs/open-decisions.md).
 
 The public specification includes the agreed baseline simulation settings and marks provisional values explicitly. Identifying source-document titles, original drawings, site coordinates, and operational records stay outside the repository; individual scenario values remain configurable.

@@ -48,7 +48,7 @@ test('unreviewed full routes are withheld', () => {
 test('unknown corridor access cannot be promoted by an invented confirmed link', () => {
   const changed = copy();
   changed.links.find(x => x.id === 'L-PZ-IN-ATTACH').status = 'confirmed';
-  assert.throws(() => validateLogicalMap(changed), /Confirmed|Missing/);
+  assert.throws(() => validateLogicalMap(changed), /review evidence/);
 });
 
 test('cross-area connector cannot be marked confirmed without reviewed gate data', () => {

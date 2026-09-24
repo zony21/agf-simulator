@@ -42,6 +42,8 @@ export function buildPrivateGuide(buffer,config) {
     if(!guide||typeof guide.id!=='string'||
        !Array.isArray(guide.points)||guide.points.length<2||guide.points.length>200)
       fail('each guide requires an ID and 2–200 explicit normalized points');
+    if(result.routes.some(route=>route.id===guide.id))
+      fail('duplicate route ID');
     const ids=[];
     for(const [index,point] of guide.points.entries()) {
       // Explicit {id,u,v} permits a junction shared by multiple draft guides.

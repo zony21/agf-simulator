@@ -15,9 +15,14 @@
     input[type=checkbox]{width:auto}.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}.fields .wide{grid-column:1/-1}
     .actions{display:flex;flex-wrap:wrap;gap:.45rem}.primary{background:#1d827f;border-color:#54bdb0;font-weight:700}.primary:hover{background:#249e96}.section{margin:1rem 0;padding-top:.85rem;border-top:1px solid #304a60}
     #map,#cad-stage{width:100%;height:auto;background:#0b1c2c;border:1px solid #345267;border-radius:10px}
-    #cad-stage{position:relative;overflow:hidden;line-height:0}#cad-image{display:block;width:100%;height:auto}
+    #cad-viewport{max-height:70vh;overflow:auto;border:1px solid #345267;border-radius:10px;background:#0b1c2c}
+    #cad-stage{position:relative;overflow:hidden;line-height:0;min-width:100%;border:0;border-radius:0}
+    #cad-image{display:block;width:100%;height:auto;user-select:none;-webkit-user-drag:none}
     #cad-overlay,#cad-node-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-    .cad-node{position:absolute;transform:translate(-50%,-50%);padding:0;width:25px;height:25px;border-radius:50%;border:2px solid #effaff;background:#135d7d;color:white;font-size:10px;font-weight:700;pointer-events:auto;line-height:20px}
+    .cad-segment{cursor:crosshair}.cad-route-choice{display:block;text-align:left;width:100%;white-space:normal;overflow-wrap:anywhere}
+    .cad-route-choice.selected{border-color:#f5e48e;background:#3a503e}
+    .cad-node{position:absolute;transform:translate(-50%,-50%);padding:0;width:25px;height:25px;border-radius:50%;border:2px solid #effaff;background:#135d7d;color:white;font-size:10px;font-weight:700;pointer-events:auto;line-height:20px;touch-action:none;user-select:none}
+    .cad-node.selected{box-shadow:0 0 0 4px #ffe18e;border-color:#ffffff}
     .cad-node.pickup{background:#178765}.cad-node.dropoff{background:#ac6425}.cad-node.turn{background:#8b5abb}.cad-node.shutter_wait{background:#9e4539}
     .cad-node:focus-visible{outline:3px solid #ffee89}.route-info{margin-top:.5rem;max-height:140px;overflow:auto}
     .route-info .entry{overflow-wrap:anywhere}.cad-editor[hidden]{display:none}
@@ -60,16 +65,19 @@
         <div class="actions" style="margin-top:.5rem"><button id="show-schematic">概念図へ戻す</button></div>
         <p class="status" id="cad-state" role="status">CAD未読み込み：概念図を表示しています。変換済みプレビューはブラウザ内のみで開き、サーバーへ送信しません。</p>
       </div>
-      <div id="cad-stage" hidden>
-        <img id="cad-image" alt="非公開CAD図形プレビュー。図上の点と下書き経路はユーザー登録内容のみ表示">
+      <div id="cad-viewport" hidden><div id="cad-stage">
+        <img id="cad-image" alt="非公開CAD図形プレビュー。点と点を結ぶ線は未承認の下書きです" draggable="false">
         <svg id="cad-overlay" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true"></svg>
         <div id="cad-node-layer"></div>
-      </div>
+      </div></div>
       <div id="cad-editor" class="section cad-editor" hidden>
-        <h3>停止点・経路の図上登録（下書き）</h3>
-        <p class="status">AGFを除外したCADプレビューの上で点を指定します。描画した点・経路はユーザー入力の下書きで、走行許可・距離・ETAには使用しません。</p>
+        <h3>仮走行通路の作成・直感編集</h3>
+        <p class="status">「仮線を引く」で始点と終点を2回押すと、直線またはL字の提案線を描きます。提案線は障害物・通行可否を自動判定していません。「線を修正」で点をドラッグ、線をクリックして曲がり角を追加できます。スマホは指で操作し、拡大して編集してください。元図・下書きはサーバーへ送信しません。</p>
+        <div class="actions"><button id="annotation-zoom-out" type="button">－ 縮小</button><button id="annotation-zoom-in" type="button">＋ 拡大</button><button id="annotation-zoom-reset" type="button">全体</button><span id="annotation-zoom" class="pill">100%</span></div>
         <div class="fields">
-          <label>操作<select id="annotation-mode"><option value="point">点をクリック登録</option><option value="route">既存点を順番に選んで経路作成</option></select></label>
+          <label>操作<select id="annotation-mode"><option value="proposal" selected>仮線を引く（始点→終点）</option><option value="edit">線を修正・点をドラッグ</option><option value="point">点をクリック登録</option><option value="route">既存点から経路作成</option></select></label>
+          <label>仮線の初期形<select id="annotation-bend"><option value="horizontal">横→縦（L字）</option><option value="vertical">縦→横（L字）</option><option value="direct">直線</option></select></label>
+          <label>編集対象の経路<select id="annotation-selected"><option value="">経路を選択</option></select></label>
           <label>点ID<input id="annotation-point-id" value="P01" maxlength="32" autocomplete="off"></label>
           <label>点種別<select id="annotation-point-type"><option value="waypoint">通過・経由</option><option value="pickup">荷受け</option><option value="dropoff">荷下ろし</option><option value="shutter_wait">シャッター手前停止</option><option value="shutter_passage">シャッター通過</option><option value="turn">旋回</option><option value="junction">分岐・交差</option><option value="home">待機・HP</option><option value="charger">充電位置</option></select></label>
           <label>経路ID<input id="annotation-route-id" value="R01" maxlength="32" autocomplete="off"></label>
@@ -78,7 +86,11 @@
         </div>
         <div class="actions" style="margin-top:.6rem">
           <button id="annotation-save-route">選択点から経路下書き保存</button>
-          <button id="annotation-undo">末尾点を取消</button>
+          <button id="annotation-undo">仮線の始点／選択末尾を取消</button>
+          <button id="annotation-remove-point">選択した経路点を削除</button>
+          <button id="annotation-delete-route">経路を削除</button>
+          <button id="annotation-undo-edit">↶ 元に戻す</button>
+          <button id="annotation-redo-edit">↷ やり直す</button>
           <button id="annotation-export">下書きJSONを端末に保存</button>
           <label style="display:inline-flex;align-items:center">下書きJSON読込<input id="annotation-import" type="file" accept=".json,application/json"></label>
         </div>

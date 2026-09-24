@@ -1,0 +1,28 @@
+{
+  "units": "mm",
+  "originMm": {
+    "x": 1000,
+    "y": 2000
+  },
+  "curveToleranceMm": 5,
+  "layers": {
+    "walkable": [
+      "TEST_WALK"
+    ],
+    "walls": [
+      "TEST_WALL"
+    ],
+    "routeCenterlines": [
+      "TEST_ROUTE"
+    ],
+    "shutters": [
+      "TEST_GATE"
+    ],
+    "equipment": [
+      "TEST_EQUIPMENT"
+    ],
+    "palletLocations": [
+      "TEST_STORAGE"
+    ]
+  }
+}

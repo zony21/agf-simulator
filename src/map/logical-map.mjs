@@ -68,6 +68,8 @@ export function validateLogicalMap(map) {
     requireThat(from && to && link.from !== link.to, 'Invalid link endpoints: ' + link.id);
     requireThat(linkDirections.has(link.direction), 'Invalid link direction: ' + link.id);
     requireThat(linkStatuses.has(link.status), 'Invalid link status: ' + link.id);
+    requireThat(link.reviewState === (link.status === 'confirmed' ? 'user-confirmed-abstract' : 'pending-confirmation'),
+      'Link status requires separate review evidence: ' + link.id);
     if (link.status === 'confirmed') {
       requireThat(from.access === 'allowed' && to.access === 'allowed',
         'Confirmed link uses unapproved corridor: ' + link.id);

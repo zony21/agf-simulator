@@ -1,11 +1,11 @@
 import {
   createAnnotation,addNode,addRoute,moveNode,insertRoutePoint,
-  removeRoutePoint,deleteRoute,validateAnnotation
+  removeRoutePoint,deleteRoute,classifyRoute,validateAnnotation
 } from '../map/route-annotations.mjs';
 
 const $=id=>document.getElementById(id);
 const NS='http://www.w3.org/2000/svg';
-const colors={'01':'#7ad6e8','02':'#e9ad64','03':'#b2a1ff','04':'#8dd6a0','05':'#e88b8b',charge:'#f4e68a'};
+const colors={'01':'#7ad6e8','02':'#e9ad64','03':'#b2a1ff','04':'#8dd6a0','05':'#e88b8b',charge:'#f4e68a',guide:'#f5f5f5'};
 const clamp=value=>Math.max(0,Math.min(1,value));
 
 export function initRouteEditor() {
@@ -132,14 +132,15 @@ export function initRouteEditor() {
     $('cad-editor').hidden=false;
     const nodes=byId();
     for(const route of draft.routes) {
-      $('annotation-selected').add(new Option(route.id+' / '+route.taskType+' / '+route.phase,route.id));
+      $('annotation-selected').add(new Option(route.id+' / '+(route.taskType==='guide'?'未割当参考':route.taskType+' / '+route.phase),route.id));
       const active=selectedRoute===route.id;
       for(let i=0;i<route.nodeIds.length-1;i++)
         segment(nodes.get(route.nodeIds[i]),nodes.get(route.nodeIds[i+1]),
           colors[route.taskType],route.id,i,active);
       const b=document.createElement('button');b.type='button';
       b.className='entry cad-route-choice'+(active?' selected':'');
-      b.textContent=route.id+' / '+route.taskType+' / '+route.phase+' / 仮：'+route.nodeIds.join(' → ');
+      b.textContent=route.id+' / '+(route.taskType==='guide'?'未割当の参考ライン':route.taskType+' / '+route.phase)+
+        ' / 仮：'+route.nodeIds.join(' → ');
       b.addEventListener('click',()=>{
         selectedRoute=route.id;selectedNode=null;$('annotation-mode').value='edit';
         render('経路'+route.id+'を選択しました。点をドラッグ、線をクリックして経由点追加できます。');
@@ -160,7 +161,8 @@ export function initRouteEditor() {
     draft.nodes.forEach((node,i)=>$('cad-node-layer').append(nodeButton(node,i)));
     $('annotation-undo-edit').disabled=!history.length;
     $('annotation-redo-edit').disabled=!future.length;
-    const status='下書き：点 '+draft.nodes.length+'／経路 '+draft.routes.length+'。'+
+    const status='下書き：点 '+draft.nodes.length+'／線 '+draft.routes.length+
+      '（未割当ガイド '+draft.routes.filter(r=>r.taskType==='guide').length+'）。'+
       (draft.cadViewBox?'SVG図面座標をmm仮定で換算。':'PNGは正規化座標のみ。')+
       ' 経路の通行可否・距離・所要時間は未検証。';
     message(status+(note?' '+note:''));
@@ -207,11 +209,21 @@ export function initRouteEditor() {
   $('annotation-mode').addEventListener('change',()=>{proposalStart=null;pending=[];render();});
   $('annotation-task').addEventListener('change',()=>{
     if($('annotation-task').value==='charge')$('annotation-phase').value='charge';
-    else if($('annotation-phase').value==='charge')$('annotation-phase').value='loaded';
+    else if($('annotation-task').value==='guide')$('annotation-phase').value='guide';
+    else if(['charge','guide'].includes($('annotation-phase').value))
+      $('annotation-phase').value='loaded';
   });
   $('annotation-selected').addEventListener('change',()=>{
     selectedRoute=$('annotation-selected').value||null;selectedNode=null;
     $('annotation-mode').value='edit';render('編集対象経路を切り替えました。');
+  });
+  $('annotation-classify').addEventListener('click',()=>{
+    if(!draft||!selectedRoute){message('割当対象のガイドまたは経路を選択してください。');return;}
+    try {
+      const taskType=$('annotation-task').value,phase=$('annotation-phase').value;
+      apply(classifyRoute(draft,{routeId:selectedRoute,taskType,phase}),
+        '区分を下書きに設定しました。荷役・通行許可・実走行経路の承認ではありません。');
+    }catch(error){message(error.message);}
   });
   $('annotation-undo').addEventListener('click',()=>{
     if(proposalStart)proposalStart=null;else pending.pop();

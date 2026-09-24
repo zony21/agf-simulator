@@ -244,7 +244,7 @@ $('private-cad-file').addEventListener('change',async()=>{
         if(cadBlobUrl)URL.revokeObjectURL(cadBlobUrl);
         cadBlobUrl=url;
         $('map').hidden=true;
-        $('cad-stage').hidden=false;
+        $('cad-viewport').hidden=false;
         $('cad-state').textContent='AGF除外を利用者が確認した非公開CADプレビュー表示中。1 CAD単位＝1 mm（指定値）。経路・点は手動下書きで、AGF実位置・所要時間は未確定です。';
       }catch(error){URL.revokeObjectURL(url);showError(error);}
     };
@@ -262,7 +262,7 @@ $('show-schematic').addEventListener('click',()=>{
     !confirm('図上点・経路の下書きが消えます。保存済みJSONを確認してから切り替えてください。続けますか？'))return;
   const image=$('cad-image');
   image.onload=null;image.onerror=null;image.removeAttribute('src');
-  $('cad-stage').hidden=true;
+  $('cad-viewport').hidden=true;
   $('map').hidden=false;
   $('private-cad-file').value='';
   $('cad-agf-excluded').checked=false;

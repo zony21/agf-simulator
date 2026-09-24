@@ -29,7 +29,10 @@ const createNumeric = (parent,id,name,value,step='0.1') => {
   input.min='0';input.step=step;input.value=String(value);
   label.append(input);parent.append(label);
 };
-for(let i=1;i<=8;i++) createNumeric($('line-fields'),'line-'+i,'系列'+i,41,'0.1');
+for(let i=1;i<=8;i++) {
+  createNumeric($('line-fields'),'line-'+i,'系列'+i+' 間隔',41,'0.1');
+  createNumeric($('line-fields'),'offset-'+i,'初回ずらし（仮）',Number(((i-1)*41/8).toFixed(3)),'0.001');
+}
 timeFields.forEach(([id,name],i)=>createNumeric($('time-fields'),id,name,timeDefaults[i]));
 batteryFields.forEach(([id,name],i)=>createNumeric($('battery-fields'),id,name,batteryDefaults[i]));
 for(let i=1;i<=5;i++) {
@@ -43,6 +46,7 @@ function scenario(mode=$('mode').value) {
   return {
     durationMin:numeric('duration'), mode, fallback:$('fallback').value,
     lineCapacity:2,lineIntervalsMin:Array.from({length:8},(_,i)=>numeric('line-'+(i+1))),
+    lineStartOffsetsMin:Array.from({length:8},(_,i)=>numeric('offset-'+(i+1))),
     generatedDestinationIds:warehouse.map(s=>s.id),
     wrapper:{inputCapacity:1,outputCapacity:2},
     agfs:['AGF1','AGF2','AGF3','AGF4'].map((id,i)=>({

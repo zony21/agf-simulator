@@ -62,6 +62,10 @@ Then open http://localhost:8000/ . No frontend packages or build process are nee
 
 The UI's warehouse slots, initial AGF areas, production intervals, source supplies and journey/handling durations are **synthetic demo values**, not confirmed site settings. Travel duration inputs are modeled constants, not derived from CAD, route geometry, speed, interlocks or traffic. The displayed floor layout is a **conceptual diagram** with schematic AGF area markers, not the uploaded drawing.
 
+### Private CAD preview with provisional millimetre assumption
+
+The uploaded drawing has an unset DXF unit header. The user's current indication is that the drawing is in millimetres, so `tools/private_cad_preview.py` supports **explicit `--assume-mm` for display only**, without claiming validated scale or physical geometry. The selected source layers and SVG/report must remain outside this public repository (e.g. in `private/`). The Japanese UI can load the resulting local SVG or PNG in the map area without uploading it; schematic AGF markers are hidden while private CAD is displayed. The preview is not a navigable route graph. See [DXF pipeline](docs/map-dxf-pipeline.md).
+
 ### Not implemented or approved
 
 Actual CAD-aligned background and coordinates, reviewed physical node/edge graph, route-dependent times, collision/traffic/shutter/interlock model, real production stream import UI, full exception recovery, runtime WCS/PLC/RCS integration, and physical charge-route timing. The map import pipeline and private inspector are intentionally separate. Only public-safe synthetic fixtures belong in this repository.

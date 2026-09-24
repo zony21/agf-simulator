@@ -90,3 +90,15 @@ The public specification includes the agreed baseline simulation settings and ma
 After loading the private, AGF-excluded SVG/PNG preview, choose **仮線を引く** and tap a start and end point. The UI creates an explicitly unverified straight or orthogonal L-shaped draft for the selected transport 01–05/charge. Select **線を修正** to drag points, tap a segment to insert a bend point, remove a selected route point or entire route, and use undo/redo and zoom for touch devices. Existing manual point-by-point routes remain supported. Drafts are bound to the exact source image hash and SVG viewBox and can be exported/imported locally as JSON; do not commit this private output.
 
 These are editor-generated *geometric suggestions*, not inferred passable corridors or pre-identified pickup/drop-off locations. Physical routing, AGF positions and event-engine travel times remain unchanged until a separately reviewed route/topology and explicit operating constraints are provided.
+
+## Private initial corridor guide proposal (unassigned)
+
+The editor now accepts **unassigned** `guide/guide` lines imported from a private, image-bound JSON draft. The working private proposal includes four explicitly provisional, editable guide strokes over the locally provided floor preview; its geometry **is not part of this public repository**. These are starting marks for human correction, not verified traversable AGF lanes or known stop points. After review, select a guide, choose task 01–05/charge and its phase, and click the explicit classification button. Classification leaves the route `draft-only`, never routable or ETA-ready.
+
+For another private drawing, author an explicit `private/guide-seed.json` with a `guides` array of 2–200 `[u,v]` normalized points per guide (a shared junction may be written as `{"id":"JOIN","u":0.5,"v":0.5}` in several guides), then run:
+
+```bash
+node tools/build-private-route-seed.mjs --svg private/preview.svg --config private/guide-seed.json --out private/initial-guides.json
+```
+
+The script binds the draft to the exact SVG SHA-256 and viewBox, keeps guide classification unassigned and rejects output in public tracked paths. The JSON must be imported against the same SVG bytes. It does **not** infer corridors or approve a route. Do not commit the private config, preview, draft JSON or annotated screenshot.

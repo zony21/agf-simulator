@@ -202,4 +202,49 @@ $('temp-pallet').addEventListener('change',()=>{
   const p=initialTemporary.find(p=>p.palletId===$('temp-pallet').value);
   if(p)$('temp-location').value=p.locationId;
 });
+let cadBlobUrl=null;
+$('private-cad-file').addEventListener('change',async()=>{
+  const file=$('private-cad-file').files?.[0];
+  if(!file)return;
+  clearError();
+  let url=null;
+  try {
+    if(file.size>80_000_000)throw new Error('プレビューの上限は80MBです。レイヤーを絞って再出力してください。');
+    const svg=/\.svg$/i.test(file.name),png=/\.png$/i.test(file.name);
+    if(!svg&&!png)throw new Error('ローカルのSVGまたはPNGプレビューを指定してください。');
+    if(svg) {
+      const head=await file.slice(0,4096).text();
+      if(!head.includes('<svg')||!head.includes('PRIVATE-CAD-PREVIEW-V1'))
+        throw new Error('対応する非公開DXFプレビューではありません。private_cad_preview.pyで生成してください。');
+    } else {
+      const b=new Uint8Array(await file.slice(0,8).arrayBuffer());
+      if(b.join(',')!=='137,80,78,71,13,10,26,10')throw new Error('PNG形式を確認できません。');
+    }
+    url=URL.createObjectURL(file);
+    const image=$('cad-image');
+    image.onload=()=>{
+      if(cadBlobUrl)URL.revokeObjectURL(cadBlobUrl);
+      cadBlobUrl=url;
+      $('map').hidden=true;
+      image.hidden=false;
+      $('cad-state').textContent='非公開CADプレビュー表示中（単位はmm仮定）。図形のみ表示し、AGF実位置・走行経路・所要時間は未検証です。';
+    };
+    image.onerror=()=>{
+      URL.revokeObjectURL(url);showError(new Error('画像を読み込めませんでした。'));
+    };
+    image.src=url;
+  }catch(error) {
+    if(url)URL.revokeObjectURL(url);
+    showError(error);
+  }
+});
+$('show-schematic').addEventListener('click',()=>{
+  const image=$('cad-image');
+  image.onload=null;image.onerror=null;image.removeAttribute('src');image.hidden=true;
+  $('map').hidden=false;
+  $('private-cad-file').value='';
+  if(cadBlobUrl)URL.revokeObjectURL(cadBlobUrl);
+  cadBlobUrl=null;
+  $('cad-state').textContent='CAD未読み込み：概念図を表示しています。';
+});
 execute();

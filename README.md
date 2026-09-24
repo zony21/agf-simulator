@@ -24,7 +24,7 @@ npm run check
 - A settings screen must make simulation values editable, including independent per-line discharge intervals measured in minutes.
 - Operators can reserve manual transport tasks 04 and 05 via UI buttons.
 - Simulation results must be exportable to CSV.
-- Primary AGF dispatch prioritizes eligible vehicles in the **destination/drop-off area**, then chooses the one with the lowest battery. **The current test harness still prefers the pickup/origin area and requires an implementation change**. Fallback when no eligible vehicle is in the destination area remains open.
+- Primary AGF dispatch prioritizes eligible vehicles in the **destination/drop-off area**, then chooses the one with the lowest battery. The current simulator implements destination-area priority. Cross-area fallback is a clearly labeled scenario option rather than a confirmed site policy.
 
 ## Specifications
 
@@ -64,11 +64,15 @@ The UI's warehouse slots, initial AGF areas, production intervals, source suppli
 
 ### Private CAD preview with provisional millimetre assumption
 
-The uploaded drawing has an unset DXF unit header. The user's current indication is that the drawing is in millimetres, so `tools/private_cad_preview.py` supports **explicit `--assume-mm` for display only**, without claiming validated scale or physical geometry. The selected source layers and SVG/report must remain outside this public repository (e.g. in `private/`). The Japanese UI can load the resulting local SVG or PNG in the map area without uploading it; schematic AGF markers are hidden while private CAD is displayed. The preview is not a navigable route graph. See [DXF pipeline](docs/map-dxf-pipeline.md).
+The uploaded drawing has an unset DXF unit header. The user specified millimetres for this workflow, so `tools/private_cad_preview.py` supports **explicit `--assume-mm` for display only**, without claiming independently calibrated scale or physical geometry. Its private configuration requires an explicit AGF layer exclusion, including block inserts, to avoid treating drawn AGFs as equipment. The selected source layers and SVG/report must remain outside this public repository (e.g. in `private/`). The Japanese UI can load the resulting local SVG or PNG in the map area without uploading it; schematic AGF markers are hidden while private CAD is displayed. The preview is not a navigable route graph. See [DXF pipeline](docs/map-dxf-pipeline.md).
+
+### CAD point/route annotation (feature branch)
+
+On an AGF-excluded private preview, users can click to record explicitly named pickup, drop-off, turn, gate-wait/passage, junction, home or charger points. They can then connect existing points in order as draft empty/loaded 01–05 or charge routes, and export/import the private JSON locally. SVG annotations include the user-specified millimetre CAD coordinates derived from the SVG viewBox; PNG annotations are fractional image coordinates only. Import checks the exact background SHA-256 and viewBox. No AGF locations are inferred from AGF drawing symbols, and every route is permanently marked draft, non-routable and non-ETA. Keep exported files in private storage, not this public repository.
 
 ### Not implemented or approved
 
-Actual CAD-aligned background and coordinates, reviewed physical node/edge graph, route-dependent times, collision/traffic/shutter/interlock model, real production stream import UI, full exception recovery, runtime WCS/PLC/RCS integration, and physical charge-route timing. The map import pipeline and private inspector are intentionally separate. Only public-safe synthetic fixtures belong in this repository.
+Approved CAD-to-equipment registration and verified physical node/edge graph, route-dependent times, collision/traffic/shutter/interlock model, real production stream import UI, full exception recovery, runtime WCS/PLC/RCS integration, and physical charge-route timing. The map import pipeline and private inspector are intentionally separate. Only public-safe synthetic fixtures belong in this repository.
 
 
 ## Planned implementation

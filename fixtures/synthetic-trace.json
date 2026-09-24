@@ -1,0 +1,31 @@
+{
+  "description": "Synthetic example; not a facility observation or project parameter",
+  "scenario": {
+    "agfIds": ["A", "B"],
+    "lineCapacities": {"L": 2},
+    "wrapper": {"inputCapacity": 1, "outputCapacity": 2},
+    "chargerIds": ["C"],
+    "magazines": {"M": 5},
+    "refillTrigger": 3,
+    "refillBatch": 4
+  },
+  "events": [
+    {"timeMs":0,"sequence":0,"type":"PALLET_EXITED","palletId":"P","lineId":"L"},
+    {"timeMs":0,"sequence":1,"type":"TASK_01_ASSIGNED","palletId":"P","agfId":"A"},
+    {"timeMs":1000,"sequence":0,"type":"TASK_01_PICKED","palletId":"P","agfId":"A"},
+    {"timeMs":2000,"sequence":0,"type":"TASK_01_DROPPED","palletId":"P","agfId":"A"},
+    {"timeMs":2100,"sequence":0,"type":"WRAP_STARTED","palletId":"P"},
+    {"timeMs":3100,"sequence":0,"type":"WRAP_COMPLETED","palletId":"P"},
+    {"timeMs":3200,"sequence":0,"type":"LABEL_COMPLETED","palletId":"P"},
+    {"timeMs":3300,"sequence":0,"type":"EXIT_READY","palletId":"P"},
+    {"timeMs":3400,"sequence":0,"type":"TASK_02_ASSIGNED","palletId":"P","agfId":"B"},
+    {"timeMs":3500,"sequence":0,"type":"TASK_02_PICKED","palletId":"P","agfId":"B"},
+    {"timeMs":5000,"sequence":0,"type":"TASK_02_STORED","palletId":"P","agfId":"B"},
+    {"timeMs":5500,"sequence":0,"type":"MAGAZINE_USED","magazineId":"M"},
+    {"timeMs":5600,"sequence":0,"type":"MAGAZINE_USED","magazineId":"M"},
+    {"timeMs":5700,"sequence":0,"type":"MAGAZINE_REFILL_REQUESTED","magazineId":"M"},
+    {"timeMs":6000,"sequence":0,"type":"MAGAZINE_REFILLED","magazineId":"M","sourceReady":true},
+    {"timeMs":7000,"sequence":0,"type":"CHARGE_STARTED","agfId":"A","chargerId":"C"},
+    {"timeMs":8000,"sequence":0,"type":"CHARGE_ENDED","agfId":"A","chargerId":"C"}
+  ]
+}

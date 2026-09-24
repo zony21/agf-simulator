@@ -72,7 +72,7 @@
       </div></div>
       <div id="cad-editor" class="section cad-editor" hidden>
         <h3>仮走行通路の作成・直感編集</h3>
-        <p class="status">「仮線を引く」で始点と終点を2回押すと、直線またはL字の提案線を描きます。提案線は障害物・通行可否を自動判定していません。「線を修正」で点をドラッグ、線をクリックして曲がり角を追加できます。スマホは指で操作し、拡大して編集してください。元図・下書きはサーバーへ送信しません。</p>
+        <p class="status">「仮線を引く」で始点と終点を指定するか、非公開の初期ガイドJSONを読み込んで修正します。白いガイドは搬送01〜05に未割当の参考ラインで、経路・通行可否・障害物は未確認です。「線を修正」で点をドラッグ、線を押して曲がり角を追加できます。元図・下書きはサーバーへ送信しません。</p>
         <div class="actions"><button id="annotation-zoom-out" type="button">－ 縮小</button><button id="annotation-zoom-in" type="button">＋ 拡大</button><button id="annotation-zoom-reset" type="button">全体</button><span id="annotation-zoom" class="pill">100%</span></div>
         <div class="fields">
           <label>操作<select id="annotation-mode"><option value="proposal" selected>仮線を引く（始点→終点）</option><option value="edit">線を修正・点をドラッグ</option><option value="point">点をクリック登録</option><option value="route">既存点から経路作成</option></select></label>
@@ -81,11 +81,12 @@
           <label>点ID<input id="annotation-point-id" value="P01" maxlength="32" autocomplete="off"></label>
           <label>点種別<select id="annotation-point-type"><option value="waypoint">通過・経由</option><option value="pickup">荷受け</option><option value="dropoff">荷下ろし</option><option value="shutter_wait">シャッター手前停止</option><option value="shutter_passage">シャッター通過</option><option value="turn">旋回</option><option value="junction">分岐・交差</option><option value="home">待機・HP</option><option value="charger">充電位置</option></select></label>
           <label>経路ID<input id="annotation-route-id" value="R01" maxlength="32" autocomplete="off"></label>
-          <label>搬送<select id="annotation-task"><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="charge">充電</option></select></label>
-          <label>区間<select id="annotation-phase"><option value="loaded">積載走行</option><option value="empty">空走</option><option value="charge">充電移動</option></select></label>
+          <label>線の区分<select id="annotation-task"><option value="guide">未割当の参考ガイド</option><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="charge">充電</option></select></label>
+          <label>区間<select id="annotation-phase"><option value="loaded">積載走行</option><option value="empty">空走</option><option value="charge">充電移動</option><option value="guide">未割当・参考線</option></select></label>
         </div>
         <div class="actions" style="margin-top:.6rem">
           <button id="annotation-save-route">選択点から経路下書き保存</button>
+          <button id="annotation-classify">選択線の区分を変更（未承認のまま）</button>
           <button id="annotation-undo">仮線の始点／選択末尾を取消</button>
           <button id="annotation-remove-point">選択した経路点を削除</button>
           <button id="annotation-delete-route">経路を削除</button>

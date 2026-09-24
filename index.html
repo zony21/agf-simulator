@@ -82,7 +82,7 @@
           <label>点種別<select id="annotation-point-type"><option value="waypoint">通過・経由</option><option value="pickup">荷受け</option><option value="dropoff">荷下ろし</option><option value="shutter_wait">シャッター手前停止</option><option value="shutter_passage">シャッター通過</option><option value="turn">旋回</option><option value="junction">分岐・交差</option><option value="home">待機・HP</option><option value="charger">充電位置</option></select></label>
           <label>経路ID<input id="annotation-route-id" value="R01" maxlength="32" autocomplete="off"></label>
           <label>線の区分<select id="annotation-task"><option value="guide">未割当の参考ガイド</option><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="charge">充電</option></select></label>
-          <label>区間<select id="annotation-phase"><option value="loaded">積載走行</option><option value="empty">空走</option><option value="charge">充電移動</option><option value="guide">未割当・参考線</option></select></label>
+          <label>区間<select id="annotation-phase"><option value="loaded">積載走行</option><option value="empty">空走</option><option value="charge">充電移動</option><option value="guide" selected>未割当・参考線</option></select></label>
         </div>
         <div class="actions" style="margin-top:.6rem">
           <button id="annotation-save-route">選択点から経路下書き保存</button>

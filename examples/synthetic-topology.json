@@ -1,0 +1,52 @@
+{
+  "areas": [
+    {
+      "id": "AREA-A",
+      "status": "confirmed"
+    },
+    {
+      "id": "AREA-B",
+      "status": "confirmed"
+    }
+  ],
+  "gates": [
+    {
+      "id": "GATE-1",
+      "kind": "shutter",
+      "areaIds": [
+        "AREA-A",
+        "AREA-B"
+      ],
+      "status": "confirmed"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "A-1",
+      "areaId": "AREA-A",
+      "xMm": 1100,
+      "yMm": 2050,
+      "status": "confirmed"
+    },
+    {
+      "id": "B-1",
+      "areaId": "AREA-B",
+      "xMm": 1200,
+      "yMm": 2050,
+      "status": "confirmed"
+    }
+  ],
+  "edges": [
+    {
+      "id": "LINK-1",
+      "from": "A-1",
+      "to": "B-1",
+      "gateId": "GATE-1",
+      "access": "allowed",
+      "direction": "both",
+      "laneCount": 1,
+      "simultaneousPassing": "unresolved",
+      "status": "confirmed"
+    }
+  ]
+}

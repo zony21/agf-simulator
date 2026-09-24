@@ -3,10 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "check:fixtures": "node scripts/check-fixtures.mjs",
-    "check": "npm test && npm run check:fixtures"
+    "check": "npm test && npm run check:fixtures && npm run check:map",
+    "check:map": "node scripts/check-logical-map.mjs"
   }
 }

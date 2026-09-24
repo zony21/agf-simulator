@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createAnnotation, addNode, addRoute, moveNode, insertRoutePoint,
-  removeRoutePoint, deleteRoute, validateAnnotation
+  removeRoutePoint, deleteRoute, classifyRoute, validateAnnotation
 } from '../src/map/route-annotations.mjs';
 
 const hash='a'.repeat(64);
@@ -92,4 +92,20 @@ test('proposal made from two explicit anchors and elbow remains unverified on ex
   assert.equal(a.routable,false);
   assert.equal(a.physicalEtaAllowed,false);
   assert.deepEqual(validateAnnotation(JSON.parse(JSON.stringify(a)),hash,box),a);
+});
+
+test('unassigned guide can be reviewed and explicitly classified without approval',()=>{
+  let a=createAnnotation(hash,box);
+  a=addNode(a,point('GUIDE_A',.1,.5));
+  a=addNode(a,point('GUIDE_B',.9,.5));
+  a=addRoute(a,{id:'GUIDE01',taskType:'guide',phase:'guide',nodeIds:['GUIDE_A','GUIDE_B']});
+  assert.deepEqual(validateAnnotation(a,hash,box),a);
+  assert.throws(()=>addRoute(a,{id:'BAD',taskType:'guide',phase:'loaded',nodeIds:['GUIDE_A','GUIDE_B']}),/matching phase/);
+  assert.throws(()=>classifyRoute(a,{routeId:'GUIDE01',taskType:'01',phase:'guide'}),/matching phase/);
+  const assigned=classifyRoute(a,{routeId:'GUIDE01',taskType:'01',phase:'loaded'});
+  assert.equal(assigned.routes[0].taskType,'01');
+  assert.equal(a.routes[0].taskType,'guide');
+  assert.equal(assigned.routes[0].status,'draft');
+  assert.equal(assigned.routable,false);
+  assert.equal(assigned.physicalEtaAllowed,false);
 });

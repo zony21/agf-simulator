@@ -1,6 +1,6 @@
 # Simulator specification template — public-safe
 
-> This is a blank template, **not** the full facility specification. The original source documents and exact site layout are confidential; maintain the detailed, approval-controlled specification outside this public repository until explicitly approved for publication.
+> The published development requirements are in [specification.md](specification.md). This template is for a separate, access-controlled site-specific document. Never copy source-document titles, source files, maps, or identifying details into the public repository.
 
 ## Status ledger
 

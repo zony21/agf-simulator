@@ -18,10 +18,15 @@ class PrivatePreviewTests(unittest.TestCase):
         doc.header["$INSUNITS"] = unit
         doc.layers.new("SYN_LAYER")
         doc.layers.new("IGNORE_ME")
+        doc.layers.new("SYN_AGF")
+        block = doc.blocks.new("SYN_AGF_BLOCK")
+        block.add_line((0, 0), (2, 2), dxfattribs={"layer": "SYN_LAYER"})
         ms = doc.modelspace()
         ms.add_line((10, 20), (30, 40), dxfattribs={"layer": "SYN_LAYER"})
         ms.add_circle((25, 25), 2, dxfattribs={"layer": "SYN_LAYER"})
         ms.add_text("SYNTHETIC_SECRET_LABEL", dxfattribs={"layer": "SYN_LAYER"})
+        ms.add_blockref("SYN_AGF_BLOCK", (7000, 7000),
+                        dxfattribs={"layer": "SYN_AGF"})
         ms.add_line((5000, 5000), (6000, 6000),
                     dxfattribs={"layer": "IGNORE_ME"})
         path = folder / "fixture.dxf"
@@ -33,7 +38,7 @@ class PrivatePreviewTests(unittest.TestCase):
             folder = Path(temp)
             source = self.drawing(folder)
             svg, report = folder / "preview.svg", folder / "report.json"
-            result = export_preview(source, {"categories": {"architecture": ["SYN_LAYER"]}},
+            result = export_preview(source, {"categories": {"architecture": ["SYN_LAYER"]}, "excludeLayers": ["SYN_AGF"]},
                                     svg, report, assume_mm=True)
             self.assertEqual(result["unitEvidence"], "user-provisional")
             self.assertFalse(result["metricScaleVerified"])
@@ -49,13 +54,17 @@ class PrivatePreviewTests(unittest.TestCase):
             self.assertNotIn("SYNTHETIC_SECRET_LABEL", data)
             self.assertNotIn("SYN_LAYER", data)
             self.assertNotIn("5000", data)
+            self.assertNotIn("7000", data)
+            self.assertTrue(result["agfLayerExclusionConfigured"])
+            self.assertEqual(result["excludedDrawingLayerCount"], 1)
+            self.assertGreater(result["skippedSelectedEntityTypes"]["AGF_LAYER_EXCLUDED"], 0)
             self.assertEqual(json.loads(report.read_text())["sourceHeaderInsunits"], 0)
 
     def test_unitless_file_without_opt_in_is_rejected(self):
         with TemporaryDirectory() as temp:
             folder = Path(temp)
             with self.assertRaisesRegex(ValueError, "--assume-mm"):
-                export_preview(self.drawing(folder), {"categories": {"other": ["SYN_LAYER"]}},
+                export_preview(self.drawing(folder), {"categories": {"other": ["SYN_LAYER"]}, "excludeLayers": ["SYN_AGF"]},
                                folder / "preview.svg", folder / "report.json")
 
     def test_explicit_non_mm_header_cannot_be_overridden(self):
@@ -63,7 +72,7 @@ class PrivatePreviewTests(unittest.TestCase):
             folder = Path(temp)
             with self.assertRaisesRegex(ValueError, "INSUNITS"):
                 export_preview(self.drawing(folder, unit=1),
-                               {"categories": {"other": ["SYN_LAYER"]}},
+                               {"categories": {"other": ["SYN_LAYER"]}, "excludeLayers": ["SYN_AGF"]},
                                folder / "preview.svg", folder / "report.json",
                                assume_mm=True)
 
@@ -71,7 +80,7 @@ class PrivatePreviewTests(unittest.TestCase):
         with TemporaryDirectory() as temp:
             folder = Path(temp)
             r = export_preview(self.drawing(folder, unit=4),
-                               {"categories": {"equipment": ["SYN_LAYER"]}},
+                               {"categories": {"equipment": ["SYN_LAYER"]}, "excludeLayers": ["SYN_AGF"]},
                                folder / "preview.svg", folder / "report.json")
             self.assertEqual(r["unitEvidence"], "header-mm")
             self.assertFalse(r["metricScaleVerified"])
@@ -81,7 +90,21 @@ class PrivatePreviewTests(unittest.TestCase):
             folder = Path(temp)
             with self.assertRaisesRegex(ValueError, "does not exist"):
                 export_preview(self.drawing(folder),
-                               {"categories": {"equipment": ["NONEXISTENT"]}},
+                               {"categories": {"equipment": ["NONEXISTENT"]}, "excludeLayers": ["SYN_AGF"]},
+                               folder / "preview.svg", folder / "report.json",
+                               assume_mm=True)
+
+    def test_agf_layer_must_be_explicitly_excluded(self):
+        with TemporaryDirectory() as temp:
+            folder = Path(temp)
+            source = self.drawing(folder)
+            with self.assertRaisesRegex(ValueError, "excludeLayers"):
+                export_preview(source, {"categories": {"equipment": ["SYN_LAYER"]}},
+                               folder / "preview.svg", folder / "report.json",
+                               assume_mm=True)
+            with self.assertRaisesRegex(ValueError, "cannot also be selected"):
+                export_preview(source, {"categories": {"equipment": ["SYN_AGF"]},
+                                        "excludeLayers": ["SYN_AGF"]},
                                folder / "preview.svg", folder / "report.json",
                                assume_mm=True)
 

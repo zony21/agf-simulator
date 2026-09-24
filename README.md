@@ -27,4 +27,4 @@ npm run check
 
 See the [public development specification](docs/specification.md), [AGENTS.md](AGENTS.md), [harness contract](docs/harness-contract.md), and [open decisions](docs/open-decisions.md).
 
-The public specification deliberately uses configurable scenarios instead of customer-specific layouts, source-document titles, actual equipment parameters, and operational records.
+The public specification includes the agreed baseline simulation settings and marks provisional values explicitly. Identifying source-document titles, original drawings, site coordinates, and operational records stay outside the repository; individual scenario values remain configurable.

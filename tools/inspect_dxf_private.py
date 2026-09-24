@@ -175,6 +175,14 @@ def inspect(filename, layer_config=None, out_geometry=None):
     }
 
 
+def require_private_destination(path):
+    """Reject generated source-derived data under tracked public-repo paths."""
+    root = Path(__file__).resolve().parents[1]
+    destination = path.resolve()
+    if destination.is_relative_to(root) and not destination.is_relative_to(root / "private"):
+        raise ValueError("CAD-derived output inside the repository must be under the gitignored private/ directory")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dxf", type=Path, required=True)
@@ -183,6 +191,9 @@ def main(argv=None):
     parser.add_argument("--out-geometry", type=Path)
     args = parser.parse_args(argv)
     try:
+        require_private_destination(args.out_report)
+        if args.out_geometry is not None:
+            require_private_destination(args.out_geometry)
         result = inspect(args.dxf, args.layer_config, args.out_geometry)
         args.out_report.parent.mkdir(parents=True, exist_ok=True)
         args.out_report.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

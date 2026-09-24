@@ -31,10 +31,20 @@ python tools/private_cad_preview.py \
 設定形式（以下のレイヤー名は架空の合成例）：
 
 ~~~json
-{"categories":{"architecture":["SYN-BUILDING"],"equipment":["SYN-MACHINES"]}}
+{"categories":{"architecture":["SYN-BUILDING"],"equipment":["SYN-MACHINES"]},"excludeLayers":["SYN-AGF"]}
 ~~~
 
+**AGF図形を設備と混同しないため、非公開設定の `excludeLayers` に専用レイヤーを必ず指定する。** 設備抽出レイヤーとの重複は拒否し、除外レイヤー上のINSERT内部も取り込まない。AGFと他設備が同一レイヤーに混在する場合は、先に図面側で分離・確認が必要。
+
 出力レポートには \`unitEvidence=user-provisional\`、\`metricScaleVerified=false\`、\`referenceOriginVerified=false\`、\`displayOnly=true\`、\`routable=false\` を明示する。SVGはブラウザ画面の「非公開CADプレビュー」から**端末内で読み込む**。読み込み時、模式図のAGF仮位置を非表示にし、正確な位置合わせ済みとは表示しない。PNGも図形プレビューとして読み込めるが、SVGほど拡大時の解像度は保てない。
+
+### AGFなしプレビュー上での停止点・経路の下書き登録
+
+日本語UIでAGFを除外したSVGを読み込み、点ID・点種別（荷受け／荷下ろし／旋回／シャッター前停止／通過／分岐／HP／充電等）を指定してクリック登録する。続いて搬送01～05または充電、空走／積載／充電区間を指定し、既存点を順番に選んで経路の**下書き**を保存する。未指定の点や点間の経路を自動作成しない。
+
+ブラウザは背景ファイルのSHA-256を計算し、JSON下書きに紐づける。別のプレビューや異なるSVGのviewBoxへの読込を拒否する。SVGのviewBoxと反転Y軸から元CAD座標を算出する（ユーザー指定の**1 CAD単位＝1 mm**を適用）。PNGでは元CAD座標を復元できないため、画像に対する相対座標だけを記録し、mm座標を作らない。下書きJSONは利用者端末に保存・再読込できるが、元図由来の座標を含むため**公開GitHubへの追加は禁止**。
+
+下書きJSONは `approvalStatus=draft-only`、`routable=false`、`physicalEtaAllowed=false` で固定する。経路の破線描画はシミュレーションの経路探索・走行時間・AGF実位置への入力としない。ルートの順番・方向・通行区間・シャッター許可条件を確認してから、実走行グラフへの昇格を検討する。
 
 これは上記 \`dxf_to_map.py\` の**単位と原点を明示して走行トポロジーを渡す工程とは独立**である。次の物理経路検証には、既知長さの寸法、基準原点、未解決INSERT、設備・荷役停止点、シャッター通行線とルート承認が必要。
 

@@ -7,8 +7,8 @@ export const NODE_TYPES = Object.freeze([
   'pickup','dropoff','shutter_wait','shutter_passage','turn',
   'junction','home','charger','waypoint'
 ]);
-export const TASK_TYPES = Object.freeze(['01','02','03','04','05','charge']);
-export const PHASES = Object.freeze(['empty','loaded','charge']);
+export const TASK_TYPES = Object.freeze(['01','02','03','04','05','charge','guide']);
+export const PHASES = Object.freeze(['empty','loaded','charge','guide']);
 const ID = /^[A-Za-z0-9_-]{1,32}$/;
 const SHA = /^[0-9a-f]{64}$/;
 const verify = (test, message) => { if (!test) throw new Error(message); };
@@ -60,8 +60,9 @@ export function addRoute(annotation, {id, taskType, phase, nodeIds}) {
   verify(typeof id === 'string' && ID.test(id), 'route ID: 1–32 Latin letters, digits, _ or -');
   verify(TASK_TYPES.includes(taskType), 'unsupported transport type');
   verify(PHASES.includes(phase) &&
-    ((taskType === 'charge') === (phase === 'charge')),
-    'charge routes require charge phase; transport routes require empty or loaded phase');
+    (taskType === 'charge' ? phase === 'charge' :
+      taskType === 'guide' ? phase === 'guide' : (phase === 'empty' || phase === 'loaded')),
+    'guide/charge routes require matching phase; transports require empty or loaded phase');
   verify(Array.isArray(nodeIds) && nodeIds.length >= 2 && nodeIds.length <= 200,
     'route needs 2–200 explicitly selected points');
   verify(annotation.routes.length < 200, 'route limit reached');

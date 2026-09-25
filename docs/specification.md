@@ -26,3 +26,4 @@
 搬送エリアのCAD形状を扱う[DXFマップ取込仕様](map-dxf-pipeline.md)に、単位・原点が未確認のDXFを非公開領域で点検・抽出する処理を追加した。単位確定・実CADのマップ統合・最終経路の確認とは別工程である。
 
 仕様が確定していない項目は各仕様書に明記する。実経路の伝達方法は[AGF走行経路の指定ガイド](route-annotation-guide.md)を参照する。走行可否と車線条件は[AGF通行・車線仕様書](specs/09-traffic.md)で段階確認する。[未確定事項一覧](open-decisions.md)も参照。
+2026-09-25改訂：最新の[倉庫概念構造](warehouse-layout-contract.md)（802PL・主通路4本・待機2＋充電2・AGF進入禁止区画）と[ローカルUI実装範囲](ui-dashboard.md)を参照。実CAD照合と物理走行の完了を意味しない。

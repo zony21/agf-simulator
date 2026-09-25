@@ -56,7 +56,7 @@ The repository includes a **scenario-driven discrete-event model** and Japanese 
 Run with Node.js 22+ for tests, and serve the repository root with any static HTTP server for the UI:
 
     npm run check
-    python -m http.server 8000
+    python -m http.server 8000 --bind 127.0.0.1
 
 Then open http://localhost:8000/ . No frontend packages or build process are needed.
 
@@ -74,7 +74,7 @@ The UI's warehouse slots, initial AGF areas, production intervals, source suppli
 
 ### Private CAD preview with provisional millimetre assumption
 
-The uploaded drawing has an unset DXF unit header. The user specified millimetres for this workflow, so `tools/private_cad_preview.py` supports **explicit `--assume-mm` for display only**, without claiming independently calibrated scale or physical geometry. Its private configuration requires an explicit AGF layer exclusion, including block inserts, to avoid treating drawn AGFs as equipment. The selected source layers and SVG/report must remain outside this public repository (e.g. in `private/`). The Japanese UI can load the resulting local SVG or PNG in the map area without uploading it; schematic AGF markers are hidden while private CAD is displayed. The preview is not a navigable route graph. See [DXF pipeline](docs/map-dxf-pipeline.md).
+The uploaded drawing has an unset DXF unit header. The user specified millimetres for this workflow, so `tools/private_cad_preview.py` supports **explicit `--assume-mm` for display only**, without claiming independently calibrated scale or physical geometry. Its private configuration requires an explicit AGF layer exclusion, including block inserts, to avoid treating drawn AGFs as equipment. The selected source layers and SVG/report must remain outside this public repository (e.g. in `private/`). The Japanese UI can load the resulting local SVG or PNG in the dedicated CAD review dialog without uploading it; schematic AGF markers are never overlaid on private CAD. The preview is not a navigable route graph. See [DXF pipeline](docs/map-dxf-pipeline.md).
 
 ### CAD point/route annotation (feature branch)
 
@@ -112,3 +112,7 @@ node tools/build-private-route-seed.mjs --svg private/preview.svg --config priva
 ```
 
 The script binds the draft to the exact SVG SHA-256 and viewBox, keeps guide classification unassigned and rejects output in public tracked paths. The JSON must be imported against the same SVG bytes. It does **not** infer corridors or approve a route. Do not commit the private config, preview, draft JSON or annotated screenshot.
+
+## ローカルUIレビュー
+
+Industrial Simulation Dashboardの5画面（搬送モニター・設定・タスク・結果・比較）、倉庫の行列段表示、独立したCADレビューを用意しています。範囲・仮定・集計定義は[UI実装ノート](docs/ui-dashboard.md)、最新版の倉庫構造は[概念契約](docs/warehouse-layout-contract.md)を参照してください。今回の変更はローカルレビュー用で、GitHubへの反映は行いません。

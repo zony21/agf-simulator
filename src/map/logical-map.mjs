@@ -4,6 +4,7 @@
  * No geometry or measured time is generated here. A confirmed conceptual link
  * is not a verified collision-free physical route.
  */
+import {WAREHOUSE_BLOCKS} from './warehouse-layout.mjs';
 const accessValues = new Set(['allowed', 'forbidden', 'unresolved']);
 const directionValues = new Set(['both', 'forward', 'reverse', 'entry-only', 'exit-only', 'unresolved']);
 const passingValues = new Set(['yes', 'no-alternating', 'reported-yes', 'unresolved', 'not-applicable']);
@@ -99,6 +100,23 @@ export function validateLogicalMap(map) {
   requireThat(map.accessRules?.task02?.reserveDestination === 'at-task-issue' &&
     map.accessRules?.task02?.holdIfSameRowPutTask === true,
     'Task 02 destination reservation and same-row hold must be preserved');
+  const layout=map.warehouseLayout;
+  requireThat(layout?.capacity===802&&JSON.stringify(layout.blocks)===JSON.stringify(WAREHOUSE_BLOCKS),
+    'Warehouse block capacity and east empty column must match the reviewed structure');
+  requireThat(layout.mainAisles?.length===4&&new Set(layout.mainAisles.map(a=>a.id)).size===4&&
+    ['east','west'].every(side=>layout.mainAisles.filter(a=>a.side===side).length===2)&&
+    layout.mainAisles.every(a=>a.direction==='unresolved'&&a.laneCount===null&&a.simultaneousPassing==='unresolved'),
+    'Main aisle count is four; individual direction and lane conditions remain unresolved');
+  requireThat(corridors.get('WH-ROW').laneCount===1&&corridors.get('WH-ROW').direction==='both'&&
+    corridors.get('WH-ROW').simultaneousPassing==='no-alternating','Warehouse rows cannot allow side-by-side passing');
+  const service=layout.service;
+  requireThat(service?.waitingPlaces?.length===2&&service.chargePlaces?.length===2&&service.chargers?.length===2&&
+    service.aligners?.length===5&&new Set([...service.waitingPlaces,...service.chargePlaces].map(p=>p.id)).size===4&&
+    service.chargePlaces.every(p=>p.chargerId===null)&&service.accessFrom==='east-main-aisles'&&
+    service.accessEvidence==='user-confirmed'&&service.branchAssignment==='unresolved',
+    'Service waiting and charging places must be separate; east group access is confirmed, branches unresolved');
+  requireThat(service.emptyPalletStorage?.agfAccess==='forbidden'&&service.emptyPalletStorage.routeNodes?.length===0,
+    'Empty pallet storage is forbidden and must not contain route nodes');
   return {
     areas: areas.size, corridors: corridors.size, links: links.size,
     confirmedLinks: [...links.values()].filter(x => x.status === 'confirmed').length,

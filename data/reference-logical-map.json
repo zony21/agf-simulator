@@ -146,22 +146,24 @@
     {
       "id": "WH-E-V",
       "area": "WH",
-      "direction": "both",
-      "laneCount": 2,
-      "simultaneousPassing": "yes",
+      "direction": "unresolved",
+      "laneCount": null,
+      "simultaneousPassing": "unresolved",
       "access": "allowed",
       "geometryStatus": "not-measured",
-      "notes": "東側縦方向の通路。"
+      "notes": "各側2本の主通路をまとめた抽象参照。個別主通路の方向・車線数・同時通過条件・接続先は未確認。",
+      "kind": "main-aisle-group-reference"
     },
     {
       "id": "WH-W-V",
       "area": "WH",
-      "direction": "both",
-      "laneCount": 2,
-      "simultaneousPassing": "yes",
+      "direction": "unresolved",
+      "laneCount": null,
+      "simultaneousPassing": "unresolved",
       "access": "allowed",
       "geometryStatus": "not-measured",
-      "notes": "西側縦方向の通路。"
+      "notes": "各側2本の主通路をまとめた抽象参照。個別主通路の方向・車線数・同時通過条件・接続先は未確認。",
+      "kind": "main-aisle-group-reference"
     },
     {
       "id": "WH-X-U",
@@ -238,10 +240,10 @@
       "area": "WH",
       "direction": "both",
       "laneCount": 1,
-      "simultaneousPassing": "unresolved",
+      "simultaneousPassing": "no-alternating",
       "access": "allowed",
       "geometryStatus": "not-measured",
-      "notes": "横1行単位の通路。実際の各行への分割・接続・停止位置は未確定。"
+      "notes": "各行は双方向1車線・横並び通行不可。29行の実接続・停止位置と対向待機制御は未確定。"
     },
     {
       "id": "WH-SERVICE",
@@ -249,9 +251,9 @@
       "direction": "unresolved",
       "laneCount": null,
       "simultaneousPassing": "unresolved",
-      "access": "unresolved",
+      "access": "allowed",
       "geometryStatus": "not-measured",
-      "notes": "整列機・HP・充電器への個別取付け経路は未確定。"
+      "notes": "EB2南側の待機2か所・充電2か所・整列機5台へ東側主通路からアクセス。個別主通路の割当・分岐・停止位置は未確定。空パレ置き場はAGF進入禁止。"
     }
   ],
   "corridorGroups": [
@@ -461,9 +463,9 @@
       "from": "WH-E-V",
       "to": "WH-SERVICE",
       "direction": "both",
-      "status": "unresolved",
-      "reason": "Actual service access not verified",
-      "reviewState": "pending-confirmation"
+      "status": "confirmed",
+      "reason": "User-confirmed east main aisle group access to the service area; individual aisle and stop geometry unresolved",
+      "reviewState": "user-confirmed-abstract"
     }
   ],
   "interfaces": [
@@ -540,7 +542,8 @@
         "CHARGER2"
       ],
       "corridor": "WH-SERVICE",
-      "individualStopNodes": "unresolved"
+      "individualStopNodes": "unresolved",
+      "note": "Two charger devices; mapping to charging stop places unresolved"
     },
     {
       "id": "HP",
@@ -550,7 +553,8 @@
         "HP2"
       ],
       "corridor": "WH-SERVICE",
-      "individualStopNodes": "unresolved"
+      "individualStopNodes": "unresolved",
+      "note": "Two waiting places, separate from the two charging places"
     },
     {
       "id": "WAREHOUSE_SLOTS",
@@ -558,7 +562,19 @@
       "ids": [],
       "corridor": "WH-ROW",
       "individualStopNodes": "unresolved",
-      "note": "Each pink square is a separate pallet location; count and exact mapping not extracted"
+      "note": "802 conceptual tier positions; actual site IDs and stop geometry unreviewed",
+      "logicalCapacity": 802
+    },
+    {
+      "id": "CHARGE_PLACE",
+      "count": 2,
+      "ids": [
+        "CHARGE-PLACE1",
+        "CHARGE-PLACE2"
+      ],
+      "corridor": "WH-SERVICE",
+      "individualStopNodes": "unresolved",
+      "note": "Separate charging parking positions; not shared with HP"
     }
   ],
   "accessRules": {
@@ -634,7 +650,7 @@
     {
       "task": "CHARGE",
       "source": "CURRENT_AGF_NODE",
-      "target": "HP1_OR_HP2",
+      "target": "CHARGE-PLACE1_OR_CHARGE-PLACE2",
       "routeState": "endpoints-confirmed-route-unresolved"
     }
   ],
@@ -644,7 +660,200 @@
     "Inter-area passage and each shutter stop node",
     "Every warehouse row and slot ID/coordinate and selected path",
     "PZ one-lane simultaneous-passing mechanism and branch occupancy controls",
-    "Warehouse-row head-on passing; slowdown threshold/rate",
-    "Actual warehouse service area connectors"
-  ]
+    "Row yielding and slowdown threshold/rate; side-by-side passing is forbidden",
+    "Individual main-aisle allocation and physical service stops; east group access is confirmed"
+  ],
+  "warehouseLayout": {
+    "revision": "2026-09-25-service-separated",
+    "evidence": "user-confirmed-abstract-structure",
+    "capacity": 802,
+    "blocks": [
+      {
+        "id": "WB1",
+        "label": "西側1",
+        "rows": 7,
+        "columns": 13,
+        "tiers": 2,
+        "emptyColumns": []
+      },
+      {
+        "id": "WB2",
+        "label": "西側2",
+        "rows": 3,
+        "columns": 13,
+        "tiers": 2,
+        "emptyColumns": []
+      },
+      {
+        "id": "WB3",
+        "label": "西側3",
+        "rows": 13,
+        "columns": 13,
+        "tiers": 2,
+        "emptyColumns": []
+      },
+      {
+        "id": "EB1",
+        "label": "東側1",
+        "rows": 3,
+        "columns": 18,
+        "tiers": 2,
+        "emptyColumns": [
+          10
+        ]
+      },
+      {
+        "id": "EB2",
+        "label": "東側2",
+        "rows": 3,
+        "columns": 18,
+        "tiers": 2,
+        "emptyColumns": [
+          10
+        ]
+      }
+    ],
+    "rules": {
+      "evidence": "user-confirmed-abstract-structure",
+      "mainAisles": {
+        "west": 2,
+        "east": 2
+      },
+      "rowDirection": "both",
+      "rowLaneCount": 1,
+      "sideBySidePassing": false,
+      "adjacentRowsSimultaneous": true,
+      "slowdownThreshold": "unresolved",
+      "slowdownRate": "unresolved",
+      "fireShutterCrossings": 2,
+      "freeWallCrossing": false,
+      "emptyColumnAccess": "unresolved",
+      "physicalEtaAllowed": false
+    },
+    "mainAisles": [
+      {
+        "id": "WH-W-MAIN-1",
+        "side": "west",
+        "access": "allowed",
+        "direction": "unresolved",
+        "laneCount": null,
+        "simultaneousPassing": "unresolved",
+        "connectionPoints": "unresolved"
+      },
+      {
+        "id": "WH-W-MAIN-2",
+        "side": "west",
+        "access": "allowed",
+        "direction": "unresolved",
+        "laneCount": null,
+        "simultaneousPassing": "unresolved",
+        "connectionPoints": "unresolved"
+      },
+      {
+        "id": "WH-E-MAIN-1",
+        "side": "east",
+        "access": "allowed",
+        "direction": "unresolved",
+        "laneCount": null,
+        "simultaneousPassing": "unresolved",
+        "connectionPoints": "unresolved"
+      },
+      {
+        "id": "WH-E-MAIN-2",
+        "side": "east",
+        "access": "allowed",
+        "direction": "unresolved",
+        "laneCount": null,
+        "simultaneousPassing": "unresolved",
+        "connectionPoints": "unresolved"
+      }
+    ],
+    "service": {
+      "relativeTo": "south-of-EB2",
+      "accessFrom": "east-main-aisles",
+      "accessEvidence": "user-confirmed",
+      "branchAssignment": "unresolved",
+      "waitingPlaces": [
+        {
+          "id": "HP1",
+          "positionEvidence": "relative-only",
+          "stopNodeId": null
+        },
+        {
+          "id": "HP2",
+          "positionEvidence": "relative-only",
+          "stopNodeId": null
+        }
+      ],
+      "chargePlaces": [
+        {
+          "id": "CHARGE-PLACE1",
+          "positionEvidence": "relative-only",
+          "stopNodeId": null,
+          "chargerId": null
+        },
+        {
+          "id": "CHARGE-PLACE2",
+          "positionEvidence": "relative-only",
+          "stopNodeId": null,
+          "chargerId": null
+        }
+      ],
+      "chargers": [
+        {
+          "id": "CHARGER1",
+          "positionEvidence": "relative-only",
+          "stopNodeId": null
+        },
+        {
+          "id": "CHARGER2",
+          "positionEvidence": "relative-only",
+          "stopNodeId": null
+        }
+      ],
+      "aligners": [
+        {
+          "id": "AL1",
+          "positionEvidence": "relative-only",
+          "stopNodeId": null
+        },
+        {
+          "id": "AL2",
+          "positionEvidence": "relative-only",
+          "stopNodeId": null
+        },
+        {
+          "id": "AL3",
+          "positionEvidence": "relative-only",
+          "stopNodeId": null
+        },
+        {
+          "id": "AL4",
+          "positionEvidence": "relative-only",
+          "stopNodeId": null
+        },
+        {
+          "id": "AL5",
+          "positionEvidence": "relative-only",
+          "stopNodeId": null
+        }
+      ],
+      "arrangement": {
+        "left": [
+          "waiting-1",
+          "waiting-2",
+          "charge-1",
+          "charge-2"
+        ],
+        "rightTop": "five-aligners",
+        "rightBottom": "empty-pallet-storage"
+      },
+      "emptyPalletStorage": {
+        "agfAccess": "forbidden",
+        "supplyBy": "operator",
+        "routeNodes": [],
+        "capacity": null
+      }
+    }
+  }
 }

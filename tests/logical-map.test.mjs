@@ -41,7 +41,6 @@ test('warehouse cross-aisle conceptual connection exists', () => {
 test('unreviewed full routes are withheld', () => {
   assert.equal(findConceptualPath(map, 'PZ-DEV', 'WH-W-B'), null);
   assert.equal(findConceptualPath(map, 'WH-E-GATE', 'WH-W-B'), null);
-  assert.equal(findConceptualPath(map, 'WH-SERVICE', 'WH-W-B'), null);
   assert.equal(findConceptualPath(map, 'WH-W-GATE', 'WH-W-B'), null);
 });
 
@@ -79,5 +78,21 @@ test('individual warehouse slot and service stop nodes are unresolved', () => {
   const wh = map.interfaces.find(x => x.id === 'WAREHOUSE_SLOTS');
   assert.equal(wh.count, null);
   assert.equal(wh.individualStopNodes, 'unresolved');
-  assert.equal(map.corridors.find(x => x.id === 'WH-SERVICE').access, 'unresolved');
+  assert.equal(map.corridors.find(x => x.id === 'WH-SERVICE').access, 'allowed');
+  assert.ok(findConceptualPath(map, 'WH-SERVICE', 'WH-E-V'));
+  assert.equal(map.warehouseLayout.service.branchAssignment,'unresolved');
+});
+
+test('latest warehouse structure separates four main aisles from rows and service places',()=>{
+  assert.equal(map.warehouseLayout.mainAisles.length,4);
+  assert.equal(map.warehouseLayout.capacity,802);
+  assert.equal(map.corridors.find(c=>c.id==='WH-ROW').simultaneousPassing,'no-alternating');
+  assert.equal(map.corridors.find(c=>c.id==='WH-E-V').laneCount,null);
+  assert.equal(map.warehouseLayout.service.waitingPlaces.length,2);
+  assert.equal(map.warehouseLayout.service.chargePlaces.length,2);
+  assert.equal(map.warehouseLayout.service.emptyPalletStorage.agfAccess,'forbidden');
+  const changed=copy();changed.warehouseLayout.mainAisles[0].direction='both';
+  assert.throws(()=>validateLogicalMap(changed),/Main aisle/);
+  const forbidden=copy();forbidden.warehouseLayout.service.emptyPalletStorage.routeNodes.push('INVENTED');
+  assert.throws(()=>validateLogicalMap(forbidden),/storage/);
 });

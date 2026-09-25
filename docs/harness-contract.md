@@ -37,3 +37,7 @@ The independent `src/core/simulate.mjs` model now schedules deterministic intege
 ## Not yet implemented
 
 Measured path durations, complete CAD-aligned and approved map, physical graph routing, lane/head-on occupancy, shutter and equipment interlocks, exact battery curves by segment, detailed exception recovery and authoritative operational throughput. The UI's time constants, warehouse slots, initial AGF areas, and phase offsets are **synthetic scenario assumptions**. The abstract map cannot be promoted to a traversable inter-area path. Neither the model nor the SVG is a safety or physical-performance validation.
+
+## Local dashboard revision
+
+The five-view dashboard uses saved-event time seeking (1x/2x/4x), event-derived timelines and duration metrics, immutable run settings, manual reservation validation, and same-input strategy comparison. Warehouse structural counts are user-confirmed abstractions; occupancy and slot IDs are synthetic. See [dashboard scope](ui-dashboard.md) and [warehouse structure](warehouse-layout-contract.md). Physical location, heading, route following, traffic interference and calibrated ETA remain unimplemented.

@@ -1,0 +1,14 @@
+/** A complete reproducible scenario is retained in the first event row. */
+export function eventCsv(run,runId) {
+  const columns=['runId','mode','timeMs','sequence','type','kind','taskId','palletId','agfId','originId','destinationId',
+    'status','lineId','magazineId','locationId','reason','inputKind','timingStatus','inventoryStatus','scenarioJson'];
+  const cell=value=>{const s=String(value??'');return /[",\r\n]/.test(s)?'"'+s.replaceAll('"','""')+'"':s;};
+  const rows=run.events.map((event,index)=>{
+    const task=run.snapshots[index].tasks.find(t=>t.id===event.taskId);
+    const row={runId,mode:run.scenario.mode,originId:task?.originId,destinationId:task?.destinationId,
+      status:task?.status,agfId:task?.agfId,...event,timingStatus:'scenario-assumption',
+      inventoryStatus:run.scenario.evidence?.inventory??'unspecified',scenarioJson:index===0?JSON.stringify(run.scenario):''};
+    return columns.map(column=>cell(row[column])).join(',');
+  });
+  return '\ufeff'+[columns.join(','),...rows].join('\r\n');
+}

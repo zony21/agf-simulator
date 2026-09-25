@@ -2,6 +2,7 @@ import {
   createAnnotation,addNode,addRoute,moveNode,insertRoutePoint,
   removeRoutePoint,deleteRoute,classifyRoute,validateAnnotation
 } from '../map/route-annotations.mjs';
+import {initSegmentReview} from './segment-review.mjs';
 
 const $=id=>document.getElementById(id);
 const NS='http://www.w3.org/2000/svg';
@@ -12,6 +13,7 @@ export function initRouteEditor() {
   let draft=null,pending=[],proposalStart=null,selectedRoute=null,selectedNode=null,drag=null;
   let history=[],future=[],zoom=1;
   const stage=$('cad-stage'),state=$('annotation-state'),overlay=$('cad-overlay');
+  const segmentReview=initSegmentReview();
   const message=text=>{state.textContent=text;};
   const byId=()=>new Map(draft.nodes.map(node=>[node.id,node]));
   const location=event=>{
@@ -124,6 +126,7 @@ export function initRouteEditor() {
     return b;
   }
   function render(note='') {
+    segmentReview.setDraft(draft);
     overlay.replaceChildren();$('cad-node-layer').replaceChildren();$('annotation-list').replaceChildren();
     $('annotation-selected').replaceChildren(new Option('経路を選択',''));
     if(!draft) {

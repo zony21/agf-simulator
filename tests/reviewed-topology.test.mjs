@@ -34,7 +34,7 @@ test('unreviewed lines and guides cannot enter a traversable topology',()=>{
   assert.equal(graph.physicalEtaAllowed,false);
   assert.equal(graph.trafficReady,false);
   assert.equal(graph.operationalRoutingReady,false);
-  assert.equal(findReviewedTopologyPath(graph,'A','C'),null);
+  assert.equal(findReviewedTopologyPath(graph,'A','C',{taskType:'01',phase:'loaded'}),null);
   assert.equal(draft.approvalStatus,'draft-only');
 });
 
@@ -44,9 +44,9 @@ test('only individually operator-reviewed directed segments can form a topologic
   review=setSegmentReview(draft,review,{routeId:'R01',segmentIndex:0,...allowed});
   let graph=buildReviewedTopology(draft,review);
   assert.equal(graph.edges.length,1);
-  assert.equal(findReviewedTopologyPath(graph,'A','C'),null);
-  assert.equal(findReviewedTopologyPath(graph,'B','A'),null);
-  assert.deepEqual(findReviewedTopologyPath(graph,'A','B'),{
+  assert.equal(findReviewedTopologyPath(graph,'A','C',{taskType:'01',phase:'loaded'}),null);
+  assert.equal(findReviewedTopologyPath(graph,'B','A',{taskType:'01',phase:'loaded'}),null);
+  assert.deepEqual(findReviewedTopologyPath(graph,'A','B',{taskType:'01',phase:'loaded'}),{
     kind:'reviewed-topology-only',nodeIds:['A','B'],edgeIds:['R01:0'],
     measuredDistanceMm:null,etaMs:null,trafficAuthorized:false
   });
@@ -54,12 +54,14 @@ test('only individually operator-reviewed directed segments can form a topologic
     ...allowed,direction:'both',laneCount:2,
     simultaneousPassing:'yes',gate:'controlled',gateId:'SH01',waitNodeId:'WAIT'});
   graph=buildReviewedTopology(draft,review);
-  assert.deepEqual(findReviewedTopologyPath(graph,'A','C').edgeIds,['R01:0','R01:1']);
-  assert.equal(findReviewedTopologyPath(graph,'C','A'),null);
-  assert.deepEqual(findReviewedTopologyPath(graph,'C','B').edgeIds,['R01:1']);
+  assert.deepEqual(findReviewedTopologyPath(graph,'A','C',{taskType:'01',phase:'loaded'}).edgeIds,['R01:0','R01:1']);
+  assert.equal(findReviewedTopologyPath(graph,'C','A',{taskType:'01',phase:'loaded'}),null);
+  assert.deepEqual(findReviewedTopologyPath(graph,'C','B',{taskType:'01',phase:'loaded'}).edgeIds,['R01:1']);
   assert.equal(graph.edges[1].laneCount,2);
   assert.equal(graph.edges[1].gateId,'SH01');
   assert.equal(graph.physicalEtaAllowed,false);
+  assert.equal(findReviewedTopologyPath(graph,'A','C',{taskType:'05',phase:'loaded'}),null);
+  assert.throws(()=>findReviewedTopologyPath(graph,'A','C'),/explicit transport and phase/);
 });
 
 test('a guide stays unassigned even with an explicit review',()=>{
@@ -124,6 +126,6 @@ test('review functions are pure and do not modify draft or checklist in place',(
   assert.equal(edited.segments[0].access,'allowed');
   assert.equal(draft.routes[0].status,'draft');
   assert.deepEqual(validateSegmentChecklist(draft,JSON.parse(JSON.stringify(edited))),edited);
-  assert.throws(()=>findReviewedTopologyPath(buildReviewedTopology(draft,initial),'missing','A'),
+  assert.throws(()=>findReviewedTopologyPath(buildReviewedTopology(draft,initial),'missing','A',{taskType:'01',phase:'loaded'}),
     /unknown endpoint/);
 });

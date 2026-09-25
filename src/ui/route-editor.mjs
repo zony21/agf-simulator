@@ -1,6 +1,6 @@
 import {
   createAnnotation,addNode,addRoute,moveNode,insertRoutePoint,
-  removeRoutePoint,deleteRoute,classifyRoute,validateAnnotation
+  removeRoutePoint,deleteRoute,classifyRoute,validateAnnotation,setNodeType,replaceRoutePoint
 } from '../map/route-annotations.mjs';
 import {initSegmentReview} from './segment-review.mjs';
 
@@ -27,7 +27,8 @@ export function initRouteEditor() {
     history.push(draft);if(history.length>100)history.shift();
     future=[];draft=next;render(note);
   }
-  const pointLabel=node=>node.id+' / '+node.type+
+  const pointLabel=node=>node.id+' / '+([...$('annotation-point-type').options]
+    .find(option=>option.value===node.type)?.text??node.type)+
     (node.xCadMm===undefined?'':' / CAD(mm) '+node.xCadMm+', '+node.yCadMm);
   const number=(u,v)=>[(u*1000).toFixed(3),(v*1000).toFixed(3)];
   function segment(a,b,color,routeId,index,emphasized=false) {
@@ -129,11 +130,19 @@ export function initRouteEditor() {
     segmentReview.setDraft(draft);
     overlay.replaceChildren();$('cad-node-layer').replaceChildren();$('annotation-list').replaceChildren();
     $('annotation-selected').replaceChildren(new Option('経路を選択',''));
+    const previousTarget=$('annotation-shared-point').value;
+    $('annotation-shared-point').replaceChildren(new Option('接続する点を選択',''));
     if(!draft) {
       $('cad-editor').hidden=true;message('CADプレビューを読み込むと図上編集を開始できます。');return;
     }
     $('cad-editor').hidden=false;
     const nodes=byId();
+    for(const node of draft.nodes)if(node.id!==selectedNode)
+      $('annotation-shared-point').add(new Option(pointLabel(node),node.id));
+    $('annotation-shared-point').value=previousTarget;
+    $('annotation-update-type').disabled=!nodes.has(selectedNode);
+    $('annotation-connect-point').disabled=!selectedRoute||
+      !draft.routes.find(route=>route.id===selectedRoute)?.nodeIds.includes(selectedNode);
     for(const route of draft.routes) {
       $('annotation-selected').add(new Option(route.id+' / '+(route.taskType==='guide'?'未割当参考':route.taskType+' / '+route.phase),route.id));
       const active=selectedRoute===route.id;
@@ -251,6 +260,23 @@ export function initRouteEditor() {
         '経路から点を外しました。点自体は他の経路で再利用できます。');
       selectedNode=null;
     }catch(error){message(error.message);}
+  });
+  $('annotation-update-type').addEventListener('click',()=>{
+    if(!draft||!selectedNode){message('種別を変更する点を図上で選択してください。');return;}
+    try {
+      apply(setNodeType(draft,selectedNode,$('annotation-point-type').value),
+        '選択点の種別を変更しました。位置・役割と区間条件を再確認してください。');
+    }catch(error){message('点種別を変更できません：'+error.message);}
+  });
+  $('annotation-connect-point').addEventListener('click',()=>{
+    const nodeId=$('annotation-shared-point').value;
+    const route=draft?.routes.find(route=>route.id===selectedRoute);
+    if(!route||!selectedNode||!nodeId){message('対象経路・置換する点・接続先の既存点を指定してください。');return;}
+    try {
+      const next=replaceRoutePoint(draft,{routeId:route.id,nodeIndex:route.nodeIds.indexOf(selectedNode),nodeId});
+      selectedNode=nodeId;
+      apply(next,'選択経路の点を既存点に置き換えました。接続位置を図上で確認し、点・共有接続・区間を再確認してください。');
+    }catch(error){message('点を置換できません。同じ点が連続しない接続先を選択してください。');}
   });
   $('annotation-delete-route').addEventListener('click',()=>{
     if(!selectedRoute)return;

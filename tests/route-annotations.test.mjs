@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createAnnotation, addNode, addRoute, moveNode, insertRoutePoint,
-  removeRoutePoint, deleteRoute, classifyRoute, validateAnnotation
+  removeRoutePoint, deleteRoute, classifyRoute, validateAnnotation, setNodeType, replaceRoutePoint
 } from '../src/map/route-annotations.mjs';
 
 const hash='a'.repeat(64);
@@ -108,4 +108,35 @@ test('unassigned guide can be reviewed and explicitly classified without approva
   assert.equal(assigned.routes[0].status,'draft');
   assert.equal(assigned.routable,false);
   assert.equal(assigned.physicalEtaAllowed,false);
+});
+
+test('point roles can be corrected without moving or approving any point',()=>{
+  const draft=addNode(createAnnotation(hash,box),point('P1',0.2,0.3));
+  for(const type of ['pickup','dropoff','stop','warehouse_location','shutter_wait']) {
+    const edited=setNodeType(draft,'P1',type);
+    assert.deepEqual(edited.nodes[0],{...draft.nodes[0],type});
+    assert.equal(edited.approvalStatus,'draft-only');
+    assert.deepEqual(validateAnnotation(edited,hash,box),edited);
+  }
+  assert.equal(draft.nodes[0].type,'waypoint');
+  assert.throws(()=>setNodeType(draft,'MISSING','stop'),/undefined point/);
+  assert.throws(()=>setNodeType(draft,'P1','unknown'),/unsupported point type/);
+});
+
+test('explicit point replacement changes only the chosen route and rejects collapsed segments',()=>{
+  let draft=createAnnotation(hash,box);
+  for(const [id,u,v] of [['A',0,0],['B',0.5,0.5],['C',1,1],['JOIN',0.2,0.3]])
+    draft=addNode(draft,point(id,u,v));
+  for(const id of ['R1','R2'])draft=addRoute(draft,
+    {id,taskType:'01',phase:'loaded',nodeIds:['A','B','C']});
+  const result=replaceRoutePoint(draft,{routeId:'R1',nodeIndex:1,nodeId:'JOIN'});
+  assert.deepEqual(result.routes[0].nodeIds,['A','JOIN','C']);
+  assert.deepEqual(result.routes[1].nodeIds,['A','B','C']);
+  assert.deepEqual(result.nodes,draft.nodes);
+  assert.deepEqual(draft.routes[0].nodeIds,['A','B','C']);
+  assert.deepEqual(validateAnnotation(result,hash,box),result);
+  for(const nodeId of ['A','B','C','MISSING'])
+    assert.throws(()=>replaceRoutePoint(draft,{routeId:'R1',nodeIndex:1,nodeId}));
+  assert.throws(()=>replaceRoutePoint(draft,{routeId:'R1',nodeIndex:-1,nodeId:'JOIN'}));
+  assert.throws(()=>replaceRoutePoint(draft,{routeId:'MISSING',nodeIndex:1,nodeId:'JOIN'}));
 });

@@ -8,16 +8,19 @@
  */
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
-import {resolve,dirname,relative,isAbsolute} from 'node:path';
+import {resolve,dirname,relative,isAbsolute,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createAnnotation,addNode,addRoute,validateAnnotation} from '../src/map/route-annotations.mjs';
 
 const root=resolve(fileURLToPath(new URL('..',import.meta.url)));
 const fail=message=>{throw new Error(message)};
 function requirePrivate(file) {
-  const path=resolve(file),relativePath=relative(root,path);
-  if(!relativePath.startsWith('..')&&!isAbsolute(relativePath) &&
-     !(relativePath==='private'||relativePath.startsWith('private/')))
+  const path=resolve(file);
+  const inside=parent=>{
+    const part=relative(parent,path);
+    return part!=='..'&&!part.startsWith('..'+sep)&&!isAbsolute(part);
+  };
+  if(inside(root)&&!inside(resolve(root,'private')))
     fail('CAD-derived source/config/output inside the repository must stay under gitignored private/');
   return path;
 }

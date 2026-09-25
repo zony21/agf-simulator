@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,readFile,writeFile,rm} from 'node:fs/promises';
+import {mkdtemp,readFile,writeFile,rm,mkdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
-import {join} from 'node:path';
+import {join,dirname,resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
 import {buildPrivateGuide,main} from '../tools/build-private-route-seed.mjs';
 
@@ -43,8 +44,23 @@ test('CLI writes only to explicitly supplied private destination and refuses ove
     assert.equal(result.routes.length,2);
     await assert.rejects(()=>main(['--svg',svgPath,'--config',cfg,'--out',out]),/EEXIST/);
     await assert.rejects(()=>main(['--svg',svgPath,'--config',cfg,'--out',
-      new URL('../assets/public.json',import.meta.url).pathname]),/gitignored private/);
+      fileURLToPath(new URL('../assets/public.json',import.meta.url))]),/gitignored private/);
   }finally {await rm(dir,{recursive:true,force:true});}
+});
+
+test('CLI accepts a repository private directory on Windows as well as POSIX',async()=>{
+  const privateRoot=fileURLToPath(new URL('../private/',import.meta.url));
+  await mkdir(privateRoot,{recursive:true});
+  const dir=await mkdtemp(join(privateRoot,'synthetic-seed-test-'));
+  try {
+    const svgPath=join(dir,'preview.svg'),cfg=join(dir,'config.json'),out=join(dir,'seed.json');
+    await writeFile(svgPath,svg);await writeFile(cfg,JSON.stringify(config));
+    await main(['--svg',svgPath,'--config',cfg,'--out',out]);
+    assert.equal(JSON.parse(await readFile(out,'utf8')).routable,false);
+  }finally {
+    assert.equal(dirname(resolve(dir)),resolve(privateRoot));
+    await rm(dir,{recursive:true,force:true});
+  }
 });
 
 test('explicit shared guide junction is one node and moves all connected drafts',()=>{

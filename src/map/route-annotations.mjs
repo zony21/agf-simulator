@@ -5,7 +5,7 @@
  */
 export const NODE_TYPES = Object.freeze([
   'pickup','dropoff','shutter_wait','shutter_passage','turn',
-  'junction','home','charger','waypoint'
+  'junction','home','charger','waypoint','stop','warehouse_location'
 ]);
 export const TASK_TYPES = Object.freeze(['01','02','03','04','05','charge','guide']);
 export const PHASES = Object.freeze(['empty','loaded','charge','guide']);
@@ -101,6 +101,26 @@ export function moveNode(annotation, nodeId, u, v) {
   const x=fraction(u), y=fraction(v);
   return {...annotation,nodes:annotation.nodes.map(node=>node.id===nodeId
     ? {...node,u:x,v:y,...coordinates(x,y,annotation.cadViewBox)} : node)};
+}
+/** Role edits and explicit shared-point selection never approve geometry. */
+export function setNodeType(annotation,nodeId,type) {
+  verify(annotation.nodes.some(node=>node.id===nodeId),'undefined point');
+  verify(NODE_TYPES.includes(type),'unsupported point type');
+  return {...annotation,nodes:annotation.nodes.map(node=>node.id===nodeId
+    ? {...node,type}:node)};
+}
+export function replaceRoutePoint(annotation,{routeId,nodeIndex,nodeId}) {
+  const route=annotation.routes.find(item=>item.id===routeId);
+  verify(route,'undefined route');
+  verify(Number.isInteger(nodeIndex)&&nodeIndex>=0&&nodeIndex<route.nodeIds.length,
+    'invalid route point index');
+  verify(annotation.nodes.some(node=>node.id===nodeId),'undefined point');
+  verify(route.nodeIds[nodeIndex]!==nodeId,'point is already selected');
+  const nodeIds=route.nodeIds.map((id,index)=>index===nodeIndex?nodeId:id);
+  verify(nodeIds.every((id,index)=>index===0||id!==nodeIds[index-1]),
+    'consecutive route points must differ');
+  return {...annotation,routes:annotation.routes.map(item=>item.id===routeId
+    ? {...item,nodeIds,status:'draft'}:item)};
 }
 export function insertRoutePoint(annotation,{routeId,segmentIndex,id,u,v,type='waypoint'}) {
   const route=annotation.routes.find(item=>item.id===routeId);

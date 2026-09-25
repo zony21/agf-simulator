@@ -79,7 +79,8 @@
           <label>仮線の初期形<select id="annotation-bend"><option value="horizontal">横→縦（L字）</option><option value="vertical">縦→横（L字）</option><option value="direct">直線</option></select></label>
           <label>編集対象の経路<select id="annotation-selected"><option value="">経路を選択</option></select></label>
           <label>点ID<input id="annotation-point-id" value="P01" maxlength="32" autocomplete="off"></label>
-          <label>点種別<select id="annotation-point-type"><option value="waypoint">通過・経由</option><option value="pickup">荷受け</option><option value="dropoff">荷下ろし</option><option value="shutter_wait">シャッター手前停止</option><option value="shutter_passage">シャッター通過</option><option value="turn">旋回</option><option value="junction">分岐・交差</option><option value="home">待機・HP</option><option value="charger">充電位置</option></select></label>
+          <label>点種別<select id="annotation-point-type"><option value="waypoint">通過・経由</option><option value="pickup">荷受け</option><option value="dropoff">荷下ろし</option><option value="stop">停止・待機</option><option value="warehouse_location">倉庫ロケーション</option><option value="shutter_wait">シャッター手前停止</option><option value="shutter_passage">シャッター通過</option><option value="turn">旋回</option><option value="junction">分岐・交差</option><option value="home">待機・HP</option><option value="charger">充電位置</option></select></label>
+          <label>選択経路点の置換先（既存点）<select id="annotation-shared-point"><option value="">接続する点を選択</option></select></label>
           <label>経路ID<input id="annotation-route-id" value="R01" maxlength="32" autocomplete="off"></label>
           <label>線の区分<select id="annotation-task"><option value="guide">未割当の参考ガイド</option><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="charge">充電</option></select></label>
           <label>区間<select id="annotation-phase"><option value="loaded">積載走行</option><option value="empty">空走</option><option value="charge">充電移動</option><option value="guide" selected>未割当・参考線</option></select></label>
@@ -89,6 +90,8 @@
           <button id="annotation-classify">選択線の区分を変更（未承認のまま）</button>
           <button id="annotation-undo">仮線の始点／選択末尾を取消</button>
           <button id="annotation-remove-point">選択した経路点を削除</button>
+          <button id="annotation-update-type" type="button">選択点の種別を変更</button>
+          <button id="annotation-connect-point" type="button">選択経路点を既存点に置換</button>
           <button id="annotation-delete-route">経路を削除</button>
           <button id="annotation-undo-edit">↶ 元に戻す</button>
           <button id="annotation-redo-edit">↷ やり直す</button>
@@ -98,8 +101,16 @@
         <p class="status" id="annotation-state" role="status">CADプレビューを読み込むと図上編集を開始できます。</p>
         <div class="route-info" id="annotation-list"></div>
         <div id="segment-review-editor" class="section" hidden>
-          <h3>区間ごとの通行条件レビュー（端末内・下書き）</h3>
-          <p class="status">まず図面の線を修正してから、区間ごとに通行可否を明示します。「通行可」は利用者の申告であり、実機安全性や交通制御の承認ではありません。点や線を編集すると古い確認結果は破棄されます。未割当の参考線はグラフ出力に含めません。</p>
+          <h3>点・共有接続・区間のレビュー（端末内）</h3>
+          <p class="status">図面の点と線を修正後、点の位置・役割、共有点での接続、区間の通行条件をそれぞれ確認します。近い点や交差する線は自動接続しません。位置・種別・接続・区分を編集すると確認結果は失効します。申告は実機安全性や交通制御の承認ではありません。</p>
+          <div class="fields">
+            <label class="wide">確認対象の点<select id="review-node"></select></label>
+            <label>位置・役割の確認<select id="review-node-state"><option value="unresolved">未確認</option><option value="operator-confirmed">図上の位置・役割を確認</option></select></label>
+            <label>共有点での経路接続<select id="review-node-connection"><option value="unresolved">未確認</option><option value="connected">表示した全経路がこの点で接続</option><option value="not-applicable">単独の点（共有なし）</option></select></label>
+          </div>
+          <p id="review-node-routes" class="status"></p>
+          <button id="review-node-save" type="button">選択点の確認結果を登録</button>
+          <h3>区間の通行条件</h3>
           <div class="fields">
             <label class="wide">確認対象の線分<select id="review-segment"></select></label>
             <label>AGF通行可否<select id="review-access"><option value="unresolved">未確認</option><option value="allowed">通行可と申告</option><option value="forbidden">通行不可と申告</option></select></label>
@@ -108,8 +119,10 @@
             <label>同一区間の対向同時通過<select id="review-passing"><option value="unresolved">未確認</option><option value="no-alternating">不可・交互通行</option><option value="yes">可能との回答あり（詳細制御は別）</option></select></label>
             <label>シャッター／通行許可設備<select id="review-gate"><option value="unresolved">未確認</option><option value="none">当該区間にはなし</option><option value="controlled">通行許可が必要</option></select></label>
             <label>通行許可設備ID<input id="review-gate-id" maxlength="32" autocomplete="off" placeholder="例：SH01（入力例）"></label>
-            <label>シャッター前停止点<select id="review-wait-point"><option value="">停止点を選択</option></select></label>
+            <label>始点→終点のシャッター前停止点<select id="review-forward-wait"><option value="">始点の停止点を選択</option></select></label>
+            <label>終点→始点のシャッター前停止点<select id="review-reverse-wait"><option value="">終点の停止点を選択</option></select></label>
           </div>
+          <p class="status">通行許可区間は進入側の停止点で区切ってください。双方向の場合は両端に別々のシャッター手前停止点が必要です。停止位置が未確定なら区間も未確認のままにします。</p>
           <div class="actions" style="margin-top:.6rem">
             <button id="review-save" type="button">選択区間の確認結果を登録</button>
             <button id="review-export" type="button">確認台帳JSON保存</button>

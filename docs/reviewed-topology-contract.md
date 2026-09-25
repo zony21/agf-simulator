@@ -28,7 +28,7 @@
 | `setSegmentReview(annotation, checklist, value)` | 1区間の明示入力を型・既存点で検証。 |
 | `validateSegmentChecklist(annotation, checklist)` | 同一画像／下書き／点順序を照合し、重複・欠落・矛盾を拒否。 |
 | `buildReviewedTopology(annotation, checklist)` | 未確認・通行不可・参考ガイドを除外し、距離なし位相グラフを返す。 |
-| `findReviewedTopologyPath(graph, fromId, toId)` | 方向に従う位相上の探索結果を返す。所要時間と交通許可は常に未提供。 |
+| `findReviewedTopologyPath(graph, fromId, toId, {taskType, phase})` | 搬送区分・空走／積載／充電区分を必ず指定して方向探索する。別タスクの線を暗黙連結せず、所要時間と交通許可は常に未提供。 |
 
 `access`, `direction`, `laneCount`, `simultaneousPassing`, `gate` を独立属性とする。**双方向＝2車線／同時すれ違い可**とは解釈しない。通行不可・未確認なら進行方向等の通行属性を与えず、完全確認されていない通行可申告も受け付けない。シャッター制御に必要な待機点は単なるウェイポイントを代用しない。
 

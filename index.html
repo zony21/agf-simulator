@@ -97,6 +97,28 @@
         </div>
         <p class="status" id="annotation-state" role="status">CADプレビューを読み込むと図上編集を開始できます。</p>
         <div class="route-info" id="annotation-list"></div>
+        <div id="segment-review-editor" class="section" hidden>
+          <h3>区間ごとの通行条件レビュー（端末内・下書き）</h3>
+          <p class="status">まず図面の線を修正してから、区間ごとに通行可否を明示します。「通行可」は利用者の申告であり、実機安全性や交通制御の承認ではありません。点や線を編集すると古い確認結果は破棄されます。未割当の参考線はグラフ出力に含めません。</p>
+          <div class="fields">
+            <label class="wide">確認対象の線分<select id="review-segment"></select></label>
+            <label>AGF通行可否<select id="review-access"><option value="unresolved">未確認</option><option value="allowed">通行可と申告</option><option value="forbidden">通行不可と申告</option></select></label>
+            <label>進行方向<select id="review-direction"><option value="unresolved">未確認</option><option value="forward">始点→終点のみ</option><option value="reverse">終点→始点のみ</option><option value="both">双方向</option></select></label>
+            <label>区間の車線数<select id="review-lanes"><option value="">未確認</option><option value="1">1車線</option><option value="2">2車線</option><option value="3">3車線</option><option value="4">4車線</option></select></label>
+            <label>同一区間の対向同時通過<select id="review-passing"><option value="unresolved">未確認</option><option value="no-alternating">不可・交互通行</option><option value="yes">可能との回答あり（詳細制御は別）</option></select></label>
+            <label>シャッター／通行許可設備<select id="review-gate"><option value="unresolved">未確認</option><option value="none">当該区間にはなし</option><option value="controlled">通行許可が必要</option></select></label>
+            <label>通行許可設備ID<input id="review-gate-id" maxlength="32" autocomplete="off" placeholder="例：SH01（入力例）"></label>
+            <label>シャッター前停止点<select id="review-wait-point"><option value="">停止点を選択</option></select></label>
+          </div>
+          <div class="actions" style="margin-top:.6rem">
+            <button id="review-save" type="button">選択区間の確認結果を登録</button>
+            <button id="review-export" type="button">確認台帳JSON保存</button>
+            <label style="display:inline-flex;align-items:center">確認台帳JSON読込<input id="review-import" type="file" accept=".json,application/json"></label>
+            <button id="review-export-topology" type="button">通行候補グラフJSON保存</button>
+          </div>
+          <p class="status" id="segment-review-state" role="status">CADプレビューを読み込むと区間の確認を開始できます。</p>
+          <p class="status">グラフJSONはレビュー済み位相情報に限られ、走行距離・所要時間・車体離隔・シャッター信号の状態・衝突回避・実機操作を確定しません。非公開データを公開GitHubへ追加しないでください。</p>
+        </div>
       </div>
       <svg id="map" viewBox="0 0 720 480" role="img" aria-label="設備エリアを概念的に表示する模式図">
         <rect class="area" x="20" y="25" width="680" height="195" rx="12"/>

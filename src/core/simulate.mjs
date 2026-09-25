@@ -1,4 +1,5 @@
 import { selectAgf } from './select-agf.mjs';
+import { batteryModel, validateBatteryModel, createBatteryLedger } from './battery-model.mjs';
 
 const minute = value => Math.round(value * 60_000);
 const required = (test, message) => { if (!test) throw new Error(message); };
@@ -20,12 +21,13 @@ export function simulate(rawScenario) {
   }
   required(times.wrapMin > 0, 'times.wrapMin must be positive');
   const battery = scenario.battery ?? {};
-  for (const key of ['reservePct','chargeStartPct','chargeTargetPct','consumptionPct','chargeMinPerPct']) {
+  for (const key of ['reservePct','chargeStartPct','chargeTargetPct','chargeMinPerPct']) {
     required(Number.isFinite(battery[key]), 'battery.' + key + ' is required');
   }
   required(battery.reservePct >= 0 && battery.chargeStartPct >= 0 &&
     battery.chargeStartPct < battery.chargeTargetPct && battery.chargeTargetPct <= 100 &&
-    battery.consumptionPct >= 0 && battery.chargeMinPerPct > 0, 'invalid battery settings');
+    battery.chargeMinPerPct > 0, 'invalid battery settings');
+  validateBatteryModel(battery);
   required(['area_first','low_battery_first'].includes(scenario.mode), 'mode required');
   const fallback = scenario.fallback ?? 'wait';
   required(['wait','any'].includes(fallback), 'fallback must be wait or any');
@@ -38,6 +40,7 @@ export function simulate(rawScenario) {
   required(agfs.length === 4 && new Set(agfs.map(a => a.id)).size === 4, 'four unique AGFs required');
   for (const a of agfs) required(Number.isFinite(a.batteryPct) && a.batteryPct >= 0 && a.batteryPct <= 100 &&
     typeof a.area === 'string' && a.area, 'invalid AGF initial position/battery');
+  const batteryLedger = batteryModel(battery) === 'active_time' ? createBatteryLedger(agfs,battery) : null;
   const chargers = new Map((scenario.chargerIds ?? []).map(id => [id,null]));
   required(chargers.size === 2 && new Set(scenario.chargerIds).size === 2, 'two chargers required');
   const slots = new Map((scenario.warehouse ?? []).map(s => [s.id,{...s,palletIds:[...(s.palletIds ?? [])],reserved:[]}]));
@@ -140,7 +143,7 @@ export function simulate(rawScenario) {
   const finishTask = (t,a) => {
     t.status='completed'; t.completedAt=now; a.status='idle'; a.taskId=null; a.carriedPalletId=null;
     a.area=t.destinationArea;
-    a.batteryPct=Math.max(0,Math.round((a.batteryPct-battery.consumptionPct)*1000)/1000);
+    if (!batteryLedger) a.batteryPct=Math.max(0,Math.round((a.batteryPct-battery.consumptionPct)*1000)/1000);
     stats.completed++; stats.byKind[t.kind]=(stats.byKind[t.kind]??0)+1;
     record('TASK_COMPLETED',{taskId:t.id,kind:t.kind,agfId:a.id,palletId:t.palletId ?? null});
     if (a.batteryPct <= battery.chargeStartPct) {
@@ -216,6 +219,7 @@ export function simulate(rawScenario) {
     const [chargerId]=free;
     required(a.status === 'moving_to_charge' || a.status === 'waiting_charge', 'AGF not at charging location');
     a.status='charging'; a.area='WH'; a.chargerId=chargerId; chargers.set(chargerId,agfId);
+    batteryLedger?.startCharge(a,now);
     stats.chargingStarts++;
     record('CHARGE_STARTED',{agfId,chargerId,batteryPct:a.batteryPct});
     schedule(now+minute((battery.chargeTargetPct-a.batteryPct)*battery.chargeMinPerPct),
@@ -274,6 +278,7 @@ export function simulate(rawScenario) {
     queue.sort((a,b)=>a.timeMs-b.timeMs || a.order-b.order);
     const e=queue.shift();
     if (e.timeMs>durationMs) break;
+    batteryLedger?.advance(now,e.timeMs,tasks);
     now=e.timeMs;
     if (e.type === 'PALLET_EXITED') {
       const l=lines.get(e.lineId);
@@ -371,11 +376,17 @@ export function simulate(rawScenario) {
       required(a?.status==='charging' && a.chargerId===e.chargerId &&
         chargers.get(e.chargerId)===a.id,'invalid charge end');
       a.batteryPct=battery.chargeTargetPct;a.status='idle';a.chargerId=null;
+      batteryLedger?.finishCharge(a);
       chargers.set(e.chargerId,null);
       record('CHARGE_ENDED',{agfId:a.id,chargerId:e.chargerId,batteryPct:a.batteryPct});
       if (chargeQueue.length) startCharge(chargeQueue.shift());
     } else throw new Error('unsupported event '+e.type);
     wakeDrops(); issue02(); dispatch();
+  }
+  if (batteryLedger) {
+    batteryLedger.advance(now,durationMs,tasks);
+    now=durationMs;
+    record('RUN_ENDED',{batteryModel:'active_time'});
   }
   return {scenario,events:history,snapshots,final:snapshot(),metrics:{
     ...stats,pendingTasks:[...tasks.values()].filter(t=>t.status!=='completed').length,

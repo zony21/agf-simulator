@@ -6,7 +6,7 @@ Full customer/site requirements and CAD layouts remain outside this public repos
 - The uploaded DXF has `$INSUNITS=0`; the user considers its model units likely mm. The display-only private preview can use an explicit mm assumption, but physical scale remains unverified until compared with a known length. The reference origin, relevant layer semantics, and unresolved INSERTs remain open. Do not derive approved mm distances or ETA from this preview.
 - Per-line pickup points and georeferenced equipment coordinates.
 - Physical route graph, actual turn/stop points, individual slot-to-row map, shutter-specific stopping points and transit times. The [abstract logical map](logical-map.md) records confirmed corridor relationships but is not measured physical routing. Use the [route annotation guide](route-annotation-guide.md); do not silently promote provisional paths to confirmed geometry.
-- Battery discharge by motion segment and charging travel/queue durations.
+- Battery consumption baseline is now 70 percentage points per 360 minutes of driving and handling (supplier assumption relayed by the user on 2026-09-25; active-time scope explicitly user-confirmed). Idle, blocked unloading and charger queues are excluded; charging travel is included. Load/speed/distance-specific rates, auxiliary idle consumption, physical charging routes, mid-task charge interruption and pre-dispatch completion-energy reservations remain unresolved. See [AGF specification](specs/07-agf.md).
 - Wrapper/labeler exact durations and blocking/interlock behavior.
 - Initial magazine quantities, physical capacity and source readiness timeline.
 - Transport-type priority and preemption policy.

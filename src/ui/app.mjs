@@ -1,4 +1,5 @@
 import {simulate} from '../core/simulate.mjs';
+import {projectBatteryPct,batteryModel} from '../core/battery-model.mjs';
 import {createDemoScenario} from './scenario.mjs';
 import {snapshotIndexAt,replayTime,analyzeRun,compareRuns,effectiveStatus} from './replay-model.mjs';
 import {initMap,renderWarehouseBlock,describeSlot} from './map-view.mjs';
@@ -12,11 +13,12 @@ const $=id=>document.getElementById(id);
 const timeFields=[['emptyMin','空走（分）'],['loadedMin','積載走行（分）'],['pickupMin','荷受け（分）'],
   ['dropoffMin','荷下ろし（分）'],['wrapMin','包装（分）'],['labelMin','ラベル（分）'],['exitMin','出口移送（分）'],['chargeTravelMin','充電場所への移動（分）']];
 const batteryFields=[['reservePct','選定残量下限（%）'],['chargeStartPct','充電要求（%）'],['chargeTargetPct','復帰残量（%）'],
-  ['consumptionPct','1タスク消費（%・仮定）'],['chargeMinPerPct','1%充電に要する時間（分）']];
+  ['activeReferenceMin','基準稼働時間（分）'],['activeReferenceConsumptionPct','基準時間での消費（ポイント）'],
+  ['consumptionPct','旧方式：1タスク消費（ポイント）'],['chargeMinPerPct','1ポイント充電に要する時間（分）']];
 const numeric=id=>Number($(id).value);
 const input=(id,label,value,min=0,step=.1,max='')=>`<label>${esc(label)}<input id="${id}" type="number" min="${min}" step="${step}" ${max!==''?`max="${max}"`:''} value="${value}" required></label>`;
 let base=createDemoScenario(),result=null,analysis=null,comparison=null,runId='',runNumber=0;
-let timeMs=0,currentIndex=-1,selectedAgf='AGF1',activeView='monitor',dirty=false,frame=null,anchor=null;
+let timeMs=0,currentIndex=-1,batterySecond=-1,selectedAgf='AGF1',activeView='monitor',dirty=false,frame=null,anchor=null;
 let selectedBlock='WB1',reservationKind='05';
 const map=initMap({svg:$('map'),onSelectAgf:selectAgf,onSelectBlock:openWarehouse});
 
@@ -26,8 +28,14 @@ function populateSettings(scenario) {
   $('inputCapacity').value=scenario.wrapper.inputCapacity;$('outputCapacity').value=scenario.wrapper.outputCapacity;
   $('line-fields').innerHTML=scenario.lineIntervalsMin.map((n,i)=>`<div class="line-setting"><h3>系列 ${i+1}</h3>${input('line-'+i,'搬出間隔（分）',n)}${input('offset-'+i,'初回ずらし（分）',scenario.lineStartOffsetsMin[i],0,.001)}</div>`).join('');
   $('time-fields').innerHTML=timeFields.map(([id,label])=>input(id,label,scenario.times[id],id==='wrapMin'?.001:0,.001)).join('');
-  $('battery-fields').innerHTML=batteryFields.map(([id,label])=>input(id,label,scenario.battery[id],id==='chargeMinPerPct'?.001:0,.001,id.endsWith('Pct')&&id!=='chargeMinPerPct'?100:'')).join('');
+  $('battery-fields').innerHTML='<label>消費方式<select id="battery-model"><option value="active_time">走行・荷役の稼働時間</option><option value="per_task">タスク単位（旧シナリオ再現用）</option></select></label>'+
+    batteryFields.map(([id,label])=>input(id,label,scenario.battery[id],['chargeMinPerPct','activeReferenceMin'].includes(id)?.001:0,.001,id.endsWith('Pct')&&id!=='chargeMinPerPct'?100:'')).join('');
+  $('battery-model').value=batteryModel(scenario.battery);syncBatteryFields();
   $('agf-fields').innerHTML=scenario.agfs.map((a,i)=>`<div><h3>${a.id}</h3>${input('initial-battery-'+i,'初期残量（%）',a.batteryPct,0,.1,100)}<label>初期エリア<select id="initial-area-${i}"><option value="PZ" ${a.area==='PZ'?'selected':''}>パレタイズ</option><option value="WH" ${a.area==='WH'?'selected':''}>製品倉庫</option></select></label></div>`).join('');
+}
+function syncBatteryFields(){const active=$('battery-model').value==='active_time';
+  for(const id of ['activeReferenceMin','activeReferenceConsumptionPct']){$(id).disabled=!active;$(id).parentElement.hidden=!active;}
+  $('consumptionPct').disabled=active;$('consumptionPct').parentElement.hidden=active;
 }
 function scenarioFromSettings() {
   if(!$('settings-form').checkValidity()) {
@@ -41,6 +49,11 @@ function scenarioFromSettings() {
   scenario.lineStartOffsetsMin=Array.from({length:8},(_,i)=>numeric('offset-'+i));
   scenario.times=Object.fromEntries(timeFields.map(([id])=>[id,numeric(id)]));
   scenario.battery=Object.fromEntries(batteryFields.map(([id])=>[id,numeric(id)]));
+  scenario.battery.consumptionModel=$('battery-model').value;
+  scenario.evidence.batteryConsumption=scenario.battery.consumptionModel==='active_time'&&
+    scenario.battery.activeReferenceMin===360&&scenario.battery.activeReferenceConsumptionPct===70?
+    'supplier-assumption-user-relayed':'scenario-assumption';
+  scenario.evidence.batteryScope=scenario.battery.consumptionModel==='active_time'?'user-confirmed-driving-and-handling':'legacy-per-task';
   scenario.agfs=scenario.agfs.map((a,i)=>({...a,batteryPct:numeric('initial-battery-'+i),area:$('initial-area-'+i).value}));
   return scenario;
 }
@@ -48,10 +61,13 @@ function markDirty(value=true) {dirty=value;$('dirty-state').hidden=!value;}
 function friendlyError(error) {
   const message=error.message??String(error);
   if(/duplicate|already reserved|reserved temporary/.test(message))return '二重予約です。同じパレットの既存予約を確認してください。';
-  if(/temporary pallet|location mismatch/.test(message))return '対象パレットと仮置き場が一致しないか、その時刻に利用できません。';
+  if(/temporary pallet|location mismatch|unreserved pallet at specified temporary/.test(message))return '対象パレットと仮置き場が一致しないか、その時刻に利用できません。';
   if(/explicit permission/.test(message))return '再投入／入庫の許可を確認し、チェックを入れてください。';
-  if(/warehouse destination|reserve manual destination|available destination/.test(message))return '搬送先を予約できません。空き・許可・同じ行の既存タスクを確認してください。';
-  if(/battery/.test(message))return '電池設定を確認してください。充電要求は復帰残量未満、復帰は100%以下、充電時間は正の値が必要です。';
+  if(/warehouse destination|reserve manual destination|available destination|05 destination unavailable/.test(message))return '搬送先を予約できません。空き・許可・同じ行の既存タスクを確認してください。';
+  if(/aligner supply already ready or reserved/.test(message))return 'この整列機はすでに搬送OK、またはタスクで予約済みです。荷受け完了後に再度準備してください。';
+  if(/magazine empty/.test(message))return 'マガジンが空です。補充が完了するまで使用できません。';
+  if(/battery depleted/.test(message))return '走行・荷役中に電池残量が不足する条件です。初期残量・消費率・充電要求・工程時間を見直してください。途中での充電割込みは未実装です。';
+  if(/battery/.test(message))return '電池設定を確認してください。基準稼働時間・充電時間は正の値、消費は0〜100ポイント、充電要求は復帰残量未満にしてください。';
   if(/capacity|overflow|underflow/.test(message))return '設備容量または在荷条件を満たせません。搬出間隔・バッファ容量・手動使用回数を確認してください。';
   return message;
 }
@@ -89,8 +105,17 @@ function setTime(ms,force=false){if(!result)return;timeMs=Math.max(0,Math.min(an
   $('seek').value=String(timeMs);$('clock').textContent=clock(timeMs);
   const index=snapshotIndexAt(result.events,timeMs);
   if(force||index!==currentIndex){currentIndex=index;renderSnapshot();}
+  else if(Math.floor(timeMs/1000)!==batterySecond)renderBattery();
+  batterySecond=Math.floor(timeMs/1000);
 }
-const snapshot=()=>result?.snapshots[Math.max(0,currentIndex)];
+const snapshot=()=>{if(!result)return null;const index=Math.max(0,currentIndex),saved=result.snapshots[index];
+  return {...saved,agfs:saved.agfs.map(a=>({...a,batteryPct:projectBatteryPct(a,saved.tasks.find(t=>t.id===a.taskId),
+    result.scenario.battery,timeMs-result.events[index].timeMs)}))};
+};
+function renderBattery(){for(const a of snapshot().agfs){
+  document.querySelectorAll(`[data-battery-text="${a.id}"]`).forEach(el=>{el.textContent=a.batteryPct.toFixed(1)+'%';});
+  document.querySelectorAll(`[data-battery-bar="${a.id}"]`).forEach(el=>{el.style.width=a.batteryPct+'%';el.classList.toggle('low',a.batteryPct<=result.scenario.battery.chargeStartPct);});
+}}
 function selectAgf(id){selectedAgf=id;renderSnapshot();}
 function renderSnapshot(){if(!result)return;const snap=snapshot();
   const completed=snap.tasks.filter(t=>t.status==='completed').length;
@@ -103,7 +128,7 @@ function renderSnapshot(){if(!result)return;const snap=snapshot();
     const task=snap.tasks.find(t=>t.id===a.taskId),status=effectiveStatus(a,snap);
     return `<button class="agf-card${a.id===selectedAgf?' selected':''}" data-select-agf="${esc(a.id)}" aria-pressed="${a.id===selectedAgf}">
       <div class="agf-card-head"><span class="agf-id"><span class="vehicle-number">${i+1}</span>${esc(a.id)}</span>${badge(status)}</div>
-      <div class="battery-line"><span>電池</span><span class="battery-track"><i class="${a.batteryPct<=result.scenario.battery.chargeStartPct?'low':''}" style="width:${a.batteryPct}%"></i></span><b>${a.batteryPct}%</b></div>
+      <div class="battery-line"><span>電池</span><span class="battery-track"><i data-battery-bar="${a.id}" class="${a.batteryPct<=result.scenario.battery.chargeStartPct?'low':''}" style="width:${a.batteryPct}%"></i></span><b data-battery-text="${a.id}">${a.batteryPct.toFixed(1)}%</b></div>
       <dl class="agf-details"><dt>タスク</dt><dd>${task?esc(task.id)+' / '+task.kind:'—'}</dd><dt>搬送元 → 先</dt><dd>${task?esc(locationName(task.originId))+' → '+esc(locationName(task.destinationId)):'—'}</dd>
       <dt>積載</dt><dd>${esc(a.carriedPalletId??'なし')}</dd><dt>現在位置</dt><dd>${areaName(a.area)}（エリア）</dd></dl></button>`;
   }).join('');
@@ -135,7 +160,7 @@ function renderTasks(){if(!result)return;const snap=snapshot();
     return `<div class="task-kind-card"><span class="kind">TRANSPORT ${kind}</span>${taskNames[kind]}<b>${own.length}</b><small>完了 ${done} / 未完了 ${own.length-done}</small></div>`;}).join('');
   const kind=$('task-kind').value,state=$('task-state').value;
   const tasks=snap.tasks.filter(t=>(!kind||t.kind===kind)&&(!state||(state==='completed'?t.status==='completed':t.status!=='completed')));
-  $('task-list').innerHTML=tasks.toReversed().map(t=>`<tr><td class="mono">${esc(t.id)} <span class="badge">${t.kind}</span></td><td>${badge(t.status)}</td><td class="mono">${esc(t.palletId??'準備待ち')}</td><td>${esc(locationName(t.originId))}</td><td>${esc(locationName(t.destinationId))}</td><td>${esc(t.agfId??'未割当')}</td><td class="reason">${esc(t.waitReason?reasons[t.waitReason]??t.waitReason:'—')}</td></tr>`).join('')||'<tr><td class="empty-cell" colspan="7">この時刻・条件に該当するタスクはありません。モニターで時刻を進めるか、04・05を予約してください。</td></tr>';
+  $('task-list').innerHTML=tasks.toReversed().map(t=>`<tr><td class="mono">${esc(t.id)} <span class="badge">${t.kind}</span></td><td>${badge(t.status)}</td><td class="mono">${esc(t.palletId??(t.kind==='03'?'空PL '+snap.magazines[t.magazineId].refillBatch+'枚':'—'))}</td><td>${esc(locationName(t.originId))}</td><td>${esc(locationName(t.destinationId))}</td><td>${esc(t.agfId??'未割当')}</td><td class="reason">${esc(t.waitReason?reasons[t.waitReason]??t.waitReason:'—')}</td></tr>`).join('')||'<tr><td class="empty-cell" colspan="7">この時刻・条件に該当するタスクはありません。モニターで時刻を進めるか、04・05を予約してください。</td></tr>';
   $('replenishment-status').textContent=Object.values(snap.magazines).map(m=>m.id+': '+m.quantity+'枚'+(m.pending?'（補充要求）':'')).join(' / ');
 }
 function openWarehouse(id){pause();selectedBlock=id;renderWarehouse();if(!$('warehouse-dialog').open)$('warehouse-dialog').showModal();}
@@ -173,7 +198,7 @@ for(let i=1;i<=4;i++)$('log-agf').add(new Option('AGF'+i,'AGF'+i));
 for(let i=1;i<=5;i++){$('mag-select').add(new Option('マガジン'+i,'M'+i));$('align-select').add(new Option('整列機'+i,'AL'+i));}
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
 $('settings-form').addEventListener('submit',event=>event.preventDefault());
-$('settings-form').addEventListener('input',()=>markDirty());$('mode').addEventListener('change',()=>markDirty());
+$('settings-form').addEventListener('input',event=>{markDirty();if(event.target.id==='battery-model')syncBatteryFields();});$('mode').addEventListener('change',()=>markDirty());
 $('scenario-select').addEventListener('change',()=>{pause();base=createDemoScenario($('scenario-select').value);populateSettings(base);markDirty();notify('シナリオを設定欄に読み込みました。「実行」で反映します。');});
 $('run').addEventListener('click',execute);$('run-settings').addEventListener('click',()=>{execute();if(!dirty)showView('monitor');});
 $('reset').addEventListener('click',()=>{pause();clearError();base=createDemoScenario($('scenario-select').value);populateSettings(base);execute();});
@@ -194,5 +219,5 @@ $('align-ready').addEventListener('click',()=>{clearError();try{addInput('aligne
 $('csv').addEventListener('click',()=>{if(!result)return;const url=URL.createObjectURL(new Blob([eventCsv(result,runId)],{type:'text/csv;charset=utf-8'}));
   const a=document.createElement('a');a.href=url;a.download=runId+'-events.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify(runId+' の実行条件と全イベントをCSVに出力しました。');});
 initCadPanel({showError:error=>{$('cad-error').textContent=friendlyError(error);$('cad-error').hidden=false;},clearError:()=>{$('cad-error').hidden=true;}});
-$('open-cad').addEventListener('click',()=>{pause();$('cad-dialog').showModal();});
+for(const id of ['open-cad','open-cad-map'])$(id).addEventListener('click',()=>{pause();$('cad-dialog').showModal();});
 adoptRun(simulate(base));showView(location.hash.slice(1)||'monitor');

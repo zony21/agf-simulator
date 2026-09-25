@@ -36,7 +36,7 @@ export function initMap({svg,onSelectAgf,onSelectBlock}) {
     function equipment(id,label,x,y,w,h,detail='') {
       return `<g class="equipment${targeted(id)}">${rect(x,y,w,h,'equipment-body')}${text(x+12,y+24,label)}${detail?text(x+12,y+43,detail,'map-small'):''}</g>`;
     }
-    const lines=Array.from({length:8},(_,i)=>equipment('L'+(i+1),'L'+(i+1),55+i*83,72,73,61,
+    const lines=Array.from({length:8},(_,i)=>equipment('L'+(i+1),'系列'+(i+1),55+i*83,72,73,61,
       `${snapshot.lines['L'+(i+1)].length} PL`)).join('');
     const mags=Object.values(snapshot.magazines).map((m,i)=>equipment(m.id,'M'+(i+1),56+i*102,169,91,57,`${m.quantity}枚${m.pending?' · 補充':''}`)).join('');
     const temps=[1,2,3].map((n,i)=>equipment('OT'+n,'仮置き '+n,682+i*119,169,108,57,
@@ -60,10 +60,11 @@ export function initMap({svg,onSelectAgf,onSelectBlock}) {
     }).join('');
     const agfs=snapshot.agfs.map((a,i)=>{
       const x=210+i*160,y=a.area==='PZ'?319:405,active=a.id===selected;
-      return `<g data-agf="${esc(a.id)}" role="button" tabindex="0" aria-label="${esc(a.id+' '+(states[a.status]??a.status)+' 所属エリアの仮位置、向き未確定')}" class="agf-marker${active?' selected':''}" transform="translate(${x},${y})">
+      const status=snapshot.tasks.find(t=>t.id===a.taskId)?.status==='wait_drop'?'wait_drop':a.status;
+      return `<g data-agf="${esc(a.id)}" role="button" tabindex="0" aria-label="${esc(a.id+' '+(states[status]??status)+' 所属エリアの仮位置、向き未確定')}" class="agf-marker${active?' selected':''}" transform="translate(${x},${y})">
         <title>${esc(a.id)}：実位置・進行方向は未確定</title><rect class="agf-halo" x="-33" y="-25" width="104" height="50" rx="15"/>
         <rect x="-23" y="-18" width="46" height="36" rx="9" class="agf-body"/><text x="0" y="6" text-anchor="middle" class="agf-number">${i+1}</text>
-        <text x="35" y="-4" class="map-small">${a.batteryPct}%</text><text x="35" y="13" class="map-small">${a.carriedPalletId?'▣ 積載':'□ 空車'}</text></g>`;
+        <text x="35" y="-4" class="map-small" data-battery-text="${a.id}">${a.batteryPct.toFixed(1)}%</text><text x="35" y="13" class="map-small">${a.carriedPalletId?'▣ 積載':'□ 空車'}</text></g>`;
     }).join('');
     svg.innerHTML=`<defs><pattern id="map-grid" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".8" fill="#cbd5e1"/></pattern>
       <pattern id="gap" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M0 6 L6 0" stroke="#94a3b8" stroke-width="1"/></pattern></defs>
@@ -82,7 +83,7 @@ export function initMap({svg,onSelectAgf,onSelectBlock}) {
       <rect x="525" y="529" width="38" height="39" rx="3" class="fire-gate"/><rect x="525" y="744" width="38" height="39" rx="3" class="fire-gate"/>
       ${text(544,554,'SH1','shutter-label')}${text(544,770,'SH2','shutter-label')}
       <text x="552" y="638" class="map-small" transform="rotate(90 552 638)">中央壁 · 自由横断不可</text>
-      ${blocks}${text(685,767,'EB第10列：パレットなし・通行可否未確定','map-small')}
+      ${blocks}${text(685,762,'EB第10列：パレットなし・通行可否未確定','map-small')}${text(804,780,'整列機5台（搬送03荷受け）','map-small')}
       ${WAREHOUSE_SERVICE.waitingPlaces.map((p,i)=>equipment(p.id,'待機場所 '+(i+1),664,787+i*34,127,30)).join('')}
       ${WAREHOUSE_SERVICE.chargePlaces.map((p,i)=>equipment(p.id,'充電場所 '+(i+1),664,857+i*34,127,30)).join('')}
       ${Object.values(snapshot.aligners).map((a,i)=>equipment(a.id,'AL'+(i+1),803+i*46,787,43,48,a.ready?'OK':'待機')).join('')}

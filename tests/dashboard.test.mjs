@@ -4,6 +4,7 @@ import {WAREHOUSE_BLOCKS,warehouseLocations,WAREHOUSE_RULES,WAREHOUSE_SERVICE,WA
 import {snapshotIndexAt,replayTime,analyzeRun,compareRuns} from '../src/ui/replay-model.mjs';
 import {createDemoScenario} from '../src/ui/scenario.mjs';
 import {simulate} from '../src/core/simulate.mjs';
+import {eventCsv} from '../src/ui/export.mjs';
 
 test('warehouse contains 802 logical tier locations without inventing an east gap road',()=>{
   const locations=warehouseLocations();
@@ -92,4 +93,30 @@ test('invalid manual reservation cannot mutate the saved result or its scenario'
   assert.throws(()=>simulate(bad),/explicit permission/);
   assert.deepEqual(result.scenario,before);
   assert.equal(result.final.temporaryPallets.length,3);
+});
+
+test('charging preset completes its horizon with a real charger queue and bounded buffers',()=>{
+  const run=simulate(createDemoScenario('charge'));
+  const analysis=analyzeRun(run);
+  assert.ok(analysis.chargeMs>0);
+  assert.ok(analysis.chargeWaitMs>0);
+  assert.ok(run.snapshots.every(s=>Object.values(s.lines).every(p=>p.length<=2)));
+  assert.ok(run.snapshots.every(s=>Object.values(s.chargers).filter(Boolean).length<=2));
+});
+
+test('CSV uses saved conditions and does not backfill future AGF assignments into request rows',()=>{
+  const scenario=createDemoScenario('manual');
+  scenario.manualRequests=[{timeMs:0,kind:'05',palletId:'SIM-TEMP-1',locationId:'OT1',
+    destinationLocationId:scenario.generatedDestinationIds[0],storagePermission:true}];
+  const run=simulate(scenario),csv=eventCsv(run,'TEST-RUN');
+  scenario.durationMin=999;
+  assert.ok(csv.startsWith('\ufeffrunId,mode,'));
+  assert.ok(csv.includes('""durationMin"":180'));
+  assert.ok(!csv.includes('""durationMin"":999'));
+  const requested=csv.split('\r\n').find(line=>line.includes(',TASK_REQUESTED,'));
+  assert.ok(requested.includes('SIM-TEMP-1,,OT1,'));
+  assert.ok(csv.includes('synthetic'));
+  assert.ok(csv.includes('active_time,supplier-assumption-user-relayed,user-confirmed-driving-and-handling'));
+  assert.ok(csv.includes('""activeReferenceMin"":360'));
+  assert.equal(csv,eventCsv(run,'TEST-RUN'));
 });

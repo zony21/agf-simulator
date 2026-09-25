@@ -169,15 +169,19 @@ export function buildReviewedTopology(annotation,checklist) {
  * Directed BFS for contract tests and future planning. Still no traffic
  * reservation, signal state, geometry clearance, measured distance or ETA.
  */
-export function findReviewedTopologyPath(graph,fromId,toId) {
+export function findReviewedTopologyPath(graph,fromId,toId,{taskType,phase}={}) {
   check(graph?.schemaVersion==='reviewed-topology-v1' &&
     graph.kind==='reviewed-topology-only' && graph.physicalEtaAllowed===false &&
     graph.trafficReady===false && graph.operationalRoutingReady===false,
     'reviewed topology required');
+  check(typeof taskType==='string' && typeof phase==='string' &&
+    taskType!=='guide' && phase!=='guide',
+    'explicit transport and phase scope required');
   const nodes=new Set(graph.nodes.map(n=>n.id));
   check(nodes.has(fromId)&&nodes.has(toId),'unknown endpoint');
   const next=new Map([...nodes].map(id=>[id,[]]));
   for(const edge of graph.edges) {
+    if(edge.taskType!==taskType || edge.phase!==phase)continue;
     if(edge.direction!=='reverse')next.get(edge.fromId).push({to:edge.toId,id:edge.id,gate:edge.gate});
     if(edge.direction!=='forward')next.get(edge.toId).push({to:edge.fromId,id:edge.id,gate:edge.gate});
   }

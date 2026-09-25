@@ -10,6 +10,10 @@ A development harness for a deterministic, event-driven AGF logistics simulator 
 - **[全体実装計画](docs/implementation-plan.md)**：各工程の依存関係、受入条件、検証方法。
 - **[実装PR #1](https://github.com/zony21/agf-simulator/pull/1)**：作業ブランチ `feat/event-simulator-ui`。コード実装・合成CIの完了と、実図面での経路承認・mainへのマージは別に扱う。
 
+### M2 区間レビューの実装
+
+非公開CADの下書きとは別に、区間ごとの通行可否・方向・車線数・同時通過・ゲートを**端末内で明示登録**する画面と、変更時に失効する非公開JSON台帳を追加しました。未確認・禁止・未割当ガイドは位相グラフから除外します。出力は距離・ETA・交通制御・実機の走行許可を含まない**レビュー済み位相候補**です。詳細は[区間レビュー契約](docs/reviewed-topology-contract.md)を参照してください。
+
 ## Current scope
 
 This repository initially contains a **development harness**, not a finished logistics simulator. It establishes trace validation, AGF dispatch selection, synthetic test fixtures, agent instructions, and CI. The later UI can use Vue 3 + TypeScript + SVG; do not interpret the synthetic fixture as facility data.

@@ -6,7 +6,7 @@ import * as settings from '../src/ui/extended-settings.mjs';
 import {describeSettingsError,settingsErrorControls} from '../src/ui/settings-validation.mjs';
 
 const defaults={wrapperOutput:10,magazines:{M1:24,M2:22,M3:23,M4:20,M5:21},
-  lines:{L1:30,L2:34,L3:34,L4:32,L5:33,L6:31,L7:34,L8:34}};
+  lines:{L1:30,L2:30,L3:30,L4:30,L5:30,L6:30,L7:30,L8:30}};
 const rawValues=priorities=>({'wrapperOutput':String(priorities.wrapperOutput),
   ...Object.fromEntries(Object.entries(priorities.magazines).map(([id,value])=>['magazines.'+id,String(value)])),
   ...Object.fromEntries(Object.entries(priorities.lines).map(([id,value])=>['lines.'+id,String(value)]))});
@@ -35,6 +35,7 @@ test('priority settings expose exactly fourteen required integer inputs without 
   const fields=rawValues(defaults);
   for(const [path,value] of Object.entries(fields))assert.ok(inputs.some(input=>input.includes(`data-task-priority="${path}"`)&&input.includes(`value="${value}"`)),path);
   assert.match(html,/数値が小さいほど優先/);assert.match(html,/包装機出口/);assert.match(html,/パレットマガジン/);assert.match(html,/系列/);
+  assert.match(html,/同優先度の搬送01同士.*現在の系列バッファ在荷数/);
   assert.doesNotMatch(html,/data-task-priority="[^\"]*(?:charge|CHARGER)/i);
   assert.equal(settings.renderTaskPrioritySettings(createLegacyScenario()),'');
 });
@@ -45,9 +46,9 @@ test('saved priority values repopulate without being replaced by initial default
     assert.match(html,new RegExp(`data-task-priority="${key}"[^>]*value="${value}"`));
 });
 test('priority form conversion preserves duplicate priorities and does not mutate saved input',()=>{
-  const saved=structuredClone(defaults),values=rawValues(defaults);values['lines.L1']='34';values.wrapperOutput='99';
+  const saved=structuredClone(defaults),values=rawValues(defaults);values['lines.L1']='30';values.wrapperOutput='99';
   const next=settings.taskPrioritiesFromSettings(saved,values);
-  assert.equal(next.lines.L1,34);assert.equal(next.lines.L2,34);assert.equal(next.wrapperOutput,99);
+  assert.equal(next.lines.L1,30);assert.equal(next.lines.L2,30);assert.equal(next.wrapperOutput,99);
   assert.deepEqual(saved,defaults);assert.notEqual(next,saved);assert.notEqual(next.lines,saved.lines);
   assert.equal(settings.taskPrioritiesFromSettings(undefined,{}),undefined);
 });

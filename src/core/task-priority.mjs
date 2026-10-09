@@ -3,7 +3,7 @@
 export const DEFAULT_TASK_PRIORITIES=Object.freeze({
   wrapperOutput:10,
   magazines:Object.freeze({M1:24,M2:22,M3:23,M4:20,M5:21}),
-  lines:Object.freeze({L1:30,L2:34,L3:34,L4:32,L5:33,L6:31,L7:34,L8:34})
+  lines:Object.freeze({L1:30,L2:30,L3:30,L4:30,L5:30,L6:30,L7:30,L8:30})
 });
 const automaticKinds=new Set(['01','02','03']);
 const fail=message=>{throw new Error('TASK_PRIORITY_CONFIG: '+message);};
@@ -47,8 +47,9 @@ export function resolveTaskPriority(task,settings){
 }
 
 /** Replace only queued automatic-task positions; retain manual-task positions,
- * completed/assigned positions and the underlying pending list unchanged. */
-export function orderPendingTasks(pendingIds,tasks,settings){
+ * completed/assigned positions and the underlying pending list unchanged.
+ * Inventory is read from the caller's current state, never from saved tasks. */
+export function orderPendingTasks(pendingIds,tasks,settings,lineBufferCountProvider=()=>0){
   if(settings===undefined)return pendingIds;
   const automatic=id=>{
     const task=tasks.get(id);
@@ -56,7 +57,12 @@ export function orderPendingTasks(pendingIds,tasks,settings){
   };
   const sorted=pendingIds.filter(automatic).sort((left,right)=>{
     const a=tasks.get(left),b=tasks.get(right);
-    return a.taskPriority-b.taskPriority||a.requestedAt-b.requestedAt||a.requestSequence-b.requestSequence;
+    if(a.taskPriority!==b.taskPriority)return a.taskPriority-b.taskPriority;
+    if(a.kind==='01'&&b.kind==='01'){
+      const inventoryDifference=lineBufferCountProvider(b.sourceLineId)-lineBufferCountProvider(a.sourceLineId);
+      if(inventoryDifference)return inventoryDifference;
+    }
+    return a.requestedAt-b.requestedAt||a.requestSequence-b.requestSequence;
   });
   let next=0;
   return pendingIds.map(id=>automatic(id)?sorted[next++]:id);

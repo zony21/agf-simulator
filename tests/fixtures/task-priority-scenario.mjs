@@ -16,7 +16,7 @@ export function taskPriorityScenario(overrides={}){
     aligners:[1,2,3,4,5].map(n=>({id:'AL'+n,quantity:10})),
     productionEvents:[{timeMs:0,lineId:'L8',palletId:'SYN-PRIORITY-SEED',destinationLocationId:'S1'}],
     taskPriorities:{wrapperOutput:10,magazines:{M1:24,M2:22,M3:23,M4:20,M5:21},
-      lines:{L1:30,L2:34,L3:34,L4:32,L5:33,L6:31,L7:34,L8:34}},
+      lines:{L1:30,L2:30,L3:30,L4:30,L5:30,L6:30,L7:30,L8:30}},
     ...overrides
   };
 }

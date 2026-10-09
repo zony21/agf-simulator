@@ -203,7 +203,7 @@ const priorityValue=(priorities,path)=>path.split('.').reduce((value,key)=>value
 /** Symbols and timing remain untouched; these are editable simulation queue settings. */
 export function renderTaskPrioritySettings(s){
   if(s.taskPriorities===undefined)return '';
-  return `<p class="notice">数値が小さいほど優先。1～99の整数で指定し、同じ値も使用できます。同値では要求時刻・処理順で決めます。変更は実行後の新Runに反映します。</p>
+  return `<p class="notice">数値が小さいほど優先。1～99の整数で指定し、同じ値も使用できます。同優先度の搬送01同士は現在の系列バッファ在荷数が多い順、同数なら要求時刻・処理順で決めます。01と02・03など、それ以外の同優先度は要求時刻・処理順です。変更は実行後の新Runに反映します。</p>
     <p class="muted">初期値はシミュレーション設定です。搬送01～03の未割当タスクが対象で、実行中の搬送を中断しません。04・05の既存順序は維持します。</p>
     <div class="task-priority-groups">${taskPriorityGroups.map(([name,fields])=>`<fieldset><legend>${name}</legend><div class="fields">${fields.map(([path,label])=>
       `<label>${label}<input type="number" min="1" max="99" step="1" required data-task-priority="${path}" aria-label="${label} 優先度" value="${esc(priorityValue(s.taskPriorities,path)??'')}"></label>`).join('')}</div></fieldset>`).join('')}</div>`;

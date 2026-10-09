@@ -901,8 +901,9 @@ export function simulate(rawScenario) {
       {...e,eligible:false,selected:false,exclusionReason:'TASK_PRECONDITION',taskExclusionReason:reason}:{...e,selected:false}).sort(evaluationOrder),
     stages:[...(selection?.stages??[]),{stage:'task_precondition',reason,eligibleAgfIds:[]}]
   });
+  const currentLineBufferCount = lineId => lines.get(lineId).length;
   const dispatch = () => {
-    for (const id of orderPendingTasks(pending,tasks,taskPriorities)) {
+    for (const id of orderPendingTasks(pending,tasks,taskPriorities,currentLineBufferCount)) {
       const t=tasks.get(id);
       if (t.status !== 'queued') continue;
       // An explicit synthetic vehicle-admission limit leaves a vehicle for
@@ -989,6 +990,7 @@ export function simulate(rawScenario) {
       record('TASK_ASSIGNED',{taskId:t.id,kind:t.kind,agfId:selected.id,palletId:t.palletId ?? null,
         requestSequence:t.requestSequence,
         ...('taskPriority' in t?{prioritySourceId:t.prioritySourceId,taskPriority:t.taskPriority}:{}),
+        ...(t.kind==='01'?{sourceLineId:t.sourceLineId,sourceLineBufferCount:currentLineBufferCount(t.sourceLineId)}:{}),
         dispatchSelection});
       if(graphMode)beginRoute(t,selected,'empty',routePair.empty,'PICKUP',minute(times.pickupMin));
       else schedule(now+minute(times.emptyMin+times.pickupMin),'PICKUP',{taskId:t.id});

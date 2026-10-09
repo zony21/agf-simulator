@@ -22,7 +22,7 @@ export function eventCsv(run,runId) {
     'conveyorQuantity','conveyorCapacity','transferTimingEvidence',
     'operation','positioningMs','forkInsertedMs','angleEvidence','turningConsumptionStatus','resources','blockers','noOvertakingGroupId','groupDirection',
     'shutterId','passable','etaStatus','target','targetId','permitted','permissionEvidence','hpId','placeId','chargePlaceId','chargerId',
-    'sourceLineId','productType','loadType','storageLocationId','blockId','row','column','tier','storageResult',
+    'sourceLineId','sourceLineBufferCount','productType','loadType','storageLocationId','blockId','row','column','tier','storageResult',
     'alignerId','quantityBefore','quantityAfter','quantity','refillBatch','refillNeeded','pickedAt','operatedAt','operationType','automatic','trigger','timingEvidence',
     'originalDueAt','blockedSinceMs','lineCapacity','capacity','retry','recoveryPolicy','policy','count','sourceSelectionEvidence','evidence','plannedPalletId','palletStatus','processingTimeStatus','targetIds',
     'timingStatus','inventoryStatus','batteryModel','batteryConsumptionBasis','batteryScope','scenarioJson'];

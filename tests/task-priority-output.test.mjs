@@ -6,15 +6,16 @@ import {buildRunConditions,renderRunConditions} from '../src/ui/run-conditions.m
 import {eventCsv,conditionCsv} from '../src/ui/export.mjs';
 import {renderComparison} from '../src/ui/analysis-view.mjs';
 import {compareRuns} from '../src/ui/replay-model.mjs';
-import {createLegacyScenario} from '../src/ui/scenario.mjs';
+import {createLegacyScenario,createDemoScenario} from '../src/ui/scenario.mjs';
+import {simulate} from '../src/core/simulate.mjs';
 import {TRANSPORT_HISTORY_COLUMNS} from '../src/ui/transport-history.mjs';
 
 // Specification-confirmed simulation defaults, not physical facility priorities.
 const priorities={wrapperOutput:10,magazines:{M1:24,M2:22,M3:23,M4:20,M5:21},
-  lines:{L1:30,L2:34,L3:34,L4:32,L5:33,L6:31,L7:34,L8:34}};
+  lines:{L1:30,L2:30,L3:30,L4:30,L5:30,L6:30,L7:30,L8:30}};
 const priorityKeys=['taskPriorities.wrapperOutput',...Object.keys(priorities.magazines).map(id=>'taskPriorities.magazines.'+id),
   ...Object.keys(priorities.lines).map(id=>'taskPriorities.lines.'+id)];
-const priorityValues=[10,24,22,23,20,21,30,34,34,32,33,31,34,34];
+const priorityValues=[10,24,22,23,20,21,30,30,30,30,30,30,30,30];
 
 function fixture(){
   const scenario=createLegacyScenario('standard');
@@ -103,17 +104,27 @@ test('developer event CSV preserves request and assignment priority metadata whi
   const run=fixture();run.events=[{type:'TASK_REQUESTED',timeMs:0,sequence:5,taskId:'SYNTHETIC-T1',kind:'01',
     prioritySourceId:'L1',taskPriority:30,requestSequence:5},
   {type:'TASK_ASSIGNED',timeMs:1000,sequence:6,taskId:'SYNTHETIC-T1',kind:'01',agfId:'AGF1',
-    prioritySourceId:'L1',taskPriority:30,requestSequence:5}];
+    prioritySourceId:'L1',taskPriority:30,requestSequence:5,sourceLineId:'L1',sourceLineBufferCount:2}];
   const savedTask={id:'SYNTHETIC-T1',kind:'01',status:'assigned',taskPriority:99,prioritySourceId:'L8',requestSequence:77};
   run.snapshots=run.events.map(()=>({tasks:[savedTask]}));run.final.tasks=[savedTask];
   const lines=eventCsv(run,'SYNTHETIC-PRIORITY-CSV').slice(1).split('\r\n'),columns=lines[0].split(',');
-  for(const field of ['prioritySourceId','taskPriority','requestSequence'])assert.ok(columns.includes(field),field);
+  for(const field of ['prioritySourceId','taskPriority','requestSequence','sourceLineBufferCount'])assert.ok(columns.includes(field),field);
   // The second line has no scenario JSON quoting; it must use the event's saved values, not the changed final task.
   const assigned=lines[2].split(',');
   assert.equal(assigned[columns.indexOf('prioritySourceId')],'L1');
   assert.equal(assigned[columns.indexOf('taskPriority')],'30');
   assert.equal(assigned[columns.indexOf('requestSequence')],'5');
+  assert.equal(assigned[columns.indexOf('sourceLineBufferCount')],'2');
   assert.equal(TRANSPORT_HISTORY_COLUMNS.length,14);
   assert.equal(transportHistoryCsv(run).slice(1).split('\r\n')[0].split(',').length,14);
   assert.ok(!TRANSPORT_HISTORY_COLUMNS.includes('優先度'));
+});
+
+test('a neutral saved run outputs all eight default line priorities as 30 in conditions and CSV',()=>{
+  const scenario=createDemoScenario('standard');scenario.durationMin=.1;
+  const run=simulate(scenario),csv=customerConditionsCsv(run);
+  assert.deepEqual(run.scenario.taskPriorities.lines,priorities.lines);
+  const rows=priorityRows(run).filter(row=>/^L[1-8]$/.test(row.target));
+  assert.equal(rows.length,8);assert.ok(rows.every(row=>row.value===30));
+  for(let n=1;n<=8;n++)assert.ok(csv.includes(`搬送タスク優先度,優先度,L${n},30,,`));
 });

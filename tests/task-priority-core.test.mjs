@@ -18,6 +18,7 @@ const update=(settings,path,value)=>{if(path.length===1)settings[path[0]]=value;
 
 test('07a default priorities include exactly fourteen editable values and are nested immutable',()=>{
   assert.deepEqual(DEFAULT_TASK_PRIORITIES,taskPriorityScenario().taskPriorities);
+  assert.deepEqual(DEFAULT_TASK_PRIORITIES.lines,{L1:30,L2:30,L3:30,L4:30,L5:30,L6:30,L7:30,L8:30});
   assert.equal(priorityPaths().length,14);
   assert.ok(Object.isFrozen(DEFAULT_TASK_PRIORITIES));
   assert.ok(Object.isFrozen(DEFAULT_TASK_PRIORITIES.lines));
@@ -26,7 +27,7 @@ test('07a default priorities include exactly fourteen editable values and are ne
 });
 
 test('priority validation permits ties and both inclusive integer boundaries',()=>{
-  for(const value of [1,34,99]){
+  for(const value of [1,30,99]){
     const settings=defaults();for(const path of priorityPaths())update(settings,path,value);
     assert.doesNotThrow(()=>validateTaskPriorities(settings));
     assert.doesNotThrow(()=>simulate(taskPriorityScenario({taskPriorities:settings,durationMin:.1})));
@@ -100,6 +101,7 @@ test('saved task priorities remain authoritative if configuration is edited afte
 test('pending L1 outranks earlier L2 when the occupied vehicle becomes free',()=>{
   const scenario=taskPriorityScenario({productionEvents:[produced(0,'L8','SYN-PRIORITY-SEED'),
     produced(30_000,'L2','SYN-PRIORITY-L2'),produced(40_000,'L1','SYN-PRIORITY-L1')]});
+  scenario.taskPriorities.lines.L2=34; // Explicit unequal-priority regression, not a default.
   const run=simulate(scenario);
   assert.equal(firstAfterSeed(run).palletId,'SYN-PRIORITY-L1');
 });
@@ -177,7 +179,9 @@ test('request sequence and resolved priority persist in task, first snapshot and
 
 test('editing equipment priority changes only a new run and does not alter an already saved result',()=>{
   const scenario=taskPriorityScenario({productionEvents:[produced(0,'L8','SYN-PRIORITY-SEED'),
-    produced(30_000,'L2','SYN-PRIORITY-L2'),produced(40_000,'L1','SYN-PRIORITY-L1')]}),old=simulate(scenario);
+    produced(30_000,'L2','SYN-PRIORITY-L2'),produced(40_000,'L1','SYN-PRIORITY-L1')]});
+  scenario.taskPriorities.lines.L2=34; // User-editable unequal priorities remain supported.
+  const old=simulate(scenario);
   const saved=structuredClone({events:old.events,snapshots:old.snapshots});
   scenario.taskPriorities.lines.L2=1;
   assert.equal(firstAfterSeed(old).palletId,'SYN-PRIORITY-L1');
@@ -261,4 +265,101 @@ test('synthetic graph requests carry priority while route and initial parking ch
   assert.equal(assignment.taskPriority,30);assert.equal(assignment.etaStatus,'synthetic-assumption');
   assert.ok(run.events.some(e=>e.type==='SEGMENT_ENTERED'));
   assert.deepEqual(simulate(scenario).events,run.events);
+});
+
+test('equal-priority 01 uses live line inventory and reevaluates after quantities reverse',()=>{
+  const tasks=new Map([queued('OLDER','01',30,10,1,{sourceLineId:'L1',sourceLineBufferCount:99}),
+    queued('NEWER','01',30,20,2,{sourceLineId:'L2',sourceLineBufferCount:0})].map(t=>[t.id,t]));
+  const current=new Map([['L1',1],['L2',2]]),count=id=>current.get(id),pending=['OLDER','NEWER'];
+  const saved=structuredClone([...tasks]);
+  assert.deepEqual(orderPendingTasks(pending,tasks,defaults(),count),['NEWER','OLDER']);
+  current.set('L1',2);current.set('L2',1);
+  assert.deepEqual(orderPendingTasks(pending,tasks,defaults(),count),['OLDER','NEWER']);
+  current.set('L1',1);current.set('L2',2);
+  assert.deepEqual(orderPendingTasks(pending,tasks,defaults(),count),['NEWER','OLDER']);
+  assert.deepEqual(pending,['OLDER','NEWER']);assert.deepEqual([...tasks],saved);
+});
+
+test('equal 01 inventory breaks ties by request time then sequence, including the same source line',()=>{
+  for(const sameLine of [false,true]){
+    const tasks=new Map([
+      queued('RECENT','01',30,20,1,{sourceLineId:'L1'}),
+      queued('LATER-SEQUENCE','01',30,10,3,{sourceLineId:sameLine?'L1':'L2'}),
+      queued('EARLIER-SEQUENCE','01',30,10,2,{sourceLineId:sameLine?'L1':'L8'})
+    ].map(t=>[t.id,t]));
+    assert.deepEqual(orderPendingTasks([...tasks.keys()],tasks,defaults(),()=>2),
+      ['EARLIER-SEQUENCE','LATER-SEQUENCE','RECENT']);
+  }
+});
+
+test('different equipment priority wins before comparing line inventory',()=>{
+  const tasks=new Map([queued('HIGH','01',20,20,2,{sourceLineId:'L1'}),
+    queued('FULLER','01',30,10,1,{sourceLineId:'L2'})].map(t=>[t.id,t]));
+  assert.deepEqual(orderPendingTasks(['FULLER','HIGH'],tasks,defaults(),id=>id==='L1'?1:2),['HIGH','FULLER']);
+});
+
+test('01 versus 02 or 03 and non-01 ties never consult line inventory',()=>{
+  for(const [aKind,bKind] of [['01','02'],['01','03'],['02','03'],['03','03']]){
+    const tasks=new Map([queued('NEWER',aKind,30,20,2,{sourceLineId:'L1'}),
+      queued('OLDER',bKind,30,10,1,{sourceLineId:'L2'})].map(t=>[t.id,t]));
+    const unused=()=>assert.fail('line inventory must not participate in this comparison');
+    assert.deepEqual(orderPendingTasks(['NEWER','OLDER'],tasks,defaults(),unused),['OLDER','NEWER']);
+    tasks.get('NEWER').requestedAt=10;
+    assert.deepEqual(orderPendingTasks(['NEWER','OLDER'],tasks,defaults(),unused),['OLDER','NEWER']);
+  }
+});
+
+test('line congestion sorting keeps manual slots and ignores inventory for legacy FIFO',()=>{
+  const tasks=new Map([queued('04','04',undefined,0,0),queued('LOW','01',30,1,1,{sourceLineId:'L1'}),
+    queued('05','05',undefined,2,2),queued('HIGH','01',30,3,3,{sourceLineId:'L2'}),
+    queued('ACTIVE','01',30,4,4,{sourceLineId:'L1',status:'moving_empty'})].map(t=>[t.id,t]));
+  const pending=[...tasks.keys()];
+  assert.deepEqual(orderPendingTasks(pending,tasks,defaults(),id=>id==='L1'?1:2),['04','HIGH','05','LOW','ACTIVE']);
+  assert.deepEqual(orderPendingTasks(pending,tasks,undefined,()=>assert.fail('legacy must not read inventory')),pending);
+});
+
+test('assignment uses physical current inventory after new production and excludes already picked pallets',()=>{
+  const scenario=taskPriorityScenario({productionEvents:[produced(0,'L1','SYN-PRIORITY-SEED'),
+    produced(30_000,'L1','SYN-L1-WAIT'),produced(40_000,'L2','SYN-L2-FIRST'),
+    produced(80_000,'L2','SYN-L2-SECOND')]});
+  const run=simulate(scenario),first=firstAfterSeed(run);
+  const l1Requested=run.events.find(e=>e.type==='TASK_REQUESTED'&&e.palletId==='SYN-L1-WAIT');
+  assert.equal(run.snapshots[l1Requested.sequence].lines.L1.length,2,'assigned but not picked remains physically at L1');
+  const l2Requested=run.events.find(e=>e.type==='TASK_REQUESTED'&&e.palletId==='SYN-L2-FIRST');
+  assert.equal(run.snapshots[l2Requested.sequence].lines.L2.length,1,'request-time inventory differs from assignment-time inventory');
+  assert.equal(first.palletId,'SYN-L2-FIRST');assert.equal(first.sourceLineId,'L2');
+  assert.equal(first.sourceLineBufferCount,2);
+  assert.equal(run.snapshots[first.sequence].lines.L1.length,1,'the earlier pickup is excluded from L1 inventory');
+  for(const event of assignments(run)){
+    if(event.kind==='01')assert.equal(event.sourceLineBufferCount,run.snapshots[event.sequence].lines[event.sourceLineId].length);
+    else assert.ok(!Object.hasOwn(event,'sourceLineBufferCount'));
+  }
+  assert.ok(run.events.filter(e=>e.type==='TASK_REQUESTED').every(e=>!Object.hasOwn(e,'sourceLineBufferCount')));
+  assert.equal(first.sourceLineBufferCount,2,'later pickups do not overwrite saved assignment evidence');
+  assert.deepEqual(simulate(scenario).events,run.events);
+});
+
+test('multiple assigned but not picked pallets count once each in the physical buffer',()=>{
+  const scenario=taskPriorityScenario({productionEvents:[produced(0,'L1','SYN-FIRST'),produced(1_000,'L1','SYN-SECOND')],
+    agfs:[1,2,3,4].map(n=>({id:'AGF'+n,area:'PZ',batteryPct:100,blocked:n>2}))});
+  const run=simulate(scenario),second=assignments(run).find(e=>e.palletId==='SYN-SECOND');
+  assert.equal(second.timeMs,1_000);assert.equal(second.sourceLineBufferCount,2);
+  assert.equal(run.snapshots[second.sequence].lines.L1.length,2);
+});
+
+test('an unreachable fuller line stays queued while dispatch assigns a reachable less full line',()=>{
+  const scenario=createDemoScenario('physical');scenario.durationMin=.1;scenario.lineIntervalsMin=Array(8).fill(0);
+  scenario.temporaryPallets=[];scenario.taskPriorities=defaults();
+  scenario.productionEvents=[produced(0,'L1','SYN-BLOCKED-1'),produced(1,'L1','SYN-BLOCKED-2'),
+    produced(2,'L2','SYN-REACHABLE')].map(e=>({...e,destinationLocationId:scenario.generatedDestinationIds[0]}));
+  const target=scenario.operationalTopology.interfaceBindings.find(b=>b.pattern==='L1').nodeId;
+  scenario.operationalTopology.edges=scenario.operationalTopology.edges.filter(e=>e.fromNodeId!==target&&e.toNodeId!==target);
+  const run=simulate(scenario),assigned=assignments(run).find(e=>e.palletId==='SYN-REACHABLE');
+  assert.ok(assigned);assert.equal(assigned.sourceLineBufferCount,1);
+  assert.equal(run.snapshots[assigned.sequence].lines.L1.length,2);
+  assert.equal(assignments(run).filter(e=>e.kind==='01').length,1);
+  for(const task of run.final.tasks.filter(t=>t.sourceLineId==='L1')){
+    assert.equal(task.status,'queued');assert.equal(task.waitReason,'UNREACHABLE_ROUTE');
+    assert.ok(run.events.some(e=>e.type==='TASK_WAITING'&&e.taskId===task.id&&e.sequence<assigned.sequence));
+  }
 });

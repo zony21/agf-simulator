@@ -59,11 +59,13 @@ test('explicit synthetic wrapper admission keeps outflow possible during a 30-mi
   assert.ok(r.final.tasks.some(t=>t.kind==='02'&&t.completedAt>55*60000));
   assert.ok(r.final.tasks.filter(t=>t.kind==='05').every(t=>t.status==='completed'));
 });
-test('four initial low-battery AGFs retain two-port exclusion and partial charging at the three-hour horizon',()=>{
+test('four low-battery AGFs respect the two charge stops and two-port limit when every stop is occupied',()=>{
   const r=simulate(integratedAcceptanceScenario('charging-boundary'));invariant(r);
-  assert.equal(r.metrics.chargingStarts,4);
+  assert.equal(r.metrics.chargingStarts,2);
   assert.ok(r.events.some(e=>e.type==='CHARGE_WAITING'));
-  assert.equal(r.final.agfs.filter(a=>a.status==='charging').length,2);
+  assert.equal(r.final.agfs.filter(a=>a.status==='charging').length,0);
   assert.equal(r.events.filter(e=>e.type==='CHARGER_RELEASED').length,2);
-  assert.ok(r.final.agfs.filter(a=>a.status==='charging').every(a=>a.batteryPct>40&&a.batteryPct<100));
+  assert.deepEqual(r.final.agfs.map(a=>a.status),['idle','idle','waiting_charge_place','waiting_charge_place']);
+  assert.deepEqual(r.final.agfs.slice(2).map(a=>a.currentNodeId),['PILLAR-WAIT-W','PILLAR-WAIT-E']);
+  assert.ok(Object.values(r.final.chargers).every(owner=>owner===null));
 });

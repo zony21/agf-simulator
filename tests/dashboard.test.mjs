@@ -21,17 +21,18 @@ test('warehouse contains 802 logical tier locations without inventing an east ga
   assert.equal(WAREHOUSE_RULES.physicalEtaAllowed,false);
 });
 
-test('south service has separate waiting, parking and chargers without a forbidden storage route',()=>{
+test('south service has two pillar waits, charge-place fallback stops and chargers without a forbidden storage route',()=>{
   assert.equal(WAREHOUSE_MAIN_AISLES.length,4);
   assert.ok(WAREHOUSE_MAIN_AISLES.every(a=>a.laneCount===null&&a.direction===
     (a.positionRole==='block-side'?'north-to-south':'south-to-north')&&
     a.directionEvidence==='user-confirmed-initial-traffic-policy'));
-  assert.equal(WAREHOUSE_SERVICE.waitingPlaces.length,4);
-  assert.equal(WAREHOUSE_SERVICE.waitingCandidates.totalCount,4);
+  assert.equal(WAREHOUSE_SERVICE.waitingPlaces.length,2);
+  assert.equal(WAREHOUSE_SERVICE.waitingFallbackPlaces.length,2);
+  assert.equal(WAREHOUSE_SERVICE.waitingCandidates.totalCount,2);
   assert.equal(WAREHOUSE_SERVICE.waitingCandidates.groups.find(group=>group.kind==='rack-gap-pillars').count,2);
   assert.equal(WAREHOUSE_SERVICE.waitingCandidates.wsIdMapping,'unresolved');
   assert.equal(WAREHOUSE_SERVICE.chargePlaces.length,2);
-  assert.equal(new Set([...WAREHOUSE_SERVICE.waitingPlaces,...WAREHOUSE_SERVICE.chargePlaces].map(p=>p.id)).size,6);
+  assert.equal(new Set([...WAREHOUSE_SERVICE.waitingPlaces,...WAREHOUSE_SERVICE.waitingFallbackPlaces].map(p=>p.id)).size,4);
   assert.equal(WAREHOUSE_SERVICE.chargers.length,2);
   assert.ok(WAREHOUSE_SERVICE.chargePlaces.every(p=>p.chargerId===null));
   assert.equal(WAREHOUSE_SERVICE.aligners.length,5);

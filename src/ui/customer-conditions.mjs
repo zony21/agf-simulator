@@ -1,7 +1,8 @@
 import {escapeHtml as esc,locationName} from './format.mjs';
 
 export const LINE_LABELS=['GWI','GWII','GWIII','GWIV','GWV','GWVI','GWVII','GWVIII'];
-export const selectionLabel=mode=>mode==='area_first'?'搬送先エリア優先':mode==='low_battery_first'?'バッテリー残量優先':'選定方式未設定';
+export const selectionLabel=mode=>({area_first:'搬送先エリア優先',low_battery_first:'バッテリー残量優先',
+  source_area_agf_priority:'荷受け元エリア優先・AGF順位'}[mode]??'選定方式未設定');
 export const evidenceLabel=evidence=>({
   'provisional-derived':'暫定値・カタログから導出（停止旋回の実測値ではありません）',
   'provisional-simulation':'暫定シミュレーション値',
@@ -17,6 +18,9 @@ export const evidenceLabel=evidence=>({
   'simulation-default-task-priorities':'シミュレーション初期設定（変更可能）',
   'user-requested-example-default':'ユーザー指定の初期行割当・既存例と同じ値',
   'user-confirmed-fixed-magazine-mapping':'ユーザー確認済み・固定対応',
+  'user-confirmed-task-start-threshold':'ユーザー確認済み・新規タスク開始60%',
+  'user-confirmed-charge-recovery-target':'ユーザー確認済み・充電後60%で搬送復帰',
+  'user-confirmed-initial-ranking':'ユーザー確認済み・AGF優先順位の初期値',
   'user-confirmed-initial-logical-direction-policy':'確認済みのシミュレーション初期通行方針'
 })[evidence]??(String(evidence??'').includes('legacy')?'旧回帰モデルの条件':'この実行の設定・仮定');
 
@@ -43,6 +47,9 @@ export function customerConditionRows(run){
   add('warehouse.capacity','基本条件','倉庫の理論容量',(s.warehouse??[]).reduce((n,slot)=>n+(slot.capacity??1),0),'PL');
   add('warehouse.initialStock','基本条件','初期製品在庫',(s.warehouse??[]).reduce((n,slot)=>n+(slot.palletIds?.length??0),0),'PL');
   add('mode','基本条件','AGF選定方式',selectionLabel(s.mode));
+  add('agfPriority.applied','AGF選定条件','AGF個別順位を選定に適用',s.mode==='source_area_agf_priority');
+  for(const agf of s.agfs??[])if(s.agfPriorities?.[agf.id]!==undefined)
+    add('agfPriority.'+agf.id,'AGF選定条件','個別優先順位（新方式で使用）',s.agfPriorities[agf.id],'',agf.id,s.evidence?.agfPriorities);
   if(s.taskPriorities===undefined){
     add('taskPriorities.policy','搬送タスク優先度','自動搬送の割当順','旧シナリオ互換（要求順・legacy FIFO）','','','legacy-model');
   }else{
@@ -100,7 +107,8 @@ export function customerConditionRows(run){
     add('agf.'+a.id+'.position','初期配置・バッテリー','初期位置',customerLocationName(a.currentNodeId),'',a.id);
     add('agf.'+a.id+'.battery','初期配置・バッテリー','初期バッテリー',a.batteryPct,'%',a.id);
   }
-  for(const [key,label,unit] of [['chargeStartPct','充電開始閾値','%'],['chargeTargetPct','搬送復帰閾値','%'],['chargeMinPerPct','1ポイントの充電時間','分']])add('battery.'+key,'バッテリー・充電条件',label,s.battery?.[key],unit);
+  for(const [key,label,unit] of [['taskStartPct','新規タスク開始閾値','%'],['chargeStartPct','充電開始閾値','%'],['chargeTargetPct','充電後の搬送復帰閾値','%'],['chargeMinPerPct','1ポイントの充電時間','分']])
+    if(s.battery?.[key]!==undefined)add('battery.'+key,'バッテリー・充電条件',label,s.battery?.[key],unit,'',key==='taskStartPct'?s.evidence?.taskStartPct:key==='chargeTargetPct'?s.evidence?.chargeTargetPct:undefined);
   const battery=s.battery??{};
   add('battery.basis','バッテリー・充電条件','消費基準',battery.consumptionModel==='active_time'?`${battery.activeReferenceMin}分の走行・荷役で${battery.activeReferenceConsumptionPct}ポイント`:`1搬送あたり${battery.consumptionPct}ポイント`,'','',s.evidence?.batteryConsumption);
   add('battery.turning','バッテリー・充電条件','旋回中の電池消費',control.turningConsumesBattery,'','',control.turningBatteryEvidence);
@@ -137,10 +145,11 @@ export function renderCustomerConditions(run){
     ${categories.map((category,i)=>`<details class="customer-condition-group" ${i===0?'open':''}><summary>${esc(category)}</summary><div class="table-scroll"><table><thead><tr><th>対象</th><th>項目</th><th>計算に使用した値</th><th>根拠</th></tr></thead><tbody>${rows.filter(row=>row.category===category).map(row=>`<tr><td>${esc(row.target||'共通')}</td><th scope="row">${esc(row.label)}</th><td>${esc(rowValue(row))}${row.value!==null&&row.unit?' '+esc(row.unit):''}</td><td>${esc(row.evidence)}</td></tr>`).join('')}</tbody></table></div></details>`).join('')}</section>`;
 }
 export function customerConditionDifferences(runs){
-  const left=new Map(customerConditionRows(runs[0]).map(row=>[row.key,row])),right=new Map(customerConditionRows(runs[1]).map(row=>[row.key,row]));
-  const keys=[...new Set([...left.keys(),...right.keys()])];
-  return keys.filter(key=>JSON.stringify(left.get(key)?.value)!==JSON.stringify(right.get(key)?.value)).map(key=>{
-    const row=left.get(key)??right.get(key);
-    return {label:row.label,target:row.target,unit:row.unit,left:left.has(key)?rowValue(left.get(key)):'未設定',right:right.has(key)?rowValue(right.get(key)):'未設定'};
+  const values=runs.map(run=>new Map(customerConditionRows(run).map(row=>[row.key,row])));
+  const keys=[...new Set(values.flatMap(rows=>[...rows.keys()]))];
+  return keys.filter(key=>new Set(values.map(rows=>JSON.stringify(rows.get(key)?.value))).size>1).map(key=>{
+    const row=values.map(rows=>rows.get(key)).find(Boolean);
+    const cells=values.map(rows=>rows.has(key)?rowValue(rows.get(key)):'未設定');
+    return {label:row.label,target:row.target,unit:row.unit,values:cells,left:cells[0],right:cells[1]};
   });
 }

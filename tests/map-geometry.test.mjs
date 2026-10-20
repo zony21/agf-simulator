@@ -5,6 +5,7 @@ import {initMap} from '../src/ui/map-view.mjs';
 import {simulate} from '../src/core/simulate.mjs';
 import {createDemoScenario} from '../src/ui/scenario.mjs';
 import {WAREHOUSE_BLOCKS} from '../src/map/warehouse-layout.mjs';
+import topology from '../examples/synthetic-operational-topology.json' with {type:'json'};
 import {readFileSync} from 'node:fs';
 
 // Inspect the actual rendered SVG, not a parallel model of its expected layout.
@@ -133,14 +134,23 @@ test('G13 actual rack cells preserve common column width, every row/column/tier 
   assert.equal(capacity,802);assert.ok(block('WB1').bottom<block('WB2').y&&block('WB2').bottom<block('WB3').y);
   assert.ok(block('EB1').w>block('WB1').w&&block('EB1').bottom<block('EB2').y);
 });
-test('G14/G15 service places are a horizontal-body vertical column below EB2, beside five aligners above storage',()=>{
-  const places=['HP1','HP2','CHARGE-PLACE1','CHARGE-PLACE2'].map(equipment),rack=block('EB2');
+test('G14/G15 preserve charge-place positions and show five equally spaced aligners in the former wait band with west access',()=>{
+  const places=['CHARGE-PLACE1','CHARGE-PLACE2'].map(equipment),rack=block('EB2');
   places.forEach((p,i)=>{assert.ok(p.y>rack.bottom&&inside(p,wh)&&p.w>p.h);assert.equal(p.x,places[0].x);
     if(i)assert.ok(places[i-1].bottom<p.y);});
-  const storage=box('EMPTY-PALLET-STORE');
-  for(let i=1;i<=5;i++){const a=equipment('AL'+i);assert.ok(a.x>places[0].right&&a.y>rack.bottom&&a.bottom<storage.y);
-    if(i>1){assert.equal(a.y,equipment('AL1').y);assert.ok(a.x>equipment('AL'+(i-1)).right);}}
-  assert.ok(storage.x>places[0].right&&inside(storage,wh));
+  const aligners=Array.from({length:5},(_,i)=>equipment('AL'+(i+1))),storage=box('EMPTY-PALLET-STORE');
+  aligners.forEach((a,i)=>{assert.ok(a.y>rack.bottom&&a.bottom<storage.y&&inside(a,wh));
+    if(i){assert.equal(a.x,aligners[0].x);assert.equal(a.w,aligners[0].w);assert.equal(a.h,aligners[0].h);
+      assert.equal(a.y-aligners[i-1].y,15);}});
+  assert.ok(aligners[0].y<places[0].y,'aligner stack occupies the former waiting-space band without moving chargers');
+  assert.ok(storage.x>aligners[0].right&&inside(storage,wh));
+  const nodes=new Map(topology.nodes.map(node=>[node.id,node]));
+  for(let i=1;i<=5;i++){
+    const access=nodes.get(`WH-AL${i}-ACCESS`),pickup=nodes.get(`WH-AL${i}-PICKUP`);
+    assert.ok(access.x<aligners[i-1].x,'AGF access remains west of the aligner symbol');
+    assert.ok(access.x<pickup.x,'AGF picks up from the west side');
+    assert.equal(access.y,aligners[i-1].y+6,'synthetic access aligns with the displayed symbol');
+  }
 });
 test('G16/G17 pillar candidates occupy the confirmed rack gaps without moving racks or entering forbidden storage',()=>{
   const w=box('PILLAR-WAIT-W'),e=box('PILLAR-WAIT-E'),wb2=block('WB2'),wb3=block('WB3'),eb1=block('EB1'),eb2=block('EB2');

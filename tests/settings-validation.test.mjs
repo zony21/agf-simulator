@@ -59,7 +59,7 @@ test('duplicate warehouse priority identifies the offending priority inputs rath
 });
 
 test('duplicate initial parking highlights only the AGFs sharing a stop',()=>{
-  const fields=['CHARGE-PLACE1','CHARGE-PLACE1','HP1','HP2'].map((v,i)=>field(v,{}, {id:'initial-position-'+i}));
+  const fields=['CHARGE-PLACE1','CHARGE-PLACE1','PILLAR-WAIT-W','PILLAR-WAIT-E'].map((v,i)=>field(v,{}, {id:'initial-position-'+i}));
   assert.deepEqual(settingsErrorControls(root(fields),new Error('invalid initial parking: four distinct allowed idle stops required')),fields.slice(0,2));
 });
 

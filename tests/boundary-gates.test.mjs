@@ -147,7 +147,8 @@ test('fire shutter stops and all warehouse devices retain their warehouse-relati
   for(const [id,x,y] of [
     ['WH-E-NORTH-WALL',665,562.5],['WH-W-NORTH-WALL',435,562.5],
     ['WH-E-SOUTH-WALL',665,769.5],['WH-W-SOUTH-WALL',435,769.5],
-    ['HP1',782,778.5],['HP2',782,809.5],['CHARGE-PLACE1',782,842.5],['CHARGE-PLACE2',782,873.5]
+    ['PILLAR-WAIT-W',296,725],['PILLAR-WAIT-E',725,609],
+    ['CHARGE-PLACE1',782,842.5],['CHARGE-PLACE2',782,873.5]
   ]){
     const node=point(source,id);
     assert.equal(node.x-old.x,x-25,id+' warehouse-relative x');

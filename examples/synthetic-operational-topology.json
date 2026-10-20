@@ -2,7 +2,7 @@
   "schemaVersion": "operational-topology-v1",
   "datasetKind": "synthetic",
   "graphId": "SYNTHETIC-GRAPH-01",
-  "revision": "1-relative-gates-v2",
+  "revision": "1-relative-gates-v4-vertical-aligner-access",
   "evidence": "synthetic-assumption",
   "coordinateSystem": "synthetic-display",
   "readiness": {
@@ -195,41 +195,11 @@
       "approvalState": "synthetic-validated"
     },
     {
-      "id": "WH-ALIGN",
-      "type": "junction",
-      "areaId": "WH",
-      "x": 1080,
-      "y": 745,
-      "approvalState": "synthetic-validated",
-      "evidence": "synthetic-internal-junction-not-device-stop",
-      "exclusiveTraffic": true,
-      "occupancyResourceIds": [
-        "NODE:WH-ALIGN"
-      ],
-      "conflictEvidence": "explicit-synthetic-junction-exclusion-not-site-clearance"
-    },
-    {
       "id": "WH-CHARGE",
       "type": "charge",
       "areaId": "WH",
       "x": 962,
       "y": 842,
-      "approvalState": "synthetic-validated"
-    },
-    {
-      "id": "HP1",
-      "type": "wait",
-      "areaId": "WH",
-      "x": 962,
-      "y": 778.5,
-      "approvalState": "synthetic-validated"
-    },
-    {
-      "id": "HP2",
-      "type": "wait",
-      "areaId": "WH",
-      "x": 962,
-      "y": 809.5,
       "approvalState": "synthetic-validated"
     },
     {
@@ -2054,11 +2024,10 @@
       "id": "WH-AL1-ACCESS",
       "type": "junction",
       "areaId": "WH",
-      "x": 1055,
-      "y": 745,
+      "x": 932,
+      "y": 756,
       "approvalState": "synthetic-validated",
-      "corridorId": "WH-SERVICE-ALIGN",
-      "evidence": "synthetic-assumption",
+      "evidence": "synthetic-west-side-aligner-approach-not-site-position",
       "exclusiveTraffic": true,
       "occupancyResourceIds": [
         "NODE:WH-AL1-ACCESS"
@@ -2069,11 +2038,10 @@
       "id": "WH-AL2-ACCESS",
       "type": "junction",
       "areaId": "WH",
-      "x": 1093,
-      "y": 745,
+      "x": 932,
+      "y": 771,
       "approvalState": "synthetic-validated",
-      "corridorId": "WH-SERVICE-ALIGN",
-      "evidence": "synthetic-assumption",
+      "evidence": "synthetic-west-side-aligner-approach-not-site-position",
       "exclusiveTraffic": true,
       "occupancyResourceIds": [
         "NODE:WH-AL2-ACCESS"
@@ -2084,11 +2052,10 @@
       "id": "WH-AL3-ACCESS",
       "type": "junction",
       "areaId": "WH",
-      "x": 1131,
-      "y": 745,
+      "x": 932,
+      "y": 786,
       "approvalState": "synthetic-validated",
-      "corridorId": "WH-SERVICE-ALIGN",
-      "evidence": "synthetic-assumption",
+      "evidence": "synthetic-west-side-aligner-approach-not-site-position",
       "exclusiveTraffic": true,
       "occupancyResourceIds": [
         "NODE:WH-AL3-ACCESS"
@@ -2099,11 +2066,10 @@
       "id": "WH-AL4-ACCESS",
       "type": "junction",
       "areaId": "WH",
-      "x": 1169,
-      "y": 745,
+      "x": 932,
+      "y": 801,
       "approvalState": "synthetic-validated",
-      "corridorId": "WH-SERVICE-ALIGN",
-      "evidence": "synthetic-assumption",
+      "evidence": "synthetic-west-side-aligner-approach-not-site-position",
       "exclusiveTraffic": true,
       "occupancyResourceIds": [
         "NODE:WH-AL4-ACCESS"
@@ -2114,11 +2080,10 @@
       "id": "WH-AL5-ACCESS",
       "type": "junction",
       "areaId": "WH",
-      "x": 1207,
-      "y": 745,
+      "x": 932,
+      "y": 816,
       "approvalState": "synthetic-validated",
-      "corridorId": "WH-SERVICE-ALIGN",
-      "evidence": "synthetic-assumption",
+      "evidence": "synthetic-west-side-aligner-approach-not-site-position",
       "exclusiveTraffic": true,
       "occupancyResourceIds": [
         "NODE:WH-AL5-ACCESS"
@@ -2129,8 +2094,8 @@
       "id": "WH-AL1-PICKUP",
       "type": "pickup",
       "areaId": "WH",
-      "x": 1055,
-      "y": 765,
+      "x": 946,
+      "y": 756,
       "approvalState": "synthetic-validated",
       "interfaceId": "AL1",
       "equipmentId": "AL1",
@@ -2149,15 +2114,16 @@
       "handlingScopeEvidence": "synthetic-equipment-front-edge-declaration-not-site-boundary",
       "localHandlingBlockedEdgeIds": [
         "E12",
-        "E12-PART2"
+        "WH-AL1-APPROACH",
+        "DEVICE-AL1"
       ]
     },
     {
       "id": "WH-AL2-PICKUP",
       "type": "pickup",
       "areaId": "WH",
-      "x": 1093,
-      "y": 765,
+      "x": 946,
+      "y": 771,
       "approvalState": "synthetic-validated",
       "interfaceId": "AL2",
       "equipmentId": "AL2",
@@ -2175,16 +2141,16 @@
       "exclusiveTraffic": true,
       "handlingScopeEvidence": "synthetic-equipment-front-edge-declaration-not-site-boundary",
       "localHandlingBlockedEdgeIds": [
-        "WH-SERVICE-ALIGN-3",
-        "WH-SERVICE-ALIGN-4"
+        "WH-AL2-APPROACH",
+        "DEVICE-AL2"
       ]
     },
     {
       "id": "WH-AL3-PICKUP",
       "type": "pickup",
       "areaId": "WH",
-      "x": 1131,
-      "y": 765,
+      "x": 946,
+      "y": 786,
       "approvalState": "synthetic-validated",
       "interfaceId": "AL3",
       "equipmentId": "AL3",
@@ -2202,16 +2168,16 @@
       "exclusiveTraffic": true,
       "handlingScopeEvidence": "synthetic-equipment-front-edge-declaration-not-site-boundary",
       "localHandlingBlockedEdgeIds": [
-        "WH-SERVICE-ALIGN-4",
-        "WH-SERVICE-ALIGN-5"
+        "WH-AL3-APPROACH",
+        "DEVICE-AL3"
       ]
     },
     {
       "id": "WH-AL4-PICKUP",
       "type": "pickup",
       "areaId": "WH",
-      "x": 1169,
-      "y": 765,
+      "x": 946,
+      "y": 801,
       "approvalState": "synthetic-validated",
       "interfaceId": "AL4",
       "equipmentId": "AL4",
@@ -2229,16 +2195,16 @@
       "exclusiveTraffic": true,
       "handlingScopeEvidence": "synthetic-equipment-front-edge-declaration-not-site-boundary",
       "localHandlingBlockedEdgeIds": [
-        "WH-SERVICE-ALIGN-5",
-        "WH-SERVICE-ALIGN-6"
+        "WH-AL4-APPROACH",
+        "DEVICE-AL4"
       ]
     },
     {
       "id": "WH-AL5-PICKUP",
       "type": "pickup",
       "areaId": "WH",
-      "x": 1207,
-      "y": 765,
+      "x": 946,
+      "y": 816,
       "approvalState": "synthetic-validated",
       "interfaceId": "AL5",
       "equipmentId": "AL5",
@@ -2256,7 +2222,8 @@
       "exclusiveTraffic": true,
       "handlingScopeEvidence": "synthetic-equipment-front-edge-declaration-not-site-boundary",
       "localHandlingBlockedEdgeIds": [
-        "WH-SERVICE-ALIGN-6"
+        "WH-AL5-APPROACH",
+        "DEVICE-AL5"
       ]
     },
     {
@@ -3671,6 +3638,48 @@
       ],
       "normalUse": false,
       "evidence": "synthetic-unused-west-opening-no-approved-exception-route"
+    },
+    {
+      "id": "WH-AL1-TURN",
+      "type": "junction",
+      "areaId": "WH",
+      "x": 932,
+      "y": 745,
+      "approvalState": "synthetic-validated",
+      "evidence": "synthetic-service-turn-not-site-position",
+      "exclusiveTraffic": true,
+      "occupancyResourceIds": [
+        "NODE:WH-AL1-TURN"
+      ],
+      "conflictEvidence": "explicit-synthetic-junction-exclusion-not-site-clearance"
+    },
+    {
+      "id": "WH-AL23-TURN",
+      "type": "junction",
+      "areaId": "WH",
+      "x": 932,
+      "y": 778.5,
+      "approvalState": "synthetic-validated",
+      "evidence": "synthetic-service-turn-not-site-position",
+      "exclusiveTraffic": true,
+      "occupancyResourceIds": [
+        "NODE:WH-AL23-TURN"
+      ],
+      "conflictEvidence": "explicit-synthetic-junction-exclusion-not-site-clearance"
+    },
+    {
+      "id": "WH-AL45-TURN",
+      "type": "junction",
+      "areaId": "WH",
+      "x": 932,
+      "y": 809.5,
+      "approvalState": "synthetic-validated",
+      "evidence": "synthetic-service-turn-not-site-position",
+      "exclusiveTraffic": true,
+      "occupancyResourceIds": [
+        "NODE:WH-AL45-TURN"
+      ],
+      "conflictEvidence": "explicit-synthetic-junction-exclusion-not-site-clearance"
     }
   ],
   "edges": [
@@ -5987,132 +5996,6 @@
       "modelDistanceEvidence": "explicit-synthetic-equal-segment-allocation-not-display-length"
     },
     {
-      "id": "E14-PART2",
-      "fromNodeId": "E14-TURN1",
-      "toNodeId": "HP1",
-      "distanceMm": 2000,
-      "speedMmPerSec": {
-        "empty": 900,
-        "loaded": 700,
-        "charge": 800,
-        "wait": 900
-      },
-      "lanes": [
-        {
-          "id": "E14-L1-PART2",
-          "direction": "both",
-          "resourceId": "E14-L1"
-        }
-      ],
-      "lanePolicy": {
-        "laneCount": 1,
-        "simultaneousPassing": "no-alternating"
-      },
-      "occupancyResourceIds": [
-        "E14-L1",
-        "synthetic-turn:E14-TURN1"
-      ],
-      "shutterId": null,
-      "accessScopes": [
-        {
-          "movement": "empty",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "charge",
-          "taskTypes": [
-            "CHARGE"
-          ]
-        },
-        {
-          "movement": "wait",
-          "taskTypes": [
-            "WAIT"
-          ]
-        }
-      ],
-      "approvalState": "synthetic-validated",
-      "displayPath": [
-        {
-          "x": 880,
-          "y": 778.5
-        },
-        {
-          "x": 962,
-          "y": 778.5
-        }
-      ],
-      "splitSourceEdgeId": "E14",
-      "splitPartIndex": 1,
-      "splitSourceDistanceMm": 4000,
-      "modelDistanceEvidence": "explicit-synthetic-equal-segment-allocation-not-display-length"
-    },
-    {
-      "id": "E15-PART2",
-      "fromNodeId": "E15-TURN1",
-      "toNodeId": "HP2",
-      "distanceMm": 2000,
-      "speedMmPerSec": {
-        "empty": 900,
-        "loaded": 700,
-        "charge": 800,
-        "wait": 900
-      },
-      "lanes": [
-        {
-          "id": "E15-L1-PART2",
-          "direction": "both",
-          "resourceId": "E15-L1"
-        }
-      ],
-      "lanePolicy": {
-        "laneCount": 1,
-        "simultaneousPassing": "no-alternating"
-      },
-      "occupancyResourceIds": [
-        "E15-L1",
-        "synthetic-turn:E15-TURN1"
-      ],
-      "shutterId": null,
-      "accessScopes": [
-        {
-          "movement": "empty",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "charge",
-          "taskTypes": [
-            "CHARGE"
-          ]
-        },
-        {
-          "movement": "wait",
-          "taskTypes": [
-            "WAIT"
-          ]
-        }
-      ],
-      "approvalState": "synthetic-validated",
-      "displayPath": [
-        {
-          "x": 880,
-          "y": 809.5
-        },
-        {
-          "x": 962,
-          "y": 809.5
-        }
-      ],
-      "splitSourceEdgeId": "E15",
-      "splitPartIndex": 1,
-      "splitSourceDistanceMm": 4000,
-      "modelDistanceEvidence": "explicit-synthetic-equal-segment-allocation-not-display-length"
-    },
-    {
       "id": "E16-PART2",
       "fromNodeId": "E16-TURN1",
       "toNodeId": "CHARGE-PLACE1",
@@ -8045,8 +7928,8 @@
     {
       "id": "E12",
       "fromNodeId": "WH-HOME",
-      "toNodeId": "WH-AL1-ACCESS",
-      "distanceMm": 4000,
+      "toNodeId": "WH-AL1-TURN",
+      "distanceMm": 1000,
       "speedMmPerSec": {
         "empty": 900,
         "loaded": 700,
@@ -8098,345 +7981,14 @@
           "y": 745
         },
         {
-          "x": 1055,
+          "x": 932,
           "y": 745
         }
       ],
       "corridorId": "WH-SERVICE-ALIGN",
       "noOvertakingGroupId": "WH-SERVICE-ALIGN",
       "noOvertakingForwardDirection": "east",
-      "modelDistanceEvidence": "explicit-synthetic-equal-segment-allocation-not-display-length",
-      "splitSourceEdgeId": "E12",
-      "splitPartIndex": 0,
-      "splitSourceDistanceMm": 8000
-    },
-    {
-      "id": "E12-PART2",
-      "fromNodeId": "WH-AL1-ACCESS",
-      "toNodeId": "WH-ALIGN",
-      "distanceMm": 4000,
-      "speedMmPerSec": {
-        "empty": 900,
-        "loaded": 700,
-        "charge": 800,
-        "wait": 900
-      },
-      "lanes": [
-        {
-          "id": "E12-PART2-L1",
-          "direction": "both"
-        }
-      ],
-      "lanePolicy": {
-        "laneCount": 1,
-        "simultaneousPassing": "no-alternating"
-      },
-      "occupancyResourceIds": [],
-      "shutterId": null,
-      "accessScopes": [
-        {
-          "movement": "empty",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "loaded",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "charge",
-          "taskTypes": [
-            "CHARGE"
-          ]
-        },
-        {
-          "movement": "wait",
-          "taskTypes": [
-            "WAIT"
-          ]
-        }
-      ],
-      "approvalState": "synthetic-validated",
-      "displayPath": [
-        {
-          "x": 1055,
-          "y": 745
-        },
-        {
-          "x": 1080,
-          "y": 745
-        }
-      ],
-      "corridorId": "WH-SERVICE-ALIGN",
-      "noOvertakingGroupId": "WH-SERVICE-ALIGN",
-      "noOvertakingForwardDirection": "east",
-      "modelDistanceEvidence": "explicit-synthetic-equal-segment-allocation-not-display-length",
-      "splitSourceEdgeId": "E12",
-      "splitPartIndex": 1,
-      "splitSourceDistanceMm": 8000
-    },
-    {
-      "id": "WH-SERVICE-ALIGN-3",
-      "fromNodeId": "WH-ALIGN",
-      "toNodeId": "WH-AL2-ACCESS",
-      "distanceMm": 1000,
-      "speedMmPerSec": {
-        "empty": 900,
-        "loaded": 700,
-        "charge": 800,
-        "wait": 900
-      },
-      "lanes": [
-        {
-          "id": "WH-SERVICE-ALIGN-3-L1",
-          "direction": "both"
-        }
-      ],
-      "lanePolicy": {
-        "laneCount": 1,
-        "simultaneousPassing": "no-alternating"
-      },
-      "occupancyResourceIds": [],
-      "shutterId": null,
-      "accessScopes": [
-        {
-          "movement": "empty",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "loaded",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "charge",
-          "taskTypes": [
-            "CHARGE"
-          ]
-        },
-        {
-          "movement": "wait",
-          "taskTypes": [
-            "WAIT"
-          ]
-        }
-      ],
-      "approvalState": "synthetic-validated",
-      "displayPath": [
-        {
-          "x": 1080,
-          "y": 745
-        },
-        {
-          "x": 1093,
-          "y": 745
-        }
-      ],
-      "corridorId": "WH-SERVICE-ALIGN",
-      "noOvertakingGroupId": "WH-SERVICE-ALIGN",
-      "noOvertakingForwardDirection": "east",
-      "modelDistanceEvidence": "explicit-synthetic-station-link-distance-not-display-length"
-    },
-    {
-      "id": "WH-SERVICE-ALIGN-4",
-      "fromNodeId": "WH-AL2-ACCESS",
-      "toNodeId": "WH-AL3-ACCESS",
-      "distanceMm": 1000,
-      "speedMmPerSec": {
-        "empty": 900,
-        "loaded": 700,
-        "charge": 800,
-        "wait": 900
-      },
-      "lanes": [
-        {
-          "id": "WH-SERVICE-ALIGN-4-L1",
-          "direction": "both"
-        }
-      ],
-      "lanePolicy": {
-        "laneCount": 1,
-        "simultaneousPassing": "no-alternating"
-      },
-      "occupancyResourceIds": [],
-      "shutterId": null,
-      "accessScopes": [
-        {
-          "movement": "empty",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "loaded",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "charge",
-          "taskTypes": [
-            "CHARGE"
-          ]
-        },
-        {
-          "movement": "wait",
-          "taskTypes": [
-            "WAIT"
-          ]
-        }
-      ],
-      "approvalState": "synthetic-validated",
-      "displayPath": [
-        {
-          "x": 1093,
-          "y": 745
-        },
-        {
-          "x": 1131,
-          "y": 745
-        }
-      ],
-      "corridorId": "WH-SERVICE-ALIGN",
-      "noOvertakingGroupId": "WH-SERVICE-ALIGN",
-      "noOvertakingForwardDirection": "east",
-      "modelDistanceEvidence": "explicit-synthetic-station-link-distance-not-display-length"
-    },
-    {
-      "id": "WH-SERVICE-ALIGN-5",
-      "fromNodeId": "WH-AL3-ACCESS",
-      "toNodeId": "WH-AL4-ACCESS",
-      "distanceMm": 1000,
-      "speedMmPerSec": {
-        "empty": 900,
-        "loaded": 700,
-        "charge": 800,
-        "wait": 900
-      },
-      "lanes": [
-        {
-          "id": "WH-SERVICE-ALIGN-5-L1",
-          "direction": "both"
-        }
-      ],
-      "lanePolicy": {
-        "laneCount": 1,
-        "simultaneousPassing": "no-alternating"
-      },
-      "occupancyResourceIds": [],
-      "shutterId": null,
-      "accessScopes": [
-        {
-          "movement": "empty",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "loaded",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "charge",
-          "taskTypes": [
-            "CHARGE"
-          ]
-        },
-        {
-          "movement": "wait",
-          "taskTypes": [
-            "WAIT"
-          ]
-        }
-      ],
-      "approvalState": "synthetic-validated",
-      "displayPath": [
-        {
-          "x": 1131,
-          "y": 745
-        },
-        {
-          "x": 1169,
-          "y": 745
-        }
-      ],
-      "corridorId": "WH-SERVICE-ALIGN",
-      "noOvertakingGroupId": "WH-SERVICE-ALIGN",
-      "noOvertakingForwardDirection": "east",
-      "modelDistanceEvidence": "explicit-synthetic-station-link-distance-not-display-length"
-    },
-    {
-      "id": "WH-SERVICE-ALIGN-6",
-      "fromNodeId": "WH-AL4-ACCESS",
-      "toNodeId": "WH-AL5-ACCESS",
-      "distanceMm": 1000,
-      "speedMmPerSec": {
-        "empty": 900,
-        "loaded": 700,
-        "charge": 800,
-        "wait": 900
-      },
-      "lanes": [
-        {
-          "id": "WH-SERVICE-ALIGN-6-L1",
-          "direction": "both"
-        }
-      ],
-      "lanePolicy": {
-        "laneCount": 1,
-        "simultaneousPassing": "no-alternating"
-      },
-      "occupancyResourceIds": [],
-      "shutterId": null,
-      "accessScopes": [
-        {
-          "movement": "empty",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "loaded",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "charge",
-          "taskTypes": [
-            "CHARGE"
-          ]
-        },
-        {
-          "movement": "wait",
-          "taskTypes": [
-            "WAIT"
-          ]
-        }
-      ],
-      "approvalState": "synthetic-validated",
-      "displayPath": [
-        {
-          "x": 1169,
-          "y": 745
-        },
-        {
-          "x": 1207,
-          "y": 745
-        }
-      ],
-      "corridorId": "WH-SERVICE-ALIGN",
-      "noOvertakingGroupId": "WH-SERVICE-ALIGN",
-      "noOvertakingForwardDirection": "east",
-      "modelDistanceEvidence": "explicit-synthetic-station-link-distance-not-display-length"
+      "modelDistanceEvidence": "synthetic-west-side-aligner-access-not-site-distance"
     },
     {
       "id": "DEVICE-AL1",
@@ -8492,16 +8044,16 @@
       "approvalState": "synthetic-validated",
       "displayPath": [
         {
-          "x": 1055,
-          "y": 745
+          "x": 932,
+          "y": 756
         },
         {
-          "x": 1055,
-          "y": 765
+          "x": 946,
+          "y": 756
         }
       ],
       "evidence": "synthetic-device-interface-not-site-stop",
-      "modelDistanceEvidence": "explicit-synthetic-device-branch-distance-not-display-length",
+      "modelDistanceEvidence": "synthetic-west-side-pickup-branch-not-site-distance",
       "mergeConflictResourceId": "DEVICE-STOP:AL1",
       "mergeConflictEvidence": "explicit-synthetic-existing-device-stop-not-site-clearance"
     },
@@ -8559,16 +8111,16 @@
       "approvalState": "synthetic-validated",
       "displayPath": [
         {
-          "x": 1093,
-          "y": 745
+          "x": 932,
+          "y": 771
         },
         {
-          "x": 1093,
-          "y": 765
+          "x": 946,
+          "y": 771
         }
       ],
       "evidence": "synthetic-device-interface-not-site-stop",
-      "modelDistanceEvidence": "explicit-synthetic-device-branch-distance-not-display-length",
+      "modelDistanceEvidence": "synthetic-west-side-pickup-branch-not-site-distance",
       "mergeConflictResourceId": "DEVICE-STOP:AL2",
       "mergeConflictEvidence": "explicit-synthetic-existing-device-stop-not-site-clearance"
     },
@@ -8626,16 +8178,16 @@
       "approvalState": "synthetic-validated",
       "displayPath": [
         {
-          "x": 1131,
-          "y": 745
+          "x": 932,
+          "y": 786
         },
         {
-          "x": 1131,
-          "y": 765
+          "x": 946,
+          "y": 786
         }
       ],
       "evidence": "synthetic-device-interface-not-site-stop",
-      "modelDistanceEvidence": "explicit-synthetic-device-branch-distance-not-display-length",
+      "modelDistanceEvidence": "synthetic-west-side-pickup-branch-not-site-distance",
       "mergeConflictResourceId": "DEVICE-STOP:AL3",
       "mergeConflictEvidence": "explicit-synthetic-existing-device-stop-not-site-clearance"
     },
@@ -8693,16 +8245,16 @@
       "approvalState": "synthetic-validated",
       "displayPath": [
         {
-          "x": 1169,
-          "y": 745
+          "x": 932,
+          "y": 801
         },
         {
-          "x": 1169,
-          "y": 765
+          "x": 946,
+          "y": 801
         }
       ],
       "evidence": "synthetic-device-interface-not-site-stop",
-      "modelDistanceEvidence": "explicit-synthetic-device-branch-distance-not-display-length",
+      "modelDistanceEvidence": "synthetic-west-side-pickup-branch-not-site-distance",
       "mergeConflictResourceId": "DEVICE-STOP:AL4",
       "mergeConflictEvidence": "explicit-synthetic-existing-device-stop-not-site-clearance"
     },
@@ -8760,16 +8312,16 @@
       "approvalState": "synthetic-validated",
       "displayPath": [
         {
-          "x": 1207,
-          "y": 745
+          "x": 932,
+          "y": 816
         },
         {
-          "x": 1207,
-          "y": 765
+          "x": 946,
+          "y": 816
         }
       ],
       "evidence": "synthetic-device-interface-not-site-stop",
-      "modelDistanceEvidence": "explicit-synthetic-device-branch-distance-not-display-length",
+      "modelDistanceEvidence": "synthetic-west-side-pickup-branch-not-site-distance",
       "mergeConflictResourceId": "DEVICE-STOP:AL5",
       "mergeConflictEvidence": "explicit-synthetic-existing-device-stop-not-site-clearance"
     },
@@ -23300,6 +22852,473 @@
       "splitSourceEdgeId": "PZ-SOUTH-PZ-A1-MAIN-15",
       "splitPartIndex": 1,
       "splitSourceDistanceMm": 2520
+    },
+    {
+      "id": "WH-AL2-APPROACH",
+      "fromNodeId": "WH-AL23-TURN",
+      "toNodeId": "WH-AL2-ACCESS",
+      "distanceMm": 1000,
+      "speedMmPerSec": {
+        "empty": 900,
+        "loaded": 700,
+        "charge": 800,
+        "wait": 900
+      },
+      "lanes": [
+        {
+          "id": "WH-AL2-APPROACH-L1",
+          "direction": "both"
+        }
+      ],
+      "lanePolicy": {
+        "laneCount": 1,
+        "simultaneousPassing": "no-alternating"
+      },
+      "occupancyResourceIds": [],
+      "shutterId": null,
+      "accessScopes": [
+        {
+          "movement": "empty",
+          "taskTypes": [
+            "*"
+          ]
+        },
+        {
+          "movement": "loaded",
+          "taskTypes": [
+            "*"
+          ]
+        },
+        {
+          "movement": "charge",
+          "taskTypes": [
+            "CHARGE"
+          ]
+        },
+        {
+          "movement": "wait",
+          "taskTypes": [
+            "WAIT"
+          ]
+        }
+      ],
+      "approvalState": "synthetic-validated",
+      "displayPath": [
+        {
+          "x": 932,
+          "y": 778.5
+        },
+        {
+          "x": 932,
+          "y": 771
+        }
+      ],
+      "corridorId": "WH-SERVICE-ALIGN",
+      "noOvertakingGroupId": "WH-SERVICE-ALIGN",
+      "noOvertakingForwardDirection": "east",
+      "modelDistanceEvidence": "synthetic-west-side-aligner-access-not-site-distance",
+      "splitSourceEdgeId": "E12",
+      "splitPartIndex": 0,
+      "splitSourceDistanceMm": 8000
+    },
+    {
+      "id": "WH-AL3-APPROACH",
+      "fromNodeId": "WH-AL23-TURN",
+      "toNodeId": "WH-AL3-ACCESS",
+      "distanceMm": 1000,
+      "speedMmPerSec": {
+        "empty": 900,
+        "loaded": 700,
+        "charge": 800,
+        "wait": 900
+      },
+      "lanes": [
+        {
+          "id": "WH-AL3-APPROACH-L1",
+          "direction": "both"
+        }
+      ],
+      "lanePolicy": {
+        "laneCount": 1,
+        "simultaneousPassing": "no-alternating"
+      },
+      "occupancyResourceIds": [],
+      "shutterId": null,
+      "accessScopes": [
+        {
+          "movement": "empty",
+          "taskTypes": [
+            "*"
+          ]
+        },
+        {
+          "movement": "loaded",
+          "taskTypes": [
+            "*"
+          ]
+        },
+        {
+          "movement": "charge",
+          "taskTypes": [
+            "CHARGE"
+          ]
+        },
+        {
+          "movement": "wait",
+          "taskTypes": [
+            "WAIT"
+          ]
+        }
+      ],
+      "approvalState": "synthetic-validated",
+      "displayPath": [
+        {
+          "x": 932,
+          "y": 778.5
+        },
+        {
+          "x": 932,
+          "y": 786
+        }
+      ],
+      "corridorId": "WH-SERVICE-ALIGN",
+      "noOvertakingGroupId": "WH-SERVICE-ALIGN",
+      "noOvertakingForwardDirection": "east",
+      "modelDistanceEvidence": "synthetic-west-side-aligner-access-not-site-distance",
+      "splitSourceEdgeId": "E12",
+      "splitPartIndex": 0,
+      "splitSourceDistanceMm": 8000
+    },
+    {
+      "id": "WH-AL4-APPROACH",
+      "fromNodeId": "WH-AL45-TURN",
+      "toNodeId": "WH-AL4-ACCESS",
+      "distanceMm": 1000,
+      "speedMmPerSec": {
+        "empty": 900,
+        "loaded": 700,
+        "charge": 800,
+        "wait": 900
+      },
+      "lanes": [
+        {
+          "id": "WH-AL4-APPROACH-L1",
+          "direction": "both"
+        }
+      ],
+      "lanePolicy": {
+        "laneCount": 1,
+        "simultaneousPassing": "no-alternating"
+      },
+      "occupancyResourceIds": [],
+      "shutterId": null,
+      "accessScopes": [
+        {
+          "movement": "empty",
+          "taskTypes": [
+            "*"
+          ]
+        },
+        {
+          "movement": "loaded",
+          "taskTypes": [
+            "*"
+          ]
+        },
+        {
+          "movement": "charge",
+          "taskTypes": [
+            "CHARGE"
+          ]
+        },
+        {
+          "movement": "wait",
+          "taskTypes": [
+            "WAIT"
+          ]
+        }
+      ],
+      "approvalState": "synthetic-validated",
+      "displayPath": [
+        {
+          "x": 932,
+          "y": 809.5
+        },
+        {
+          "x": 932,
+          "y": 801
+        }
+      ],
+      "corridorId": "WH-SERVICE-ALIGN",
+      "noOvertakingGroupId": "WH-SERVICE-ALIGN",
+      "noOvertakingForwardDirection": "east",
+      "modelDistanceEvidence": "synthetic-west-side-aligner-access-not-site-distance",
+      "splitSourceEdgeId": "E12",
+      "splitPartIndex": 0,
+      "splitSourceDistanceMm": 8000
+    },
+    {
+      "id": "WH-AL5-APPROACH",
+      "fromNodeId": "WH-AL45-TURN",
+      "toNodeId": "WH-AL5-ACCESS",
+      "distanceMm": 1000,
+      "speedMmPerSec": {
+        "empty": 900,
+        "loaded": 700,
+        "charge": 800,
+        "wait": 900
+      },
+      "lanes": [
+        {
+          "id": "WH-AL5-APPROACH-L1",
+          "direction": "both"
+        }
+      ],
+      "lanePolicy": {
+        "laneCount": 1,
+        "simultaneousPassing": "no-alternating"
+      },
+      "occupancyResourceIds": [],
+      "shutterId": null,
+      "accessScopes": [
+        {
+          "movement": "empty",
+          "taskTypes": [
+            "*"
+          ]
+        },
+        {
+          "movement": "loaded",
+          "taskTypes": [
+            "*"
+          ]
+        },
+        {
+          "movement": "charge",
+          "taskTypes": [
+            "CHARGE"
+          ]
+        },
+        {
+          "movement": "wait",
+          "taskTypes": [
+            "WAIT"
+          ]
+        }
+      ],
+      "approvalState": "synthetic-validated",
+      "displayPath": [
+        {
+          "x": 932,
+          "y": 809.5
+        },
+        {
+          "x": 932,
+          "y": 816
+        }
+      ],
+      "corridorId": "WH-SERVICE-ALIGN",
+      "noOvertakingGroupId": "WH-SERVICE-ALIGN",
+      "noOvertakingForwardDirection": "east",
+      "modelDistanceEvidence": "synthetic-west-side-aligner-access-not-site-distance",
+      "splitSourceEdgeId": "E12",
+      "splitPartIndex": 0,
+      "splitSourceDistanceMm": 8000
+    },
+    {
+      "id": "WH-AL1-APPROACH",
+      "fromNodeId": "WH-AL1-TURN",
+      "toNodeId": "WH-AL1-ACCESS",
+      "distanceMm": 1000,
+      "speedMmPerSec": {
+        "empty": 900,
+        "loaded": 700,
+        "charge": 800,
+        "wait": 900
+      },
+      "lanes": [
+        {
+          "id": "WH-AL1-APPROACH-L1",
+          "direction": "both"
+        }
+      ],
+      "lanePolicy": {
+        "laneCount": 1,
+        "simultaneousPassing": "no-alternating"
+      },
+      "occupancyResourceIds": [],
+      "shutterId": null,
+      "accessScopes": [
+        {
+          "movement": "empty",
+          "taskTypes": [
+            "*"
+          ]
+        },
+        {
+          "movement": "loaded",
+          "taskTypes": [
+            "*"
+          ]
+        },
+        {
+          "movement": "charge",
+          "taskTypes": [
+            "CHARGE"
+          ]
+        },
+        {
+          "movement": "wait",
+          "taskTypes": [
+            "WAIT"
+          ]
+        }
+      ],
+      "approvalState": "synthetic-validated",
+      "displayPath": [
+        {
+          "x": 932,
+          "y": 745
+        },
+        {
+          "x": 932,
+          "y": 756
+        }
+      ],
+      "corridorId": "WH-SERVICE-ALIGN",
+      "noOvertakingGroupId": "WH-SERVICE-ALIGN",
+      "noOvertakingForwardDirection": "east",
+      "modelDistanceEvidence": "synthetic-west-side-aligner-access-not-site-distance"
+    },
+    {
+      "id": "WH-AL23-APPROACH",
+      "fromNodeId": "E14-TURN1",
+      "toNodeId": "WH-AL23-TURN",
+      "distanceMm": 1000,
+      "speedMmPerSec": {
+        "empty": 900,
+        "loaded": 700,
+        "charge": 800,
+        "wait": 900
+      },
+      "lanes": [
+        {
+          "id": "WH-AL23-APPROACH-L1",
+          "direction": "both"
+        }
+      ],
+      "lanePolicy": {
+        "laneCount": 1,
+        "simultaneousPassing": "no-alternating"
+      },
+      "occupancyResourceIds": [],
+      "shutterId": null,
+      "accessScopes": [
+        {
+          "movement": "empty",
+          "taskTypes": [
+            "*"
+          ]
+        },
+        {
+          "movement": "loaded",
+          "taskTypes": [
+            "*"
+          ]
+        },
+        {
+          "movement": "charge",
+          "taskTypes": [
+            "CHARGE"
+          ]
+        },
+        {
+          "movement": "wait",
+          "taskTypes": [
+            "WAIT"
+          ]
+        }
+      ],
+      "approvalState": "synthetic-validated",
+      "displayPath": [
+        {
+          "x": 880,
+          "y": 778.5
+        },
+        {
+          "x": 932,
+          "y": 778.5
+        }
+      ],
+      "corridorId": "WH-SERVICE-ALIGN",
+      "noOvertakingGroupId": "WH-SERVICE-ALIGN",
+      "noOvertakingForwardDirection": "east",
+      "modelDistanceEvidence": "synthetic-west-side-aligner-access-not-site-distance"
+    },
+    {
+      "id": "WH-AL45-APPROACH",
+      "fromNodeId": "E15-TURN1",
+      "toNodeId": "WH-AL45-TURN",
+      "distanceMm": 1000,
+      "speedMmPerSec": {
+        "empty": 900,
+        "loaded": 700,
+        "charge": 800,
+        "wait": 900
+      },
+      "lanes": [
+        {
+          "id": "WH-AL45-APPROACH-L1",
+          "direction": "both"
+        }
+      ],
+      "lanePolicy": {
+        "laneCount": 1,
+        "simultaneousPassing": "no-alternating"
+      },
+      "occupancyResourceIds": [],
+      "shutterId": null,
+      "accessScopes": [
+        {
+          "movement": "empty",
+          "taskTypes": [
+            "*"
+          ]
+        },
+        {
+          "movement": "loaded",
+          "taskTypes": [
+            "*"
+          ]
+        },
+        {
+          "movement": "charge",
+          "taskTypes": [
+            "CHARGE"
+          ]
+        },
+        {
+          "movement": "wait",
+          "taskTypes": [
+            "WAIT"
+          ]
+        }
+      ],
+      "approvalState": "synthetic-validated",
+      "displayPath": [
+        {
+          "x": 880,
+          "y": 809.5
+        },
+        {
+          "x": 932,
+          "y": 809.5
+        }
+      ],
+      "corridorId": "WH-SERVICE-ALIGN",
+      "noOvertakingGroupId": "WH-SERVICE-ALIGN",
+      "noOvertakingForwardDirection": "east",
+      "modelDistanceEvidence": "synthetic-west-side-aligner-access-not-site-distance"
     }
   ],
   "shutters": [
@@ -23346,14 +23365,6 @@
     {
       "pattern": "CHARGE-PLACE",
       "nodeId": "WH-CHARGE"
-    },
-    {
-      "pattern": "HP1",
-      "nodeId": "HP1"
-    },
-    {
-      "pattern": "HP2",
-      "nodeId": "HP2"
     },
     {
       "pattern": "CHARGE-PLACE1",

@@ -35,7 +35,7 @@ test('ordinary Run begins with neutral equipment and stop occupancy, never charg
   assert.deepEqual(Object.values(initial.aligners).map(a=>a.quantity),[10,10,10,10,10]);
   assert.ok(Object.values(initial.aligners).every(a=>a.ready&&!a.reservedTaskId));
   assert.ok(Object.values(initial.chargers).every(x=>x===null));
-  assert.deepEqual(initial.agfs.map(a=>a.currentNodeId),['CHARGE-PLACE1','CHARGE-PLACE2','HP1','HP2']);
+  assert.deepEqual(initial.agfs.map(a=>a.currentNodeId),['CHARGE-PLACE1','CHARGE-PLACE2','PILLAR-WAIT-W','PILLAR-WAIT-E']);
   assert.ok(initial.agfs.every(a=>a.batteryPct===100&&a.status==='idle'&&a.chargerId===null));
   assert.equal(r.metrics.created,0);
 });

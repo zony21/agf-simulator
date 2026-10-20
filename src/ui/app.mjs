@@ -21,7 +21,7 @@ import {escapeHtml as esc,clock,states,stateLabel,taskNames,reasons,eventNames,a
 const $=id=>document.getElementById(id);
 const timeFields=[['emptyMin','空走（分）'],['loadedMin','積載走行（分）'],['pickupMin','荷受け（分）'],
   ['dropoffMin','荷下ろし（分）'],['wrapMin','包装（分）'],['labelMin','ラベル（分）'],['exitMin','出口移送（分）'],['chargeTravelMin','充電場所への移動（分）']];
-const batteryFields=[['reservePct','選定残量下限（%）'],['chargeStartPct','充電要求（%）'],['chargeTargetPct','復帰残量（%）'],
+const batteryFields=[['reservePct','選定残量下限（%）'],['taskStartPct','新規タスク開始残量（%）'],['chargeStartPct','充電要求（%）'],['chargeTargetPct','充電後の搬送復帰残量（%）'],
   ['activeReferenceMin','基準稼働時間（分）'],['activeReferenceConsumptionPct','基準時間での消費（ポイント）'],
   ['consumptionPct','旧方式：1タスク消費（ポイント）'],['chargeMinPerPct','1ポイント充電に要する時間（分）']];
 const numeric=id=>Number($(id).value);
@@ -44,6 +44,8 @@ function populateSettings(scenario) {
   populateExtendedSettings(scenario);
   $('duration').value=scenario.durationMin;$('lineCapacity').value=scenario.lineCapacity;
   $('fallback').value=scenario.fallback;$('mode').value=scenario.mode;
+  $('agf-priority-fields').innerHTML=scenario.agfs.map((agf,index)=>input('agf-priority-'+index,agf.id+' 優先順位（1が最優先）',scenario.agfPriorities?.[agf.id]??index+1,1,1,99)).join('');
+  $('agf-priority-fields').hidden=scenario.mode!=='source_area_agf_priority';
   $('inbound-limit-field').hidden=scenario.motionModel!=='synthetic_graph';
   $('inboundAgfLimit').disabled=scenario.motionModel!=='synthetic_graph';
   $('inboundAgfLimit').value=scenario.wrapper.inboundAgfLimit??4;
@@ -56,13 +58,14 @@ function populateSettings(scenario) {
   const phased=scenario.motionModel==='synthetic_graph'&&['pickupPositioningMin','pickupForkInsertedMin','dropoffPositioningMin','dropoffForkInsertedMin'].some(key=>Object.hasOwn(scenario.motionControl??{},key));
   for(const id of ['pickupMin','dropoffMin']){$(id).disabled=phased;$(id).title=phased?'停止旋回・荷役姿勢で4相を明示設定します。既存時間の自動分割はしません。':'';}
   for(const id of ['emptyMin','loadedMin','chargeTravelMin']){$(id).disabled=scenario.motionModel==='synthetic_graph';$(id).title=$(id).disabled?'区間走行ではグラフの距離と速度を使用します。':'';}
+  const configuredBatteryFields=batteryFields.filter(([id])=>id!=='taskStartPct'||Object.hasOwn(scenario.battery,id));
   $('battery-fields').innerHTML='<label>消費方式<select id="battery-model"><option value="active_time">走行・荷役の稼働時間</option><option value="per_task">タスク単位（旧シナリオ再現用）</option></select></label>'+
-    batteryFields.map(([id,label])=>input(id,label,scenario.battery[id],['chargeMinPerPct','activeReferenceMin'].includes(id)?.001:0,.001,id.endsWith('Pct')&&id!=='chargeMinPerPct'?100:'')).join('');
+    configuredBatteryFields.map(([id,label])=>input(id,label,scenario.battery[id],['chargeMinPerPct','activeReferenceMin'].includes(id)?.001:0,.001,id.endsWith('Pct')&&id!=='chargeMinPerPct'?100:'')).join('');
   $('battery-model').value=batteryModel(scenario.battery);syncBatteryFields();
   $('agf-fields').innerHTML=scenario.agfs.map((a,i)=>`<div><h3>${a.id}</h3>${input('initial-battery-'+i,'初期残量（%）',a.batteryPct,0,.1,100)}${scenario.initialParking?
     `<label>初期停止位置<select id="initial-position-${i}">${scenario.initialParking.placeIds.map(id=>`<option value="${id}" ${a.currentNodeId===id?'selected':''}>${esc(locationName(id))}</option>`).join('')}</select></label>`:
     `<label>初期エリア<select id="initial-area-${i}"><option value="PZ" ${a.area==='PZ'?'selected':''}>パレタイズ</option><option value="WH" ${a.area==='WH'?'selected':''}>製品倉庫</option></select></label>`}</div>`).join('')+
-    (scenario.initialParking?'<p class="muted">初期配置の既定はAGF1・2＝充電場所1・2、AGF3・4＝HP1・2です。表示座標は合成値。変更時も4台を重複なく配置してください。充電場所への初期停車は充電・充電器占有を意味しません。</p>':'');
+    (scenario.initialParking?'<p class="muted">初期配置の既定はAGF1・2＝充電場所1・2、AGF3＝柱前西、AGF4＝柱前東です。表示座標は合成値。変更時も4台を重複なく配置してください。充電場所への初期停車は充電・充電器占有を意味しません。</p>':'');
 }
 function syncBatteryFields(){const active=$('battery-model').value==='active_time';
   for(const id of ['activeReferenceMin','activeReferenceConsumptionPct']){$(id).disabled=!active;$(id).parentElement.hidden=!active;}
@@ -81,7 +84,7 @@ function scenarioFromSettings() {
   scenario.lineIntervalsMin=Array.from({length:8},(_,i)=>numeric('line-'+i));
   scenario.lineStartOffsetsMin=Array.from({length:8},(_,i)=>numeric('offset-'+i));
   scenario.times=Object.fromEntries(timeFields.map(([id])=>[id,numeric(id)]));
-  scenario.battery=Object.fromEntries(batteryFields.map(([id])=>[id,numeric(id)]));
+  scenario.battery=Object.fromEntries(batteryFields.filter(([id])=>id!=='taskStartPct'||Object.hasOwn(base.battery,id)).map(([id])=>[id,numeric(id)]));
   scenario.battery.consumptionModel=$('battery-model').value;
   scenario.evidence.batteryConsumption=scenario.battery.consumptionModel==='active_time'&&
     scenario.battery.activeReferenceMin===360&&scenario.battery.activeReferenceConsumptionPct===70?
@@ -89,6 +92,7 @@ function scenarioFromSettings() {
   scenario.evidence.batteryScope=scenario.battery.consumptionModel==='active_time'?'user-confirmed-driving-and-handling':'legacy-per-task';
   scenario.agfs=scenario.agfs.map((a,i)=>initialAgfFromSettings(scenario,a,{
     batteryPct:numeric('initial-battery-'+i),position:$(scenario.initialParking?'initial-position-'+i:'initial-area-'+i).value}));
+  scenario.agfPriorities=Object.fromEntries(scenario.agfs.map((agf,index)=>[agf.id,numeric('agf-priority-'+index)]));
   readExtendedSettings(scenario);
   return scenario;
 }
@@ -99,8 +103,11 @@ function friendlyError(error) {
   if(/magazineEmptyRecoveryPolicy/.test(message))return '空パレット0枚停止後の再開方式を確認してください。未設定のままでは補充後も生産を保留します。';
   if(/MOTION_CONFIG/.test(message))return '停止旋回・荷役姿勢の設定を確認してください。旋回角速度は正のdeg/s、4相の時間は0以上の分で明示します。未確定値は補完しません。';
   if(/TASK_PRIORITY_CONFIG|taskPriorities/.test(message))return '搬送タスク優先度を確認してください。包装機出口・マガジン5台・系列8本のすべてに1～99の整数を指定します。同じ値は使用できます。';
-  if(/waiting return target|normal waiting place|shared normal waiting priority/.test(message))return '共通の帰還先はHP1 → HP2 → 柱前東 → 柱前西です。4か所すべてへの合成経路が接続されている必要があります。AGF別の固定割当は使用できません。';
-  if(/initial parking|initial HP capacity/.test(message))return '初期停止位置が重複しています。HP1・HP2・充電場所1・充電場所2へ4台を重複なく配置してください。';
+  if(/AGF_PRIORITY_CONFIG|agfPriorities/.test(message))return 'AGF優先順位を確認してください。AGF1～4へ1～99の整数を指定します。小さい値を優先します。';
+  if(/invalid task start battery settings/.test(message))return '充電後のバッテリー残量は、新規タスク開始閾値以上にしてください。';
+  if(/AGF_PRIORITY_CONFIG|agfPriorities/.test(message))return 'AGF1～4の優先順位に1以上の整数を入力してください。数値が小さいAGFを優先します。';
+  if(/waiting return target|normal waiting place|shared normal waiting priority/.test(message))return '共通の帰還先は柱前東 → 柱前西です。両方が埋まっている場合は空いている充電場所で待機します。各場所への合成経路が接続されている必要があります。';
+  if(/initial parking|initial .*capacity/.test(message))return '初期停止位置が重複しています。充電場所1・2、柱前西・東へ4台を重複なく配置してください。';
   if(/duplicate|already reserved|reserved temporary/.test(message))return '二重予約です。同じパレットの既存予約を確認してください。';
   if(/temporary pallet|location mismatch|unreserved pallet at specified temporary/.test(message))return '対象パレットと仮置き場が一致しないか、その時刻に利用できません。';
   if(/explicit permission/.test(message))return '再投入／入庫の許可を確認し、チェックを入れてください。';
@@ -113,7 +120,7 @@ function friendlyError(error) {
   return message;
 }
 function showError(error,{settings=false}={}){$('error').textContent=friendlyError(error);$('error').hidden=false;
-  if(settings||/WAREHOUSE_CONFIG|PRODUCTION_CONFIG|TASK_PRIORITY_CONFIG/.test(error.message??'')){
+  if(settings||/WAREHOUSE_CONFIG|PRODUCTION_CONFIG|TASK_PRIORITY_CONFIG|AGF_PRIORITY_CONFIG/.test(error.message??'')){
     showView('settings');applySettingsError($('settings-form'),error);
   }
 }
@@ -136,7 +143,8 @@ function adoptRun(next,at=0) {
   runId='LOCAL-'+String(++runNumber).padStart(3,'0');next.runId=runId;next.executedAt=new Date().toISOString();
   timeMs=Math.min(at,next.scenario.durationMin*60000);currentIndex=-1;
   markDirty(false);$('seek').max=String(analysis.durationMs);$('end-clock').textContent=clock(analysis.durationMs);
-  $('run-state').textContent='計算済み';$('run-context').textContent=`${runId} · ${next.scenario.durationMin}分 · ${next.scenario.mode==='area_first'?'エリア優先あり':'エリア優先なし'}`;
+  const modeLabel={area_first:'搬送先エリア優先',low_battery_first:'バッテリー残量優先',source_area_agf_priority:'荷受け元エリア・AGF順位'}[next.scenario.mode]??'選定方式未設定';
+  $('run-state').textContent='計算済み';$('run-context').textContent=`${runId} · ${next.scenario.durationMin}分 · ${modeLabel}`;
   $('analysis-run').textContent=runId+' / 全期間の結果';$('analysis-body').innerHTML=renderAnalysis(next,analysis);
   comparison=null;$('comparison-body').innerHTML='<div class="empty-state"><span>⇄</span><h2>同一条件で選定方式を比較</h2><p>「比較実行」で現在の設定を計算します。</p></div>';
   syncRunControls();
@@ -184,7 +192,7 @@ const snapshot=()=>{const run=result??preview;if(!run)return null;const index=Ma
 };
 function renderBattery(){for(const a of snapshot().agfs){
   document.querySelectorAll(`[data-battery-text="${a.id}"]`).forEach(el=>{el.textContent=a.batteryPct.toFixed(1)+'%';});
-  document.querySelectorAll(`[data-battery-bar="${a.id}"]`).forEach(el=>{el.style.width=a.batteryPct+'%';el.classList.toggle('low',a.batteryPct<=result.scenario.battery.chargeStartPct);});
+  document.querySelectorAll(`[data-battery-bar="${a.id}"]`).forEach(el=>{el.style.width=a.batteryPct+'%';el.classList.toggle('low',a.batteryPct<result.scenario.battery.chargeStartPct);});
 }}
 function renderHeadings(agfs){for(const a of agfs){
   document.querySelectorAll(`[data-heading-text="${a.id}"]`).forEach(el=>{
@@ -210,7 +218,7 @@ function renderSnapshot(){const run=result??preview;if(!run)return;const snap=sn
     const task=snap.tasks.find(t=>t.id===a.taskId),status=effectiveStatus(a,snap);
     return `<button class="agf-card${a.id===selectedAgf?' selected':''}" data-select-agf="${esc(a.id)}" aria-pressed="${a.id===selectedAgf}">
       <div class="agf-card-head"><span class="agf-id"><span class="vehicle-number">${i+1}</span>${esc(a.id)}</span>${badge(status,stateLabel(a.status==='waiting_charge_place'?a.status:status,run.scenario.motionModel==='synthetic_graph'))}</div>
-      <div class="battery-line"><span>電池</span><span class="battery-track"><i data-battery-bar="${a.id}" class="${a.batteryPct<=run.scenario.battery.chargeStartPct?'low':''}" style="width:${a.batteryPct}%"></i></span><b data-battery-text="${a.id}">${a.batteryPct.toFixed(1)}%</b></div>
+      <div class="battery-line"><span>電池</span><span class="battery-track"><i data-battery-bar="${a.id}" class="${a.batteryPct<run.scenario.battery.chargeStartPct?'low':''}" style="width:${a.batteryPct}%"></i></span><b data-battery-text="${a.id}">${a.batteryPct.toFixed(1)}%</b></div>
       <dl class="agf-details"><dt>タスク</dt><dd>${task?esc(task.id)+' / '+task.kind:'—'}</dd><dt>搬送元 → 先</dt><dd>${task?esc(locationName(task.originId))+' → '+esc(locationName(task.destinationId)):'—'}</dd>
       <dt>積載</dt><dd>${esc(a.carriedPalletId??'なし')}</dd><dt>現在位置</dt><dd>${esc(a.currentNodeId?locationName(a.currentNodeId):areaName(a.area)+'（概念エリア）')}</dd><dt>方向</dt><dd data-heading-text="${esc(a.id)}">${esc(headingLabel(a.heading,a.headingDeg))}</dd>
       ${a.status==='turning'?`<dt>停止旋回</dt><dd data-turn-detail="${esc(a.id)}">${esc(turnDescription(a,timeMs))}</dd>`:''}
@@ -294,7 +302,7 @@ $('load-storage-example').addEventListener('click',()=>{clearError();try{const c
 for(let i=1;i<=4;i++)$('log-agf').add(new Option('AGF'+i,'AGF'+i));
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
 $('settings-form').addEventListener('submit',event=>event.preventDefault());
-$('settings-form').addEventListener('input',event=>{markDirty();clearSettingsErrors($('settings-form'));if(event.target.id==='battery-model')syncBatteryFields();});$('mode').addEventListener('change',()=>markDirty());
+$('settings-form').addEventListener('input',event=>{markDirty();clearSettingsErrors($('settings-form'));if(event.target.id==='battery-model')syncBatteryFields();});$('mode').addEventListener('change',()=>{markDirty();$('agf-priority-fields').hidden=$('mode').value!=='source_area_agf_priority';});
 $('scenario-select').addEventListener('change',()=>{pause();base=createScenario($('scenario-select').value);populateSettings(base);markDirty();notify('シナリオを設定欄に読み込みました。「実行」で反映します。');});
 $('run').addEventListener('click',execute);$('run-settings').addEventListener('click',()=>{if(execute())showView('monitor');});
 $('reset').addEventListener('click',()=>{pause();clearError();base=createScenario($('scenario-select').value);populateSettings(base);markDirty(false);showInitialPreview();});

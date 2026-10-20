@@ -83,7 +83,7 @@ function nonlinearMap(){
 }
 const equipmentBox=(html,id)=>html.match(new RegExp(`<g data-equipment="${id}"[^>]*>([\\s\\S]*?)<\\/g>`))?.[1]?.match(/<rect[^>]*>/)?.[0];
 const pathTag=(html,id)=>html.match(new RegExp(`<path data-map-id="${id}"[^>]*>`))?.[0];
-const nearly=(a,b)=>assert.ok(Math.abs(a-b)<1e-7,`${a} != ${b}`);
+const nearly=(a,b,message='')=>assert.ok(Math.abs(a-b)<1e-7,`${message}${message?': ':''}${a} != ${b}`);
 
 test('nonlinear PZ equipment symbols retain the individual stop at their north or south handoff face',()=>{
   const {html,graph}=nonlinearMap();
@@ -97,8 +97,13 @@ test('nonlinear PZ equipment symbols retain the individual stop at their north o
     }
     const box=equipmentBox(html,node.equipmentId);assert.ok(box,node.equipmentId);
     const [x,y,w,h]=['x','y','width','height'].map(key=>Number(attr(box,key)));
-    nearly(x+w/2,node.x);
-    nearly(node.equipmentId.startsWith('AL')?y:y+h,node.y);
+    if(node.equipmentId.startsWith('AL')){
+      assert.ok(node.x>=x&&node.x<x+w/2,`${node.equipmentId} pickup remains on the symbol's west side`);
+      nearly(y+h/2,node.y,`${node.equipmentId} west-side pickup centerline`);
+    }else{
+      nearly(x+w/2,node.x);
+      nearly(y+h,node.y,`${node.equipmentId} south handoff`);
+    }
   }
   const wrapper=equipmentBox(html,'WRAPPER'),center=metricPoint({x:574.5,y:92},nonlinearProfile());
   nearly(Number(attr(wrapper,'x'))+Number(attr(wrapper,'width'))/2,center.x);

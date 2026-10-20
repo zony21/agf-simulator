@@ -26,7 +26,7 @@ function graphScenario(){
   const s=createDemoScenario('manual');
   s.durationMin=.1;s.motionModel='synthetic_graph';
   s.operationalTopology=JSON.parse(readFileSync(new URL('../examples/synthetic-operational-topology.json',import.meta.url),'utf8'));
-  const starts=['HP1','HP2','CHARGE-PLACE1','CHARGE-PLACE2'];
+  const starts=['PILLAR-WAIT-E','PILLAR-WAIT-W','CHARGE-PLACE1','CHARGE-PLACE2'];
   s.agfs=s.agfs.map((a,i)=>({...a,currentNodeId:starts[i],area:'WH',batteryPct:[50,60,80,90][i]}));
   s.productionEvents=[{timeMs:0,lineId:'L1',palletId:'SYN-EXPLANATION-GRAPH',destinationLocationId:s.generatedDestinationIds[0]}];
   s.manualRequests=[];s.magazineUses=[];s.alignerReadyEvents=[];s.lineIntervalsMin=Array(8).fill(0);
@@ -122,7 +122,7 @@ test('NO_ELIGIBLE_AGF waiting event saves the four evaluated vehicle reasons',()
 });
 
 test('graph assignment includes pickup-route exclusions and the actual route-feasible stage IDs',()=>{
-  const input=graphScenario();disconnect(input,'HP1');
+  const input=graphScenario();disconnect(input,'PILLAR-WAIT-E');
   const event=eventOf(simulate(input),'TASK_ASSIGNED'),rows=evaluations(event.dispatchSelection);
   assert.equal(event.agfId,'AGF2');assert.equal(rows.AGF1.exclusionReason,'PICKUP_ROUTE_UNREACHABLE');
   assert.deepEqual(eligibleIds(event.dispatchSelection),['AGF2','AGF3','AGF4']);
@@ -131,7 +131,7 @@ test('graph assignment includes pickup-route exclusions and the actual route-fea
 });
 
 test('graph final pool reapplies destination preference after its sole local vehicle loses the route',()=>{
-  const input=graphScenario();input.agfs[0].area='PZ';disconnect(input,'HP1');
+  const input=graphScenario();input.agfs[0].area='PZ';disconnect(input,'PILLAR-WAIT-E');
   const event=eventOf(simulate(input),'TASK_ASSIGNED'),rows=evaluations(event.dispatchSelection);
   assert.equal(event.agfId,'AGF2');assert.equal(event.dispatchSelection.basis,'cross_area_fallback');
   assert.equal(rows.AGF1.exclusionReason,'PICKUP_ROUTE_UNREACHABLE');
@@ -155,7 +155,7 @@ test('reachable pickups with no loaded route record loaded-route failure for all
 });
 
 test('graph final area wait preserves route failure and explains disabled fallback for its remaining vehicles',()=>{
-  const input=graphScenario();input.fallback='wait';input.agfs[0].area='PZ';disconnect(input,'HP1');
+  const input=graphScenario();input.fallback='wait';input.agfs[0].area='PZ';disconnect(input,'PILLAR-WAIT-E');
   const run=simulate(input),event=eventOf(run,'TASK_WAITING','UNREACHABLE_ROUTE'),rows=evaluations(event.dispatchSelection);
   assert.equal(rows.AGF1.exclusionReason,'PICKUP_ROUTE_UNREACHABLE');
   assert.ok([rows.AGF2,rows.AGF3,rows.AGF4].every(row=>row.exclusionReason==='AREA_FALLBACK_DISABLED'&&!row.eligible));
@@ -164,7 +164,8 @@ test('graph final area wait preserves route failure and explains disabled fallba
 
 test('availability charge-start rejection is retained at its own boundary before selector checks',()=>{
   const input=graphScenario();
-  input.postTaskPolicy={waitingPriority:['HP1','HP2','PILLAR-WAIT-E','PILLAR-WAIT-W'],evidence:'synthetic-assumption'};
+  input.chargePlaceIds=['CHARGE-PLACE1','CHARGE-PLACE2'];
+  input.postTaskPolicy={waitingPriority:['PILLAR-WAIT-E','PILLAR-WAIT-W','CHARGE-PLACE1','CHARGE-PLACE2'],evidence:'synthetic-assumption'};
   input.battery={...input.battery,reservePct:30,chargeStartPct:40};
   input.agfs[0].batteryPct=40;input.agfs[0].blocked=true;
   const event=eventOf(simulate(input),'TASK_ASSIGNED'),rows=evaluations(event.dispatchSelection);

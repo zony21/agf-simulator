@@ -69,11 +69,11 @@ test('warehouse four main aisles use block-side down and wall-side up without ch
 test('row, service, and charge connections preserve bidirectional branches while loaded warehouse routes avoid waiting stops',()=>{
   for(const edge of graph.edges.filter(e=>e.evidence==='synthetic-device-interface-not-site-stop'))
     assert.ok(edge.lanes.every(l=>l.direction==='both'));
-  for(const id of ['HP1','HP2','CHARGE-PLACE1','CHARGE-PLACE2','PILLAR-WAIT-E','PILLAR-WAIT-W'])
+  for(const id of ['PILLAR-WAIT-E','PILLAR-WAIT-W','CHARGE-PLACE1','CHARGE-PLACE2'])
     assert.ok(path(id,'PZ-L4-PICKUP'));
   for(const block of ['WB1','WB2','WB3','EB1','EB2']){
     const route=path('PZ-WRAP-OUT',block+'-R01-DROP','loaded','02');assert.ok(route);
-    assert.ok(route.steps.every(s=>!['WH-HOME','HP1','HP2','CHARGE-PLACE1','CHARGE-PLACE2'].includes(s.toNodeId)));
+    assert.ok(route.steps.every(s=>!['WH-HOME','PILLAR-WAIT-E','PILLAR-WAIT-W','CHARGE-PLACE1','CHARGE-PLACE2'].includes(s.toNodeId)));
   }
 });
 

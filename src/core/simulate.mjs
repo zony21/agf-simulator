@@ -48,8 +48,14 @@ export function simulate(rawScenario) {
   required(battery.reservePct >= 0 && battery.chargeStartPct >= 0 &&
     battery.chargeStartPct < battery.chargeTargetPct && battery.chargeTargetPct <= 100 &&
     battery.chargeMinPerPct > 0, 'invalid battery settings');
+  if(battery.taskStartPct!==undefined)required(Number.isFinite(battery.taskStartPct)&&battery.taskStartPct>=0&&
+    battery.taskStartPct<=100&&battery.chargeTargetPct>=battery.taskStartPct,
+    'invalid task start battery settings');
   validateBatteryModel(battery);
-  required(['area_first','low_battery_first'].includes(scenario.mode), 'mode required');
+  required(['area_first','low_battery_first','source_area_agf_priority'].includes(scenario.mode), 'mode required');
+  if(scenario.mode==='source_area_agf_priority')required(scenario.agfs?.length===4&&scenario.agfPriorities&&
+    scenario.agfs.every(a=>Number.isInteger(scenario.agfPriorities[a.id])&&scenario.agfPriorities[a.id]>=1&&scenario.agfPriorities[a.id]<=99),
+    'AGF_PRIORITY_CONFIG: every AGF needs a positive integer priority');
   const fallback = scenario.fallback ?? 'wait';
   required(['wait','any'].includes(fallback), 'fallback must be wait or any');
   required(Number.isInteger(scenario.lineCapacity) && scenario.lineCapacity > 0, 'lineCapacity required');
@@ -63,6 +69,7 @@ export function simulate(rawScenario) {
   const motionControl=scenario.motionControl??null;
   validateMotionControl(motionControl);
   const postTaskPolicy=scenario.postTaskPolicy??null;
+  const taskStartPct=Number.isFinite(battery.taskStartPct)?battery.taskStartPct:null;
   required(!postTaskPolicy||graphMode,'HP return requires an explicit synthetic graph');
   required(graphMode||scenario.motionModel===undefined||scenario.motionModel==='fixed_time',
     'motionModel must be fixed_time or synthetic_graph');
@@ -95,6 +102,10 @@ export function simulate(rawScenario) {
   // ordered places are explicit synthetic scenario input, never a place/charger pair.
   const chargePlaces=new Map((scenario.chargePlaceIds??[]).map(id=>[id,null]));
   const chargePlaceReservations=new Map((scenario.chargePlaceIds??[]).map(id=>[id,null]));
+  const waitingOwner=id=>waitingPlaces.has(id)?waitingPlaces.get(id):chargePlaces.get(id);
+  const waitingReservationOwner=id=>waitingReservations.has(id)?waitingReservations.get(id):chargePlaceReservations.get(id);
+  const reserveWaitingPlace=(id,agfId)=>waitingPlaces.has(id)?waitingReservations.set(id,agfId):chargePlaceReservations.set(id,agfId);
+  const occupyWaitingPlace=(id,agfId)=>waitingPlaces.has(id)?waitingPlaces.set(id,agfId):chargePlaces.set(id,agfId);
   const parkingChargeQueue=[];
   if(chargePlaces.size){
     required(postTaskPolicy&&chargePlaces.size===2&&scenario.chargePlaceIds.length===2&&
@@ -102,7 +113,7 @@ export function simulate(rawScenario) {
       'two explicit synthetic charging stops required');
   }
   if(scenario.initialParking){
-    const allowed=new Set(['HP1','HP2',...chargePlaces.keys()]);
+    const allowed=new Set([...NORMAL_WAITING_PLACES.map(place=>place.id),...chargePlaces.keys()]);
     required(postTaskPolicy&&allowed.size===4&&scenario.initialParking.evidence&&
       scenario.initialParking.placeIds?.length===4&&new Set(scenario.initialParking.placeIds).size===4&&
       scenario.initialParking.placeIds.every(id=>allowed.has(id))&&
@@ -110,9 +121,14 @@ export function simulate(rawScenario) {
       agfs.every(a=>allowed.has(a.currentNodeId)&&a.status==='idle'&&a.area===graphNodes.get(a.currentNodeId).areaId),
       'invalid initial parking: four distinct allowed idle stops required');
   }
-  for(const a of agfs)if(chargePlaces.has(a.currentNodeId)){
-    required(!chargePlaces.get(a.currentNodeId),'initial parking capacity exceeded');
-    chargePlaces.set(a.currentNodeId,a.id);
+  for(const a of agfs){
+    if(waitingPlaces.has(a.currentNodeId)){
+      required(!waitingPlaces.get(a.currentNodeId),'initial waiting-place capacity exceeded');
+      waitingPlaces.set(a.currentNodeId,a.id);
+    }else if(chargePlaces.has(a.currentNodeId)){
+      required(!chargePlaces.get(a.currentNodeId),'initial charge-place capacity exceeded');
+      chargePlaces.set(a.currentNodeId,a.id);
+    }
   }
   if(postTaskPolicy){
     required(!Object.keys(postTaskPolicy.waitTargets??{}).length,
@@ -120,14 +136,13 @@ export function simulate(rawScenario) {
     required(Array.isArray(waitingPriority)&&waitingPriority.length===4&&
       waitingPriority.every((id,i)=>id===NORMAL_WAITING_PRIORITY[i]),'invalid shared normal waiting priority');
     for(const target of waitingPriority){
-      required(graphNodes.get(target)?.type==='wait'&&resolveInterfaceNode(topology,target)===target,
-        'normal waiting place needs an explicit synthetic node');
-      const starts=topology.nodes.filter(n=>['home','pickup','dropoff','charge'].includes(n.type));
+      const expectedType=waitingPlaces.has(target)?'wait':'charge';
+      required((waitingPlaces.has(target)||chargePlaces.has(target))&&graphNodes.get(target)?.type===expectedType&&
+        resolveInterfaceNode(topology,target)===target,
+        'normal waiting target needs an explicit synthetic stop');
+      const starts=topology.nodes.filter(n=>['home','pickup','dropoff','charge','wait'].includes(n.type));
       for(const start of starts)required(findOperationalPath(topology,start.id,target,{movement:'wait',taskType:'WAIT'}),
         'unreachable normal waiting return target: '+target);
-    }
-    for(const a of agfs)if(waitingPlaces.has(a.currentNodeId)){
-      required(!waitingPlaces.get(a.currentNodeId),'initial HP capacity exceeded');waitingPlaces.set(a.currentNodeId,a.id);
     }
   }
   const slots = new Map((scenario.warehouse ?? []).map(s => [s.id,{...s,palletIds:[...(s.palletIds ?? [])],reserved:[]}]));
@@ -843,7 +858,7 @@ export function simulate(rawScenario) {
     if (!batteryLedger) a.batteryPct=Math.max(0,Math.round((a.batteryPct-battery.consumptionPct)*1000)/1000);
     stats.completed++; stats.byKind[t.kind]=(stats.byKind[t.kind]??0)+1;
     record('TASK_COMPLETED',{taskId:t.id,kind:t.kind,agfId:a.id,palletId:t.palletId ?? null});
-    if (a.batteryPct <= battery.chargeStartPct) requestCharge(a);
+    if (a.batteryPct < battery.chargeStartPct) requestCharge(a);
   };
   const completeDrop = (t,a) => {
     if (t.kind === '01' || t.kind === '04') {
@@ -893,10 +908,10 @@ export function simulate(rawScenario) {
     eligible:false,vehicleEligible:false,exclusionReason:null,selected:false,evaluationStatus:'not_evaluated'});
   const evaluationOrder=(a,b)=>String(a.agfId).localeCompare(String(b.agfId),'en');
   const taskGateSelection=(task,reason,selection=null)=>({
-    ...(selection??{mode:scenario.mode,destinationArea:task.destinationArea,reservePct:battery.reservePct,
+    ...(selection??{mode:scenario.mode,originArea:task.originArea??null,destinationArea:task.destinationArea,reservePct:battery.reservePct,
       fallback,basis:'task_precondition',eligibleAgfIds:[],stages:[]}),
     selectedAgfId:null,selectedArea:null,selectedBatteryPct:null,candidates:[],tieBreak:'none',tieBreakEvidence:null,
-    taskExclusionReason:reason,chargeStartPct:postTaskPolicy?battery.chargeStartPct:null,
+    taskExclusionReason:reason,chargeStartPct:postTaskPolicy?battery.chargeStartPct:null,taskStartPct,
     evaluations:(selection?.evaluations??agfs.map(vehicleEvaluation)).map(e=>e.eligible||!selection?
       {...e,eligible:false,selected:false,exclusionReason:'TASK_PRECONDITION',taskExclusionReason:reason}:{...e,selected:false}).sort(evaluationOrder),
     stages:[...(selection?.stages??[]),{stage:'task_precondition',reason,eligibleAgfIds:[]}]
@@ -924,11 +939,13 @@ export function simulate(rawScenario) {
       }
       const available=(a,evaluation=null)=>{
         const statusAvailable=a.status==='idle'||(postTaskPolicy&&a.status==='dispatch_pending');
-        const batteryAvailable=!postTaskPolicy||a.batteryPct>battery.chargeStartPct;
+        const batteryAvailable=taskStartPct===null?
+          (!postTaskPolicy||a.batteryPct>battery.chargeStartPct):a.batteryPct>=taskStartPct;
         if(evaluation){
           evaluation.evaluationStatus='evaluated';
           if(!statusAvailable)evaluation.exclusionReason='STATUS_NOT_AVAILABLE';
-          else if(!batteryAvailable)evaluation.exclusionReason=Number.isFinite(a.batteryPct)?'BATTERY_CHARGE_START':'BATTERY_INVALID';
+          else if(!batteryAvailable)evaluation.exclusionReason=Number.isFinite(a.batteryPct)?
+            taskStartPct===null?'BATTERY_CHARGE_START':'BATTERY_TASK_START':'BATTERY_INVALID';
         }
         return statusAvailable&&batteryAvailable;
       };
@@ -937,11 +954,14 @@ export function simulate(rawScenario) {
         const availableValues=values.filter(a=>available(a,byEvaluation.get(a.id)));
         const availability={stage:'availability',pass,eligibleAgfIds:availableValues.map(a=>a.id).sort(),
           excluded:evaluations.filter(e=>e.exclusionReason).map(e=>({agfId:e.agfId,exclusionReason:e.exclusionReason})).sort(evaluationOrder)};
+        const nodeOrigin=graphMode?graphNodes.get(resolveInterfaceNode(topology,t.originId)):null;
+        const originArea=t.originArea??nodeOrigin?.areaId;
         const decision=selectAgfWithReason(availableValues.map(a=>a.status==='dispatch_pending'?{...a,status:'idle'}:a),
-          {destinationArea:t.destinationArea},{mode:scenario.mode,reservePct:battery.reservePct,fallback});
+          {originArea,destinationArea:t.destinationArea},{mode:scenario.mode,reservePct:battery.reservePct,
+            taskStartPct:taskStartPct??undefined,agfPriorities:scenario.agfPriorities,fallback});
         const selectorEvaluations=new Map(decision.selection.evaluations.map(e=>[e.agfId,e]));
         return {agf:values.find(a=>a.id===decision.agf?.id)??null,selection:{...decision.selection,
-          chargeStartPct:postTaskPolicy?battery.chargeStartPct:null,
+          chargeStartPct:postTaskPolicy?battery.chargeStartPct:null,taskStartPct,
           evaluations:evaluations.map(e=>({...e,...selectorEvaluations.get(e.agfId),status:e.status})).sort(evaluationOrder),
           stages:[availability,...decision.selection.stages.map(stage=>({...stage,pass}))]}};
       };
@@ -1036,6 +1056,7 @@ export function simulate(rawScenario) {
   };
   const releasePlaces=a=>{
     for(const [id,owner] of waitingReservations)if(owner===a.id)waitingReservations.set(id,null);
+    for(const [id,owner] of chargePlaceReservations)if(owner===a.id)chargePlaceReservations.set(id,null);
     a.waitTarget=null;
     a.chargeTarget=null;
     // An AGF still waiting for its outgoing segment physically holds its stop.
@@ -1086,26 +1107,26 @@ export function simulate(rawScenario) {
     // in both motion models. Unconfigured legacy Runs retain their behavior.
     if(!postTaskPolicy&&taskPriorities===undefined)return;
     for(const a of [...agfs].sort(byId))if(!a.blocked&&['idle','dispatch_pending'].includes(a.status)&&
-      a.batteryPct<=battery.chargeStartPct)requestCharge(a);
+      a.batteryPct<battery.chargeStartPct)requestCharge(a);
   };
   const settleWaiting=()=>{
     if(!postTaskPolicy)return;
     for(const a of [...agfs].sort(byId)){
-      if(!['dispatch_pending','waiting_hp_capacity'].includes(a.status))continue;
-      if(waitingPlaces.get(a.currentNodeId)===a.id){
+      if(!['dispatch_pending','waiting_place_capacity'].includes(a.status))continue;
+      if(waitingOwner(a.currentNodeId)===a.id){
         a.status='idle';a.waitTarget=null;
-        record('WAIT_ARRIVED',{agfId:a.id,hpId:a.currentNodeId,batteryPct:a.batteryPct,alreadyParked:true});
+        record('WAIT_ARRIVED',{agfId:a.id,placeId:a.currentNodeId,batteryPct:a.batteryPct,alreadyParked:true});
         continue;
       }
-      const target=waitingPriority.find(id=>!waitingPlaces.get(id)&&!waitingReservations.get(id));
+      const target=waitingPriority.find(id=>!waitingOwner(id)&&!waitingReservationOwner(id));
       const holdReturn=(status,reason)=>{
-        if(a.status!==status){a.status=status;record('WAIT_RETURN_HELD',{agfId:a.id,hpId:target??null,reason});}
+        if(a.status!==status){a.status=status;record('WAIT_RETURN_HELD',{agfId:a.id,placeId:target??null,reason});}
       };
-      if(!target){holdReturn('waiting_hp_capacity','HP_CAPACITY_UNRESOLVED');continue;}
+      if(!target){holdReturn('waiting_place_capacity','WAITING_SPOTS_FULL');continue;}
       const path=routeFor(a.currentNodeId,target,'wait','WAIT');
-      required(path,'unreachable normal waiting return target: '+target);
-      releasePlaces(a);waitingReservations.set(target,a.id);a.waitTarget=target;
-      record('WAIT_RETURN_REQUESTED',{agfId:a.id,hpId:target,waitingPriority:[...waitingPriority]});
+      required(path,'unreachable normal waiting target: '+target);
+      releasePlaces(a);reserveWaitingPlace(target,a.id);a.waitTarget=target;
+      record('WAIT_RETURN_REQUESTED',{agfId:a.id,placeId:target,waitingPriority:[...waitingPriority]});
       beginRoute(null,a,'wait',path,'WAIT_ARRIVED');
     }
   };
@@ -1596,12 +1617,16 @@ export function simulate(rawScenario) {
       wakeTraffic();
     } else if(e.type==='WAIT_ARRIVED'){
       const a=agfs.find(a=>a.id===e.agfId);
-      required(postTaskPolicy&&a?.status==='moving_to_wait'&&waitingReservations.get(a.waitTarget)===a.id&&
-        !waitingPlaces.get(a.waitTarget)&&a.currentNodeId===a.waitTarget,
-        'HP arrival without reserved return');
-      waitingReservations.set(a.waitTarget,null);waitingPlaces.set(a.waitTarget,a.id);
+      const chargeTarget=chargePlaces.has(a?.waitTarget);
+      const targetReserved=chargeTarget?chargePlaces.get(a?.waitTarget)===a?.id:
+        waitingReservations.get(a?.waitTarget)===a?.id&&!waitingPlaces.get(a.waitTarget);
+      required(postTaskPolicy&&a?.status==='moving_to_wait'&&targetReserved&&a.currentNodeId===a.waitTarget,
+        'waiting arrival without reserved stop');
+      if(chargeTarget)chargePlaceReservations.set(a.waitTarget,null);
+      else waitingReservations.set(a.waitTarget,null);
+      occupyWaitingPlace(a.waitTarget,a.id);
       a.status='idle';a.movement=null;
-      record('WAIT_ARRIVED',{agfId:a.id,hpId:a.waitTarget,batteryPct:a.batteryPct});
+      record('WAIT_ARRIVED',{agfId:a.id,placeId:a.waitTarget,batteryPct:a.batteryPct});
     } else if (e.type === 'CHARGE_ARRIVED') {
       const a=agfs.find(a=>a.id===e.agfId);
       required(a?.status==='moving_to_charge','charge arrival without travel');
@@ -1612,11 +1637,14 @@ export function simulate(rawScenario) {
       required(a?.status==='charging' && a.chargerId===e.chargerId &&
         chargers.get(e.chargerId)===a.id,'invalid charge end');
       a.batteryPct=battery.chargeTargetPct;a.status=postTaskPolicy?'dispatch_pending':'idle';
-      if(!postTaskPolicy)a.chargerId=null;
+      // The charger is an electrical resource, not the physical stopping place.
+      // Release it as soon as charging ends even when the AGF remains parked at
+      // its charge place because both normal waiting places are occupied.
+      a.chargerId=null;chargers.set(e.chargerId,null);
       batteryLedger?.finishCharge(a);
-      if(!postTaskPolicy)chargers.set(e.chargerId,null);
       record('CHARGE_ENDED',{agfId:a.id,chargerId:e.chargerId,batteryPct:a.batteryPct});
-      if (!postTaskPolicy&&chargeQueue.length) startCharge(chargeQueue.shift());
+      record('CHARGER_RELEASED',{agfId:a.id,chargerId:e.chargerId});
+      if (chargeQueue.length) startCharge(chargeQueue.shift());
     } else throw new Error('unsupported event '+e.type);
     for(let i=pendingInterferences.length-1;i>=0;i--)if(evaluateInterference(pendingInterferences[i]))pendingInterferences.splice(i,1);
     refillAllEmptyAligners();

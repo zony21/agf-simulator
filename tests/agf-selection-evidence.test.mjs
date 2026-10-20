@@ -61,9 +61,9 @@ test('only a tie at the selected lowest battery records the existing synthetic I
 test('graph assignment records only the final route-feasible candidates and selected AGF',()=>{
   const input=createDemoScenario('manual'),topology=JSON.parse(readFileSync(new URL('../examples/synthetic-operational-topology.json',import.meta.url),'utf8'));
   input.durationMin=2;input.motionModel='synthetic_graph';input.operationalTopology=topology;
-  const starts=['HP1','HP2','CHARGE-PLACE1','CHARGE-PLACE2'];
+  const starts=['PILLAR-WAIT-E','PILLAR-WAIT-W','CHARGE-PLACE1','CHARGE-PLACE2'];
   input.agfs=input.agfs.map((a,i)=>({...a,area:'WH',currentNodeId:starts[i],batteryPct:[50,60,80,90][i]}));
-  topology.edges=topology.edges.filter(e=>e.fromNodeId!=='HP1'&&e.toNodeId!=='HP1');
+  topology.edges=topology.edges.filter(e=>e.fromNodeId!=='PILLAR-WAIT-E'&&e.toNodeId!=='PILLAR-WAIT-E');
   input.productionEvents=[{timeMs:0,lineId:'L1',palletId:'SYN-SELECTION',destinationLocationId:input.generatedDestinationIds[0]}];
   input.manualRequests=[];input.magazineUses=[];input.alignerReadyEvents=[];
   const run=simulate(input),assigned=run.events.find(e=>e.type==='TASK_ASSIGNED'&&e.kind==='01');

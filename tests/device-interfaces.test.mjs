@@ -55,7 +55,7 @@ test('each individual device stop holds an explicit synthetic stop resource thro
 });
 
 test('magazines, temporary places and aligners have distinct device stops and no generic binding',()=>{
-  for(const [prefix,count,type,old] of [['M',5,'dropoff','PZ-MAG'],['OT',3,'pickup','PZ-OT'],['AL',5,'pickup','WH-ALIGN']]){
+  for(const [prefix,count,type,old] of [['M',5,'dropoff','PZ-MAG'],['OT',3,'pickup','PZ-OT'],['AL',5,'pickup',null]]){
     const ids=[];
     for(let n=1;n<=count;n++){
       const id=resolveInterfaceNode(graph,prefix+n),stop=node(id);
@@ -64,8 +64,10 @@ test('magazines, temporary places and aligners have distinct device stops and no
     }
     assert.equal(new Set(ids).size,count);
     assert.equal(resolveInterfaceNode(graph,prefix+(count+1)),null);
-    assert.equal(node(old).type,'junction');
+    if(old)assert.equal(node(old).type,'junction');
   }
+  assert.equal(node('WH-ALIGN'),undefined,'the former shared HP-band aligner junction is removed');
+  assert.equal(node('WH-AL1-TURN').type,'junction','the vertical aligner group uses its synthetic feeder turn');
   assert.equal(node('PZ-LINE').type,'junction');
 });
 
@@ -210,7 +212,7 @@ test('invalid traffic metadata and invented or disconnected avoidance routes fai
 function oneLineScenario(n){
   const s=createLegacyScenario('manual');
   s.durationMin=20;s.motionModel='synthetic_graph';s.operationalTopology=structuredClone(graph);
-  const starts=['WH-HOME','CHARGE-PLACE2','HP1','HP2'];
+  const starts=['WH-HOME','CHARGE-PLACE2','PILLAR-WAIT-W','PILLAR-WAIT-E'];
   s.agfs=s.agfs.map((a,i)=>({...a,currentNodeId:starts[i],area:'WH',blocked:i!==0}));
   s.lineIntervalsMin=Array(8).fill(0);
   s.productionEvents=[{timeMs:0,lineId:'L'+n,palletId:'SYNTHETIC-PGW'+n,destinationLocationId:s.generatedDestinationIds[0]}];

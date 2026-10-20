@@ -58,7 +58,7 @@ test('fire shutter crossing uses the actual four aisle junctions while retaining
 test('atomic synthetic passages reject disconnected parts and independently reservable lane resources',()=>{
   const disconnected=structuredClone(graph);
   const part=disconnected.edges.find(edge=>edge.id==='E21-PART2');
-  part.fromNodeId='HP1';part.toNodeId='HP2';
+  part.fromNodeId='E14-TURN1';part.toNodeId='E15-TURN1';
   const [from,to]=[part.fromNodeId,part.toNodeId].map(id=>nodes.get(id));
   part.displayPath=[{x:from.x,y:from.y},{x:to.x,y:to.y}];
   assert.throws(()=>validateOperationalTopology(disconnected),/passage parts must be connected/);
@@ -82,8 +82,9 @@ test('outdoor return cannot pass through a vehicle stopped at the existing inlet
     'opposite arrivals must reserve through the whole shared passage before reaching its endpoints');
 });
 
-test('all aligner access stations and the internal service junction retain separate exclusive stops',()=>{
-  for(const id of ['WH-ALIGN',...Array.from({length:5},(_,i)=>`WH-AL${i+1}-ACCESS`)]){
+test('all aligner west-access stations and vertical approach turns retain separate exclusive stops',()=>{
+  for(const id of [...['WH-AL1-TURN','WH-AL23-TURN','WH-AL45-TURN'],
+    ...Array.from({length:5},(_,i)=>`WH-AL${i+1}-ACCESS`)]){
     const node=nodes.get(id);assert.equal(node.exclusiveTraffic,true,id);
     assert.ok(node.occupancyResourceIds.includes('NODE:'+id),id);
   }

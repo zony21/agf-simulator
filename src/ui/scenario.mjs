@@ -21,6 +21,12 @@ export function createDemoScenario(preset='standard',{metricProfile=null}={}) {
     s.lineStartOffsetsMin=productionOffsets();
     s.productStreams=defaultProductStreams(undefined,s.lineStartOffsetsMin);
     s.evidence.production='theoretical-pallet-discharge-100pct';
+    s.agfPriorities=Object.fromEntries(s.agfs.map((agf,index)=>[agf.id,index+1]));
+    s.evidence.agfPriorities='user-confirmed-initial-ranking';
+    s.battery.taskStartPct=60;
+    s.battery.chargeTargetPct=60;
+    s.evidence.taskStartPct='user-confirmed-task-start-threshold';
+    s.evidence.chargeTargetPct='user-confirmed-charge-recovery-target';
     s.productionModel='empty_pallet_supply';
     s.lineMagazineMap={...CONFIRMED_LINE_MAGAZINE_MAP};
     s.lineMagazineMapPolicy='fixed';
@@ -33,7 +39,7 @@ export function createDemoScenario(preset='standard',{metricProfile=null}={}) {
     s.warehousePolicy={...syntheticWarehousePolicy(),evidence:'user-requested-example-default'};
     s.postTaskPolicy={evidence:'user-confirmed-shared-priority',waitingPriority:[...NORMAL_WAITING_PRIORITY]};
     // User-confirmed startup only. The actual stop coordinates remain synthetic.
-    s.initialParking={evidence:'user-confirmed-initial-placement',placeIds:['CHARGE-PLACE1','CHARGE-PLACE2','HP1','HP2']};
+    s.initialParking={evidence:'user-confirmed-initial-placement',placeIds:['CHARGE-PLACE1','CHARGE-PLACE2','PILLAR-WAIT-W','PILLAR-WAIT-E']};
     s.chargePlaceIds=['CHARGE-PLACE1','CHARGE-PLACE2'];
     // User-requested provisional defaults. Equivalent angular speed derived
     // from catalogue turning travel, not a measured stationary turn rate.
@@ -93,7 +99,8 @@ export function createLegacyScenario(preset='standard') {
     generatedDestinationIds,
     wrapper:{inputCapacity:1,outputCapacity:2,...(preset==='physical'?{inboundAgfLimit:3}:{})},
     agfs:Array.from({length:4},(_,i)=>({id:'AGF'+(i+1),area:preset==='physical'?'WH':i<2?'PZ':'WH',
-      batteryPct:preset==='charge'?41:100,status:'idle',...(preset==='physical'?{currentNodeId:['CHARGE-PLACE1','CHARGE-PLACE2','HP1','HP2'][i]}:{})})),
+      batteryPct:preset==='charge'?41:100,status:'idle',...(preset==='physical'?{currentNodeId:['CHARGE-PLACE1','CHARGE-PLACE2','PILLAR-WAIT-W','PILLAR-WAIT-E'][i]}:{})})),
+    agfPriorities:Object.fromEntries(Array.from({length:4},(_,i)=>['AGF'+(i+1),i+1])),
     chargerIds:['CHARGER1','CHARGER2'],
     battery:{consumptionModel:'active_time',activeReferenceMin:360,activeReferenceConsumptionPct:70,
       reservePct:40,chargeStartPct:40,chargeTargetPct:80,consumptionPct:1.5,chargeMinPerPct:2.4},

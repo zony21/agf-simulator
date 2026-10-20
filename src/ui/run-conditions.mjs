@@ -34,7 +34,8 @@ const labels={id:'Run ID',executedAt:'実行日時',durationMin:'実行時間（
   initialQuantity:'初期枚数',capacity:'設定上限（枚）',trigger:'補充必要となる残数（枚）',refillBatch:'補充量（枚）',
   alignerRefillPolicy:'整列機の装填ルール',alignerRefillTiming:'自動装填の時間の扱い',
   magazineEmptyRecoveryPolicy:'0枚停止後の再開方式',intervalMin:'搬出間隔（分）',offsetMin:'初回ずらし（分）',magazineId:'使用マガジン',
-  destinationAreaPriority:'目的地エリア優先',batteryOrder:'バッテリー選定順',eligibility:'選定対象の条件',tieBreak:'同率時の処理',
+  destinationAreaPriority:'搬送先エリア優先',sourceAreaPriority:'荷受け元エリア優先',batteryOrder:'選定順',priority:'AGF優先順位',
+  eligibility:'選定対象の条件',tieBreak:'同率時の処理',taskStartPct:'新規タスク開始閾値（%）',
   fallback:'目的地エリアに候補がない場合',consumptionModel:'消費モデル',activeReferenceMin:'基準稼働時間（分）',
   activeReferenceConsumptionPct:'基準時間での消費（ポイント）',reservePct:'搬送選定の残量下限（%）',chargeStartPct:'充電開始閾値（%）',
   chargeTargetPct:'充電終了閾値（%）',chargeMinPerPct:'1ポイントの充電時間（分）',consumptionPct:'旧タスク単位消費（ポイント）',
@@ -73,12 +74,17 @@ export function buildRunConditions(run,{runId=run.runId??null,executedAt=run.exe
   add('EQUIPMENT','manualRequests','initialCount',s.manualRequests?.filter(e=>e.timeMs===0).length??0,evidence('inventory'));
   add('AGF','mode','',s.mode,'saved-run','選定方式');
   add('AGF','selection','destinationAreaPriority',s.mode==='area_first','user-confirmed');
-  add('AGF','selection','batteryOrder','ascending','user-confirmed');
-  add('AGF','selection','eligibility',s.postTaskPolicy?
-    '(idle || dispatch_pending) && !blocked && batteryPct > reservePct && batteryPct > chargeStartPct':
+  add('AGF','selection','sourceAreaPriority',s.mode==='source_area_agf_priority','user-confirmed');
+  add('AGF','selection','batteryOrder',s.mode==='source_area_agf_priority'?'configured AGF rank':'ascending battery percentage','user-confirmed');
+  add('AGF','selection','eligibility',s.battery?.taskStartPct!==undefined?
+    `(idle || dispatch_pending) && !blocked && batteryPct >= ${s.battery.taskStartPct} && batteryPct > reservePct`:
+    s.postTaskPolicy?'(idle || dispatch_pending) && !blocked && batteryPct > reservePct && batteryPct > chargeStartPct':
     'idle && !blocked && batteryPct > reservePct','user-confirmed');
   add('AGF','selection','tieBreak','AGF ID ascending','deterministic-model-tie-break');
   add('AGF','selection','fallback',s.fallback??'wait',s.fallback===undefined?'implementation-default':evidence('fallback'));
+  add('AGF','selection','agfPriorityApplied',s.mode==='source_area_agf_priority','saved-run','AGF順位を選定に適用');
+  for(const a of s.agfs??[])if(s.agfPriorities?.[a.id]!==undefined)
+    add('AGF_PRIORITY',a.id,'priority',s.agfPriorities[a.id],evidence('agfPriorities'),'新方式で使用する個別優先順位');
   if(s.taskPriorities===undefined){
     add('TASK_PRIORITY','dispatch','policy','legacy_fifo','legacy-model','自動搬送の割当順');
   }else{
@@ -100,7 +106,8 @@ export function buildRunConditions(run,{runId=run.runId??null,executedAt=run.exe
   (s.chargerIds??[]).forEach((id,i)=>add('CHARGING','charger',String(i+1),id,evidence('structure'),'充電器 '+(i+1)));
   (s.chargePlaceIds??[]).forEach((id,i)=>add('CHARGING','chargePlace',String(i+1),id,s.initialParking?.evidence??evidence('coordinates'),'充電停止位置 '+(i+1)));
   for(const [key,value] of Object.entries(s.battery??{}))add('BATTERY','settings',key,value,
-    ['activeReferenceMin','activeReferenceConsumptionPct','consumptionModel'].includes(key)?evidence('batteryConsumption'):evidence('battery'));
+    key==='taskStartPct'?evidence('taskStartPct'):key==='chargeTargetPct'?evidence('chargeTargetPct'):
+      ['activeReferenceMin','activeReferenceConsumptionPct','consumptionModel'].includes(key)?evidence('batteryConsumption'):evidence('battery'));
   if(s.evidence?.batteryScope)add('BATTERY','settings','scope',s.evidence.batteryScope,s.evidence.batteryScope,'消費対象の稼働時間');
   for(const [key,value] of Object.entries(s.wrapper??{}))add('WRAPPER','settings',key,value,key==='inboundAgfLimit'?evidence('timing'):evidence('structure'));
   for(const [key,value] of Object.entries(s.times??{})){

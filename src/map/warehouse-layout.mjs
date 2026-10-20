@@ -25,19 +25,23 @@ export const WAREHOUSE_MAIN_AISLES=Object.freeze(['W','E'].flatMap(side=>[1,2].m
 const places=(prefix,count)=>Object.freeze(Array.from({length:count},(_,i)=>Object.freeze({
   id:prefix+(i+1),positionEvidence:'relative-only',stopNodeId:null,...(prefix==='CHARGE-PLACE'?{chargerId:null}:{})
 })));
-export const NORMAL_WAITING_PLACES=Object.freeze([...places('HP',2),
+export const NORMAL_WAITING_PLACES=Object.freeze([
   Object.freeze({id:'PILLAR-WAIT-E',positionEvidence:'relative-only',stopNodeId:null,relativeTo:'EB1-EB2-gap-west'}),
   Object.freeze({id:'PILLAR-WAIT-W',positionEvidence:'relative-only',stopNodeId:null,relativeTo:'WB2-WB3-gap-east'})]);
-/** User-confirmed return priority, shared by every AGF; unrelated to initial parking. */
-export const NORMAL_WAITING_PRIORITY=Object.freeze(NORMAL_WAITING_PLACES.map(p=>p.id));
+export const CHARGE_PLACES=places('CHARGE-PLACE',2);
+/** Pillar waits come first; idle AGFs may use an unoccupied charge stop only if both are full. */
+export const NORMAL_WAITING_PRIORITY=Object.freeze([
+  ...NORMAL_WAITING_PLACES.map(p=>p.id),...CHARGE_PLACES.map(p=>p.id)]);
 export const WAREHOUSE_SERVICE=Object.freeze({
   relativeTo:'south-of-EB2',accessFrom:'east-main-aisles',accessEvidence:'user-confirmed',branchAssignment:'unresolved',
-  waitingCandidates:Object.freeze({totalCount:4,normalUse:true,groups:Object.freeze([
-    Object.freeze({kind:'south-service',count:2,placeIds:Object.freeze(['HP1','HP2'])}),
+  waitingCandidates:Object.freeze({totalCount:2,normalUse:true,groups:Object.freeze([
     Object.freeze({kind:'rack-gap-pillars',count:2,sides:Object.freeze(['west','east']),placeIds:Object.freeze(['PILLAR-WAIT-W','PILLAR-WAIT-E'])})
   ]),wsIdMapping:'unresolved'}),
-  waitingPlaces:NORMAL_WAITING_PLACES,chargePlaces:places('CHARGE-PLACE',2),chargers:places('CHARGER',2),aligners:places('AL',5),
-  arrangement:Object.freeze({left:['waiting-1','waiting-2','charge-1','charge-2'],rightTop:'five-aligners',rightBottom:'empty-pallet-storage'}),
+  waitingPlaces:NORMAL_WAITING_PLACES,waitingFallbackPlaces:CHARGE_PLACES,
+  chargePlaces:CHARGE_PLACES,chargers:places('CHARGER',2),
+  aligners:Object.freeze(places('AL',5).map((p,i)=>Object.freeze({...p,relativeTo:'former-south-waiting-area',stackOrder:i+1,accessSide:'west'}))),
+  arrangement:Object.freeze({chargingPlaces:Object.freeze(['charge-1','charge-2']),formerWaitingArea:'five-aligners-vertical',
+    alignerAccessSide:'west',rightBottom:'empty-pallet-storage'}),
   emptyPalletStorage:Object.freeze({agfAccess:'forbidden',supplyBy:'operator',routeNodes:Object.freeze([]),capacity:null})
 });
 

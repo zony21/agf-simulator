@@ -20,7 +20,7 @@ export function replayFrameTime(anchor,frameMs,durationMs) {
 export function effectiveStatus(agf,snapshot) {
   if(agf.status==='waiting_charge_place')return 'waiting_charge';
   if(agf.status==='waiting_traffic'&&agf.movement?.waitingReason==='CHARGE_PLACE')return 'waiting_charge';
-  if(agf.status==='idle'&&snapshot.waitingPlaces?.[agf.currentNodeId]===agf.id)return 'hp_wait';
+  if(agf.status==='idle'&&(snapshot.waitingPlaces?.[agf.currentNodeId]===agf.id||snapshot.chargePlaces?.[agf.currentNodeId]===agf.id))return 'hp_wait';
   if(snapshot.tasks.find(task=>task.id===agf.taskId)?.status==='wait_drop')return 'wait_drop';
   const movement=agf.movement;
   if(['moving_empty','moving_loaded'].includes(agf.status)&&movement&&!movement.current&&movement.stepIndex===movement.steps.length){
@@ -35,7 +35,7 @@ export const durationStatuses=['idle','moving_empty','handling_pickup','moving_l
   'turning','positioning_for_pickup','picking_fork_inserted','positioning_for_dropoff','dropping_fork_inserted',
   'waiting_motion_configuration','waiting_avoidance','waiting_interference','waiting_wrapper_input','waiting_charge_place',
   'waiting_traffic','wait_drop','waiting_pickup','moving_to_wait','hp_wait','moving_to_charge','charging','waiting_charge',
-  'waiting_hp_instruction','waiting_hp_capacity','waiting_hp_route'];
+  'waiting_hp_instruction','waiting_hp_capacity','waiting_hp_route','waiting_place_capacity'];
 
 /** Round the table together so displayed tenths sum to the displayed run duration.
  * Analysis, utilization and CSV retain exact milliseconds. Ties use column order. */
@@ -94,7 +94,7 @@ export function analyzeRun(run) {
     preRequestHeld:(run.final.pallets??[]).filter(p=>p.stage==='exit_ready'&&p.waitReason).length,
     utilizationPct:agfs.length?agfs.reduce((n,a)=>n+a.utilizationPct,0)/agfs.length:0,
     idleMs:sum('idle')+sum('hp_wait'),hpWaitMs:sum('hp_wait'),waitReturnMs:sum('moving_to_wait'),
-    hpBlockedMs:sum('waiting_hp_instruction')+sum('waiting_hp_capacity')+sum('waiting_hp_route'),
+    hpBlockedMs:sum('waiting_hp_instruction')+sum('waiting_hp_capacity')+sum('waiting_hp_route')+sum('waiting_place_capacity'),
     dropWaitMs:sum('wait_drop'),pickupWaitMs:sum('waiting_pickup'),wrapperInputWaitMs:sum('waiting_wrapper_input'),chargeMs:sum('charging'),
     trafficWaitMs:sum('waiting_traffic')+sum('waiting_avoidance')+sum('waiting_interference'),avoidanceWaitMs:sum('waiting_avoidance'),
     turningMs:sum('turning'),positioningMs:sum('positioning_for_pickup')+sum('positioning_for_dropoff'),
@@ -105,5 +105,5 @@ export function analyzeRun(run) {
 }
 
 export function compareRuns(scenario) {
-  return ['area_first','low_battery_first'].map(mode=>simulate({...structuredClone(scenario),mode}));
+  return ['area_first','low_battery_first','source_area_agf_priority'].map(mode=>simulate({...structuredClone(scenario),mode}));
 }

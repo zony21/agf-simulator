@@ -182,7 +182,7 @@ test('confirmed wrapper stops and neutral capacities distinguish internal convey
 });
 test('legacy graph startup and unchanged area controls keep four independent stops without creating initial charging assignments',()=>{
   const s=createLegacyScenario('physical'),ids=s.agfs.map(a=>a.currentNodeId);
-  assert.deepEqual(ids,['CHARGE-PLACE1','CHARGE-PLACE2','HP1','HP2']);
+  assert.deepEqual(ids,['CHARGE-PLACE1','CHARGE-PLACE2','PILLAR-WAIT-W','PILLAR-WAIT-E']);
   assert.ok(s.agfs.every(a=>a.area==='WH'&&a.status==='idle'&&a.chargerId==null));
   const read=s.agfs.map(a=>initialAgfFromSettings(s,a,{position:a.area,batteryPct:a.batteryPct}));
   assert.deepEqual(read.map(a=>a.currentNodeId),ids);

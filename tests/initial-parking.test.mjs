@@ -6,7 +6,7 @@ import {integratedAcceptanceScenario} from '../examples/integrated-acceptance.mj
 import {analyzeRun} from '../src/ui/replay-model.mjs';
 import {projectAgfPosition} from '../src/core/motion-projection.mjs';
 
-const places=['CHARGE-PLACE1','CHARGE-PLACE2','HP1','HP2'];
+const places=['CHARGE-PLACE1','CHARGE-PLACE2','PILLAR-WAIT-W','PILLAR-WAIT-E'];
 test('settings preserve configurable explicit parking instead of replacing it with WH-HOME',()=>{
   const s=createDemoScenario('extended');
   for(const position of places)assert.deepEqual(initialAgfFromSettings(s,s.agfs[0],{position,batteryPct:75}),
@@ -29,7 +29,7 @@ test('extended initial positions are four user-confirmed stops with synthetic co
 });
 test('initial charging-place parking occupies stops only and accounts no charging or travel time',()=>{
   const r=simulate(quiet()),initial=r.snapshots[0];
-  assert.deepEqual(initial.waitingPlaces,{HP1:'AGF3',HP2:'AGF4','PILLAR-WAIT-W':null,'PILLAR-WAIT-E':null});
+  assert.deepEqual(initial.waitingPlaces,{'PILLAR-WAIT-W':'AGF3','PILLAR-WAIT-E':'AGF4'});
   assert.deepEqual(initial.chargePlaces,{'CHARGE-PLACE1':'AGF1','CHARGE-PLACE2':'AGF2'});
   assert.ok(r.snapshots.every(s=>Object.values(s.chargers).every(v=>v===null)));
   assert.ok(r.final.agfs.every(a=>a.status==='idle'&&a.chargerId===null));
@@ -38,11 +38,11 @@ test('initial charging-place parking occupies stops only and accounts no chargin
 });
 test('initial parking permits permutations but rejects duplicate, internal or already-charging starts',()=>{
   const s=quiet();s.agfs.forEach((a,i)=>a.currentNodeId=places[3-i]);
-  assert.equal(simulate(s).snapshots[0].waitingPlaces.HP2,'AGF1');
+  assert.equal(simulate(s).snapshots[0].waitingPlaces['PILLAR-WAIT-E'],'AGF1');
   s.agfs[0].currentNodeId=s.agfs[1].currentNodeId;assert.throws(()=>simulate(s),/initial parking/);
   s.agfs.forEach((a,i)=>a.currentNodeId=places[i]);s.agfs[0].currentNodeId='WH-HOME';
   assert.throws(()=>simulate(s),/initial parking/);
-  s.agfs[0].currentNodeId='HP1';s.agfs[2].status='charging';assert.throws(()=>simulate(s),/initial parking/);
+  s.agfs[0].currentNodeId='PILLAR-WAIT-W';s.agfs[2].status='charging';assert.throws(()=>simulate(s),/initial parking/);
 });
 test('an initial charging-place AGF can win ordinary dispatch and releases its stop on departure',()=>{
   const s=quiet();s.agfs[0].batteryPct=80;
@@ -55,7 +55,7 @@ test('an initial charging-place AGF can win ordinary dispatch and releases its s
   assert.ok(!r.events.some(e=>e.type==='CHARGE_STARTED'));
 });
 test('actual charging claims a charger only at start, independently of charging-place numbering',()=>{
-  const s=quiet();s.agfs[1].batteryPct=40;
+  const s=quiet();s.agfs[1].batteryPct=39;
   const r=simulate(s),start=r.events.find(e=>e.type==='CHARGE_STARTED');
   assert.equal(start.agfId,'AGF2');assert.equal(start.chargerId,'CHARGER1');
   assert.equal(r.snapshots[start.sequence].agfs[1].currentNodeId,'CHARGE-PLACE2');
@@ -75,19 +75,27 @@ test('outgoing shutter wait retains initial stop occupancy until segment entry',
   r.snapshots.forEach((snapshot,i)=>{if(r.events[i].timeMs<departure.timeMs)assert.equal(snapshot.chargePlaces['CHARGE-PLACE1'],'AGF1');});
   assert.equal(r.snapshots[departure.sequence].chargePlaces['CHARGE-PLACE1'],null);
 });
-test('occupied charging stops block arrival until departure, without overbooking or changing HP fallback',()=>{
-  const s=quiet();s.durationMin=20;s.agfs.forEach(a=>a.batteryPct=40);s.battery.chargeMinPerPct=.01;
+test('occupied charging stops block arrival without overbooking chargers or falling back to retired HP stops',()=>{
+  const s=quiet();s.durationMin=180;s.agfs.forEach(a=>a.batteryPct=39);s.battery.chargeMinPerPct=.01;
   const r=simulate(s);
-  assert.equal(r.events.filter(e=>e.type==='CHARGE_STARTED').length,4);
+  assert.equal(r.events.filter(e=>e.type==='CHARGE_STARTED').length,2);
+  assert.deepEqual(r.events.filter(e=>e.type==='CHARGE_STARTED').map(e=>e.agfId),['AGF1','AGF2']);
+  assert.deepEqual(r.events.filter(e=>e.type==='CHARGE_ENDED').map(e=>e.agfId),['AGF1','AGF2']);
   for(const snap of r.snapshots){
     const occupants=Object.values(snap.chargePlaces).filter(Boolean);
     assert.equal(new Set(occupants).size,occupants.length);
     const charging=snap.agfs.filter(a=>a.status==='charging');assert.ok(charging.length<=2);
     for(const a of charging){assert.equal(snap.chargePlaces[a.currentNodeId],a.id);assert.equal(snap.chargers[a.chargerId],a.id);}
+    for(const [chargerId,agfId] of Object.entries(snap.chargers))if(agfId){
+      assert.equal(snap.agfs.find(a=>a.id===agfId)?.status,'charging',chargerId);
+    }
   }
   assert.ok(r.events.some(e=>e.type==='SEGMENT_WAITING'&&e.reason==='CHARGE_PLACE_OCCUPIED'));
   assert.ok(analyzeRun(r).agfs.some(a=>a.durations.waiting_charge>0));
-  assert.ok(r.events.filter(e=>e.type==='WAIT_RETURN_REQUESTED').every(e=>['HP1','HP2','PILLAR-WAIT-W','PILLAR-WAIT-E'].includes(e.hpId)));
-  assert.ok(r.final.agfs.every(a=>a.status==='idle'));
+  assert.ok(r.events.filter(e=>e.type==='WAIT_RETURN_REQUESTED').every(e=>['PILLAR-WAIT-W','PILLAR-WAIT-E','CHARGE-PLACE1','CHARGE-PLACE2'].includes(e.placeId)));
+  assert.deepEqual(r.final.agfs.map(a=>[a.status,a.currentNodeId,a.chargerId]),[
+    ['idle','CHARGE-PLACE1',null],['idle','CHARGE-PLACE2',null],
+    ['waiting_charge_place','PILLAR-WAIT-W',null],['waiting_charge_place','PILLAR-WAIT-E',null]
+  ]);
   assert.deepEqual(simulate(s).events,r.events);
 });

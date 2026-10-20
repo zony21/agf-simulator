@@ -22,12 +22,12 @@ function fixture(){
     aligners:Array.from({length:5},(_,i)=>({id:'AL'+(i+1),quantity:10})),
     wrapper:{inputCapacity:1,outputCapacity:2,inboundAgfLimit:3},
     times:{emptyMin:2,loadedMin:3,pickupMin:.5,dropoffMin:.5,wrapMin:3.3,labelMin:.2,exitMin:.2,chargeTravelMin:2},
-    agfs:['CHARGE-PLACE1','CHARGE-PLACE2','HP1','HP2'].map((currentNodeId,i)=>({id:'AGF'+(i+1),area:'WH',currentNodeId,batteryPct:100,status:'idle'})),
-    initialParking:{evidence:'user-confirmed-initial-placement',placeIds:['CHARGE-PLACE1','CHARGE-PLACE2','HP1','HP2']},
-    postTaskPolicy:{evidence:'user-confirmed-shared-priority',waitingPriority:['HP1','HP2','PILLAR-WAIT-E','PILLAR-WAIT-W']},
+    agfs:['CHARGE-PLACE1','CHARGE-PLACE2','PILLAR-WAIT-W','PILLAR-WAIT-E'].map((currentNodeId,i)=>({id:'AGF'+(i+1),area:'WH',currentNodeId,batteryPct:100,status:'idle'})),
+    initialParking:{evidence:'user-confirmed-initial-placement',placeIds:['CHARGE-PLACE1','CHARGE-PLACE2','PILLAR-WAIT-W','PILLAR-WAIT-E']},
+    postTaskPolicy:{evidence:'user-confirmed-shared-priority',waitingPriority:['PILLAR-WAIT-E','PILLAR-WAIT-W','CHARGE-PLACE1','CHARGE-PLACE2']},
     chargerIds:['CHARGER1','CHARGER2'],chargePlaceIds:['CHARGE-PLACE1','CHARGE-PLACE2'],
     battery:{consumptionModel:'active_time',activeReferenceMin:360,activeReferenceConsumptionPct:70,
-      reservePct:40,chargeStartPct:40,chargeTargetPct:80,chargeMinPerPct:2.4},
+      taskStartPct:60,reservePct:40,chargeStartPct:40,chargeTargetPct:60,chargeMinPerPct:2.4},
     warehouse:warehouseLocations(),warehousePolicy:{evidence:'synthetic-test-allocation',
       rowAssignments:[{rowId:'WB1-R01',usage:'normal',sourceLineId:'L1'},{rowId:'WB1-R02',usage:'special',sourceLineId:null}],
       rowPriority:{L1:['WB1-R01'],SPECIAL:['WB1-R02']}},
@@ -43,8 +43,9 @@ test('saved selection conditions include charge-priority eligibility only when p
   const run=fixture();
   const eligibility=find(buildRunConditions(run),'AGF','selection','eligibility');
   assert.match(eligibility,/dispatch_pending/);
-  assert.match(eligibility,/batteryPct > chargeStartPct/);
+  assert.match(eligibility,/batteryPct >= 60/);
   delete run.scenario.postTaskPolicy;
+  delete run.scenario.battery.taskStartPct;
   const legacyEligibility=find(buildRunConditions(run),'AGF','selection','eligibility');
   assert.doesNotMatch(legacyEligibility,/dispatch_pending|chargeStartPct/);
   assert.match(legacyEligibility,/batteryPct > reservePct/);
@@ -86,7 +87,7 @@ test('initial equipment quantities capacities and AGF stops are retained indepen
     assert.equal(find(rows,'MAGAZINE','M'+i,'trigger'),3);
     assert.equal(find(rows,'MAGAZINE','M'+i,'refillBatch'),10);
   }
-  ['CHARGE-PLACE1','CHARGE-PLACE2','HP1','HP2'].forEach((id,i)=>assert.equal(find(rows,'AGF','AGF'+(i+1),'initialPosition'),id));
+  ['CHARGE-PLACE1','CHARGE-PLACE2','PILLAR-WAIT-W','PILLAR-WAIT-E'].forEach((id,i)=>assert.equal(find(rows,'AGF','AGF'+(i+1),'initialPosition'),id));
   assert.equal(find(rows,'EQUIPMENT','palletizer','bufferCapacity'),2);
   assert.equal(find(rows,'WRAPPER','settings','inputCapacity'),1);
   assert.equal(find(rows,'WRAPPER','settings','outputCapacity'),2);
@@ -99,7 +100,7 @@ test('selection destination priority battery rule fallback waiting and charging 
   const run=fixture(),rows=buildRunConditions(run);
   assert.equal(find(rows,'AGF','mode'),'area_first');
   assert.equal(find(rows,'AGF','selection','destinationAreaPriority'),true);
-  assert.equal(find(rows,'AGF','selection','batteryOrder'),'ascending');
+  assert.equal(find(rows,'AGF','selection','batteryOrder'),'ascending battery percentage');
   assert.equal(find(rows,'AGF','selection','fallback'),'any');
   assert.deepEqual([1,2,3,4].map(i=>find(rows,'AGF','waitingPriority',String(i))),run.scenario.postTaskPolicy.waitingPriority);
   for(const [key,value] of Object.entries(run.scenario.battery))assert.equal(find(rows,'BATTERY','settings',key),value);

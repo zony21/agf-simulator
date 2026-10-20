@@ -202,15 +202,18 @@ test('late high-priority request never preempts an already assigned transport',(
 });
 
 test('initial charge threshold is checked before queued ordinary transport in priority-enabled runs',()=>{
-  for(const batteryPct of [39,40]){
-    const scenario=taskPriorityScenario();scenario.agfs[0].batteryPct=batteryPct;
-    const run=simulate(scenario),request=run.events.find(e=>e.type==='CHARGE_REQUESTED'&&e.agfId==='AGF1');
-    const finished=run.events.find(e=>e.type==='CHARGE_ENDED'&&e.agfId==='AGF1');
-    assert.equal(request.timeMs,0);assert.ok(finished);
-    assert.ok(assignments(run).length);assert.ok(assignments(run).every(e=>e.agfId!=='AGF1'||e.sequence>finished.sequence));
-    assert.ok(request.sequence<assignments(run)[0].sequence);
-    assert.ok(!run.events.some(e=>e.type==='TASK_REQUESTED'&&e.kind==='CHARGE'));
-  }
+  const below=taskPriorityScenario();below.agfs[0].batteryPct=39;
+  const chargingRun=simulate(below),request=chargingRun.events.find(e=>e.type==='CHARGE_REQUESTED'&&e.agfId==='AGF1');
+  const finished=chargingRun.events.find(e=>e.type==='CHARGE_ENDED'&&e.agfId==='AGF1');
+  assert.equal(request.timeMs,0);assert.ok(finished);
+  assert.ok(assignments(chargingRun).length);
+  assert.ok(assignments(chargingRun).every(e=>e.agfId!=='AGF1'||e.sequence>finished.sequence));
+  assert.ok(request.sequence<assignments(chargingRun)[0].sequence);
+  assert.ok(!chargingRun.events.some(e=>e.type==='TASK_REQUESTED'&&e.kind==='CHARGE'));
+  const exact=taskPriorityScenario();exact.agfs[0].batteryPct=40;
+  const exactRun=simulate(exact);
+  assert.ok(!exactRun.events.some(e=>e.type==='CHARGE_REQUESTED'&&e.agfId==='AGF1'));
+  assert.ok(!assignments(exactRun).some(e=>e.agfId==='AGF1'));
   const scenario=taskPriorityScenario();scenario.agfs[0].batteryPct=41;
   assert.equal(assignments(simulate(scenario))[0].timeMs,0,'above threshold stays eligible');
 });

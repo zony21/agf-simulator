@@ -12,7 +12,7 @@ function scenario(){
   value.durationMin=20;
   value.motionModel='synthetic_graph';
   value.operationalTopology=structuredClone(topology);
-  const starts=['CHARGE-PLACE1','CHARGE-PLACE2','HP1','HP2'];
+  const starts=['CHARGE-PLACE1','CHARGE-PLACE2','PILLAR-WAIT-W','PILLAR-WAIT-E'];
   value.agfs=value.agfs.map((agf,index)=>({...agf,currentNodeId:starts[index],area:'WH'}));
   value.productionEvents=[{timeMs:0,lineId:'L1',palletId:'SYN-PHYSICAL-1',
     destinationLocationId:value.generatedDestinationIds[0]}];
@@ -77,9 +77,10 @@ test('unreachable replenishment retains its issued aligner reservation without p
   input.productionEvents=[];
   input.aligners[0].ready=true;
   input.magazineUses=[{timeMs:0,magazineId:'M1'}];
-  const target=input.operationalTopology.interfaceBindings.find(b=>b.pattern==='AL1').nodeId;
-  input.operationalTopology.edges=input.operationalTopology.edges.filter(edge=>
-    edge.fromNodeId!==target&&edge.toNodeId!==target);
+  // Keep the device's local handling edges valid, but close its only synthetic
+  // feeder branch so the reservation remains queued without pickup.
+  const feeder=input.operationalTopology.edges.find(edge=>edge.id==='E12');
+  feeder.accessScopes=feeder.accessScopes.filter(scope=>scope.movement==='charge');
   const run=simulate(input),task=run.final.tasks.find(item=>item.kind==='03');
   assert.equal(task.status,'queued');
   assert.equal(task.waitReason,'UNREACHABLE_ROUTE');

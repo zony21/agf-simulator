@@ -119,8 +119,8 @@ test('opposite warehouse main-lane travel does not hold a distant lane-change zo
   const scenario=integratedAcceptanceScenario('charging-boundary');scenario.durationMin=20;
   scenario.battery.chargeMinPerPct=.01; // Explicit short synthetic test timing.
   const run=simulate(scenario);
-  assert.equal(run.metrics.chargingStarts,4);
-  assert.equal(run.events.filter(e=>e.type==='CHARGER_RELEASED').length,4);
+  assert.equal(run.metrics.chargingStarts,2);
+  assert.equal(run.events.filter(e=>e.type==='CHARGER_RELEASED').length,2);
   assert.equal(run.events.filter(e=>e.type==='DEADLOCK_DETECTED').length,0);
   assertTrafficAndClock(run);assertActiveEnergy(run);
 });

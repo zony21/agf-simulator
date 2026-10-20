@@ -117,24 +117,26 @@ test('G13 warehouse capacity and east empty column remain fixed without physical
   assert.ok(criterion('G13'));
 });
 
-test('G14 service waiting and charging places are separate in a vertical left column',()=>{
-  assert.deepEqual(WAREHOUSE_SERVICE.arrangement.left,
-    ['waiting-1','waiting-2','charge-1','charge-2']);
+test('G14 charging places stay separate from two pillar waits and do not bind to charger devices',()=>{
+  assert.deepEqual(WAREHOUSE_SERVICE.arrangement.chargingPlaces,['charge-1','charge-2']);
+  assert.deepEqual(WAREHOUSE_SERVICE.waitingPlaces.map(place=>place.id),['PILLAR-WAIT-E','PILLAR-WAIT-W']);
+  assert.equal(WAREHOUSE_SERVICE.waitingFallbackPlaces.length,2);
+  assert.ok(WAREHOUSE_SERVICE.waitingFallbackPlaces.every(place=>place.chargerId===null));
   assert.equal(layout.warehouse?.serviceVehicleOrientation,'east-west');
   assert.ok(criterion('G14'));
 });
 
-test('G15 five aligners are above the forbidden empty-pallet storage on the right',()=>{
+test('G15 five aligners form one vertical row in the former waiting band with west-side access',()=>{
   assert.equal(WAREHOUSE_SERVICE.aligners.length,5);
-  assert.equal(WAREHOUSE_SERVICE.arrangement.rightTop,'five-aligners');
+  assert.equal(WAREHOUSE_SERVICE.arrangement.formerWaitingArea,'five-aligners-vertical');
+  assert.equal(WAREHOUSE_SERVICE.arrangement.alignerAccessSide,'west');
   assert.equal(WAREHOUSE_SERVICE.arrangement.rightBottom,'empty-pallet-storage');
   assert.ok(criterion('G15'));
 });
 
-test('G16 four normal waiting places retain two south-service and two rack-gap pillar places',()=>{
-  assert.equal(WAREHOUSE_SERVICE.waitingCandidates.totalCount,4);
+test('G16 two pillar-gap places are normal waits and charge stops are fallback only',()=>{
+  assert.equal(WAREHOUSE_SERVICE.waitingCandidates.totalCount,2);
   assert.deepEqual(WAREHOUSE_SERVICE.waitingCandidates.groups,[
-    {kind:'south-service',count:2,placeIds:['HP1','HP2']},
     {kind:'rack-gap-pillars',count:2,sides:['west','east'],placeIds:['PILLAR-WAIT-W','PILLAR-WAIT-E']}
   ]);
   assert.equal(WAREHOUSE_SERVICE.waitingCandidates.wsIdMapping,'unresolved');

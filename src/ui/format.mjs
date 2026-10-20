@@ -3,7 +3,8 @@ export const clock=ms=>{const s=Math.floor(ms/1000);return [Math.floor(s/3600),M
 export const minutes=ms=>(ms/60000).toFixed(1);
 export const states={idle:'待機',moving_empty:'空走・荷受け',moving_loaded:'積載・荷下ろし',wait_drop:'荷下ろし待ち',
   moving_to_wait:'倉庫待機場所へ復帰',hp_wait:'倉庫内待機',dispatch_pending:'次動作判定',
-  waiting_hp_instruction:'HP選択待ち',waiting_hp_capacity:'HP満杯・復帰保留',waiting_hp_route:'HP経路保留',
+  waiting_hp_instruction:'待機場所選択待ち',waiting_hp_capacity:'待機場所空き待ち',waiting_hp_route:'待機場所経路保留',
+  waiting_place_capacity:'待機場所空き待ち',
   handling_pickup:'荷受け',handling_dropoff:'荷下ろし',waiting_pickup:'荷受け許可待ち',
   turning:'旋回中',positioning_for_pickup:'荷受け姿勢へ移行',picking_fork_inserted:'フォーク挿入済み・荷受け',
   positioning_for_dropoff:'荷下ろし姿勢へ移行',dropping_fork_inserted:'フォーク挿入済み・荷下ろし',

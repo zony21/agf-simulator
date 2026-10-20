@@ -21,7 +21,7 @@ function initialAssertions(run){
   assert.ok(Object.values(initial.warehouse).every(s=>s.palletIds.length===0&&s.reserved.length===0));
   assert.ok(Object.values(initial.magazines).every(m=>m.quantity===10&&!m.pending&&!m.refillNeeded));
   assert.ok(Object.values(initial.aligners).every(a=>a.quantity===10&&a.ready&&!a.reservedTaskId));
-  assert.deepEqual(initial.agfs.map(a=>a.currentNodeId),['CHARGE-PLACE1','CHARGE-PLACE2','HP1','HP2']);
+  assert.deepEqual(initial.agfs.map(a=>a.currentNodeId),['CHARGE-PLACE1','CHARGE-PLACE2','PILLAR-WAIT-W','PILLAR-WAIT-E']);
   assert.ok(initial.agfs.every(a=>a.status==='idle'&&a.batteryPct===100&&a.chargerId===null));
   assert.ok(Object.values(initial.chargers).every(a=>a===null));
 }

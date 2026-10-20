@@ -17,7 +17,7 @@ test('synthetic operational topology is explicit, metric, but never presented as
   assert.ok(graph.nodes.some(node=>node.id==='E09-TURN1'&&node.type==='turn'));
   assert.ok(graph.nodes.some(node=>node.id==='WH-W-GATE'&&node.type==='shutter-wait'));
   assert.equal(graph.nodes.filter(n=>n.evidence==='synthetic-device-interface-not-site-stop').length,23);
-  assert.deepEqual(graph.nodes.filter(n=>n.type==='wait').map(n=>n.id),['HP1','HP2','PILLAR-WAIT-W','PILLAR-WAIT-E']);
+  assert.deepEqual(graph.nodes.filter(n=>n.type==='wait').map(n=>n.id),['PILLAR-WAIT-W','PILLAR-WAIT-E']);
   assert.ok(result.edges>0);
   assert.equal(graph.evidence,'synthetic-assumption');
   assert.equal(graph.readiness.operationalRoutingReady,true);

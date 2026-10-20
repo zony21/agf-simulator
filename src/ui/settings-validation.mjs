@@ -21,6 +21,8 @@ export function describeSettingsError(error){
     return {...result,section:'#task-priority-fields',selectors:path?[`[data-task-priority="${path}"]`]:[],
       message:'搬送タスク優先度を確認してください。包装機出口・マガジン5台・系列8本のすべてに1～99の整数が必要です。'};
   }
+  if(/AGF_PRIORITY_CONFIG|agfPriorities/.test(message))return {...result,section:'#agf-priority-fields',kind:'agf-priority',
+    message:'AGF優先順位を確認してください。AGF1～4に1～99の整数を入力します。'};
   if(/lineMagazineMap/.test(message))return {...result,section:'#supply-settings',kind:'mapping',
     message:'GWI～GWVIIIの全8系列に、使用するマガジンを指定してください。'};
   if(/magazineEmptyRecoveryPolicy/.test(message))return {...result,selectors:['#magazine-recovery-policy'],message:'空パレット0枚停止後の再開方式を確認してください。'};
@@ -29,6 +31,7 @@ export function describeSettingsError(error){
     kind:/優先順位/.test(message)?'priority':'allocation'};
   if(/initial parking|initial HP capacity|initial parking selection/.test(message))return {...result,section:'#agf-fields',kind:'parking',message:'初期停止位置は4台を重複なく配置してください。'};
   if(/invalid battery settings/.test(message))return {...result,selectors:['#chargeStartPct','#chargeTargetPct'],message:'充電要求の残量を、復帰残量より小さくしてください。'};
+  if(/invalid task start battery settings/.test(message))return {...result,selectors:['#taskStartPct','#chargeTargetPct'],message:'充電後の残量は新規タスク開始閾値以上にしてください。'};
   if(/battery/.test(message)){
     const key=message.match(/battery\.([A-Za-z]+)/)?.[1];
     return {...result,selectors:key?['#'+key]:[],section:'#battery-fields',message:'電池・充電条件を確認してください。基準稼働時間と充電時間は正の値、消費は0～100ポイントで指定します。'};

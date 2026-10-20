@@ -11,7 +11,7 @@ import {warehouseLocations} from '../src/map/warehouse-layout.mjs';
 import {SCHEMATIC_LAYOUT} from '../src/map/schematic-layout.mjs';
 
 const graph=JSON.parse(readFileSync(new URL('../examples/synthetic-operational-topology.json',import.meta.url),'utf8'));
-const stops=['WH-HOME','HP1','HP2','CHARGE-PLACE1','CHARGE-PLACE2','PILLAR-WAIT-E','PILLAR-WAIT-W'];
+const stops=['WH-HOME','CHARGE-PLACE1','CHARGE-PLACE2','PILLAR-WAIT-E','PILLAR-WAIT-W'];
 const path=(origin,dest,kind='02',g=graph)=>findOperationalPath(g,resolveInterfaceNode(g,origin),resolveInterfaceNode(g,dest),{movement:'loaded',taskType:kind});
 const crosses=route=>route.steps.filter(s=>s.shutterId?.startsWith('SH-FIRE')).map(s=>s.shutterId);
 for(const block of ['WB1','WB2','WB3','EB1','EB2'])test(`${block}: 02 and 05 reach the target row without south service or waiting stops`,()=>{

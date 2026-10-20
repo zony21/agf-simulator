@@ -119,7 +119,7 @@ function eventLocation(event,task,agf,lineId,topology,scenario){
   if(type.startsWith('ALIGNER_'))return name(event.alignerId??task?.originId);
   if(type.startsWith('MAGAZINE_'))return name(event.magazineId??task?.destinationId);
   if(type.startsWith('CHARGE_'))return event.chargePlaceId||agf?.currentNodeId?name(event.chargePlaceId??agf.currentNodeId):'充電場所（停止点未設定）';
-  if(type.startsWith('WAIT_'))return name(event.hpId??agf?.currentNodeId);
+  if(type.startsWith('WAIT_'))return name(event.placeId??event.hpId??agf?.currentNodeId);
   if(type==='STORE_COMPLETED')return name(event.locationId??event.storageLocationId??task?.destinationId);
   if(type==='TASK_02_HELD')return '包装機 搬出口';
   if(/^(WRAP|LABEL|EXIT_READY)/.test(type))return type.includes('INPUT')||type==='WRAPPER_DEPARTURE_WAITING'?

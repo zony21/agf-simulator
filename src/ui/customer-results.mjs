@@ -88,6 +88,7 @@ export function renderCustomerResults(run,analysis){
 
 export function renderCustomerComparison(runs){
   const data=runs.map(run=>customerRunSummary(run)),differences=customerConditionDifferences(runs);
-  return `<section class="panel"><div class="panel-heading"><h2>条件の違い</h2><span class="muted">各結果に保存された実行条件を比較</span></div>${differences.length?table(['対象','条件','結果A','結果B'],differences.map(row=>[row.target||'共通',row.label,row.left+(row.unit?' '+row.unit:''),row.right+(row.unit?' '+row.unit:'')])):'<p class="notice">保存された条件は同じです。</p>'}</section>
-    <div class="comparison-grid">${runs.map((run,i)=>`<section class="panel strategy-panel"><h2>結果${i===0?'A':'B'} · ${selectionLabel(run.scenario.mode)}</h2><div class="strategy-kpis">${card('搬送完了',data[i].completed,'件','success')+card('未完了搬送',data[i].pending,'件','warning')}</div>${table(['搬送','完了','未完了'],data[i].byKind.map(row=>['搬送'+row.kind,row.completed,row.pending]))}</section>`).join('')}</div>`;
+  const headers=runs.map(run=>selectionLabel(run.scenario.mode));
+  return `<section class="panel"><div class="panel-heading"><h2>条件の違い</h2><span class="muted">各結果に保存された実行条件を比較</span></div>${differences.length?table(['対象','条件',...headers],differences.map(row=>[row.target||'共通',row.label,...row.values.map(value=>value+(row.unit?' '+row.unit:''))])):'<p class="notice">保存された条件は同じです。</p>'}</section>
+    <div class="comparison-grid">${runs.map((run,i)=>`<section class="panel strategy-panel"><h2>${selectionLabel(run.scenario.mode)}</h2><div class="strategy-kpis">${card('搬送完了',data[i].completed,'件','success')+card('未完了搬送',data[i].pending,'件','warning')}</div>${table(['搬送','完了','未完了'],data[i].byKind.map(row=>['搬送'+row.kind,row.completed,row.pending]))}</section>`).join('')}</div>`;
 }

@@ -7,7 +7,7 @@ import {simulate} from '../src/core/simulate.mjs';
 import {analyzeRun} from '../src/ui/replay-model.mjs';
 
 const intervals=[17.2,36.5,36.5,22.9,25.3,21.5,36.5,36.5];
-const initial=['CHARGE-PLACE1','CHARGE-PLACE2','HP1','HP2'];
+const initial=['CHARGE-PLACE1','CHARGE-PLACE2','PILLAR-WAIT-W','PILLAR-WAIT-E'];
 const lineIds=intervals.map((_,i)=>'L'+(i+1));
 for(const [i,value] of intervals.entries())test(`theoretical discharge default L${i+1} is ${value} min/PL in both ordinary and extended runs`,()=>{
   assert.equal(createDemoScenario('standard').lineIntervalsMin[i],value);
@@ -44,7 +44,7 @@ test('four initial stops are distinct and consume no charger capacity or charge 
   const r=simulate(quiet()),first=r.snapshots[0];
   assert.equal(new Set(first.agfs.map(a=>a.currentNodeId)).size,4);
   assert.deepEqual(first.chargePlaces,{'CHARGE-PLACE1':'AGF1','CHARGE-PLACE2':'AGF2'});
-  assert.equal(first.waitingPlaces.HP1,'AGF3');assert.equal(first.waitingPlaces.HP2,'AGF4');
+  assert.equal(first.waitingPlaces['PILLAR-WAIT-W'],'AGF3');assert.equal(first.waitingPlaces['PILLAR-WAIT-E'],'AGF4');
   assert.ok(Object.values(first.chargers).every(x=>x===null));
   assert.equal(r.metrics.chargingStarts,0);assert.equal(analyzeRun(r).chargeMs,0);
 });
@@ -56,12 +56,14 @@ for(const [i,id] of initial.entries())test(`AGF${i+1} can leave initial ${id} fo
   const entered=r.events.find(e=>e.type==='SEGMENT_ENTERED'&&e.agfId===assigned.agfId);
   assert.equal(entered.fromNodeId,id);assert.equal(entered.movement,'empty');
   const snap=r.snapshots[entered.sequence];
-  assert.equal((id.startsWith('HP')?snap.waitingPlaces:snap.chargePlaces)[id],null);
+  assert.equal((id.startsWith('PILLAR')?snap.waitingPlaces:snap.chargePlaces)[id],null);
   assert.ok(!r.events.some(e=>e.type==='CHARGER_RELEASED'||e.type==='CHARGE_STARTED'));
 });
-test('low initial battery triggers charging conditions, without fixing a stop to an electrical device',()=>{
-  const s=quiet();s.agfs[1].batteryPct=s.battery.chargeStartPct;
-  const r=simulate(s),start=r.events.find(e=>e.type==='CHARGE_STARTED');
+test('charging request starts strictly below its threshold, without fixing a stop to an electrical device',()=>{
+  const equal=quiet();equal.agfs[1].batteryPct=equal.battery.chargeStartPct;
+  assert.equal(simulate(equal).metrics.chargingStarts,0,'exactly 40% is not below the confirmed request threshold');
+  const low=quiet();low.agfs[1].batteryPct=low.battery.chargeStartPct-.000001;
+  const r=simulate(low),start=r.events.find(e=>e.type==='CHARGE_STARTED');
   assert.equal(start.agfId,'AGF2');assert.equal(start.chargePlaceId,'CHARGE-PLACE2');
   assert.equal(start.chargerId,'CHARGER1');assert.equal(start.timeMs,0);
   const high=quiet();high.agfs[1].batteryPct=high.battery.chargeStartPct+.000001;

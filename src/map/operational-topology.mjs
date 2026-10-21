@@ -99,6 +99,7 @@ export function validateOperationalTopology(graph){
   required(graph?.schemaVersion==='operational-topology-v1','Expected operational-topology-v1');
   required(graph.datasetKind==='synthetic','public synthetic validator rejects non-synthetic datasets');
   required(graph.evidence==='synthetic-assumption','synthetic evidence is required');
+  required(graph.warehouseRouteMode===undefined||['normal','detour'].includes(graph.warehouseRouteMode),'invalid warehouse route mode');
   const metric=graph.coordinateSystem==='synthetic-mm';
   required(metric||graph.coordinateSystem==='synthetic-display','synthetic display or metric coordinate system is required');
   if(metric){
@@ -115,6 +116,8 @@ export function validateOperationalTopology(graph){
     required(Number.isFinite(node.x)&&Number.isFinite(node.y),'synthetic display coordinates required '+node.id);
     required(node.approvalState==='synthetic-validated','invalid node approval '+node.id);
     required(['PZ','WH','INTER'].includes(node.areaId),'invalid node area '+node.id);
+    if(node.enabledRouteModes!==undefined)required(Array.isArray(node.enabledRouteModes)&&
+      node.enabledRouteModes.every(mode=>['normal','detour'].includes(mode)),'invalid node route mode scope '+node.id);
     if(node.equipmentId){
       required(node.interfaceId&&node.evidence==='synthetic-device-interface-not-site-stop',
         'synthetic device interface evidence required '+node.id);
@@ -157,6 +160,17 @@ export function validateOperationalTopology(graph){
       }
     }
     required(Array.isArray(edge.accessScopes),'accessScopes required '+edge.id);
+    if(edge.enabledRouteModes!==undefined)required(Array.isArray(edge.enabledRouteModes)&&
+      edge.enabledRouteModes.every(mode=>['normal','detour'].includes(mode)),'invalid route mode scope '+edge.id);
+    if(edge.admissionResourceIds!==undefined)required(Array.isArray(edge.admissionResourceIds)&&
+      edge.admissionResourceIds.every(id=>typeof id==='string'&&id.length),'invalid approach admission resources '+edge.id);
+    if(edge.mergeConflictByRouteMode!==undefined)required(edge.mergeConflictByRouteMode&&
+      Object.entries(edge.mergeConflictByRouteMode).every(([mode,id])=>['normal','detour'].includes(mode)&&typeof id==='string'&&id.length),
+      'invalid mode-specific merge resource '+edge.id);
+    if(edge.directionalPassageId!==undefined)required(typeof edge.directionalPassageId==='string'&&
+      typeof edge.passageForwardDirection==='string'&&
+      edge.passageDirectionEvidence==='conservative-same-direction-parallel-opposing-unresolved',
+      'explicit conservative parallel passage policy required '+edge.id);
     for(const scope of edge.accessScopes){
       required(movements.has(scope.movement),'invalid movement '+edge.id);
       required(Array.isArray(scope.taskTypes)&&scope.taskTypes.length,'task types required '+edge.id);
@@ -292,6 +306,8 @@ export function resolveInterfaceNode(graph,interfaceId){
   return wildcard?.nodeId??null;
 }
 
+export const operationalEdgeEnabled=(graph,edge)=>edge.enabledRouteModes===undefined||
+  edge.enabledRouteModes.includes(graph.warehouseRouteMode??'normal');
 const supports=(edge,movement,taskType)=>edge.accessScopes.some(scope=>
   scope.movement===movement&&(scope.taskTypes.includes('*')||scope.taskTypes.includes(taskType)));
 const traversals=edge=>{
@@ -308,10 +324,12 @@ export function findOperationalPath(graph,startNodeId,endNodeId,{movement,taskTy
   required(movements.has(movement)&&typeof taskType==='string','movement and taskType required');
   const nodes=new Map(graph.nodes.map(node=>[node.id,node]));
   required(nodes.has(startNodeId)&&nodes.has(endNodeId),'unknown path endpoint');
+  if([nodes.get(startNodeId),nodes.get(endNodeId)].some(node=>node.enabledRouteModes!==undefined&&
+    !node.enabledRouteModes.includes(graph.warehouseRouteMode??'normal')))return null;
   if(startNodeId===endNodeId)return {kind:'synthetic-operational',movement,taskType,
     etaStatus:'synthetic-assumption',measuredDistanceMm:null,modelDistanceMm:0,modelDurationMs:0,steps:[]};
   const adjacency=new Map(graph.nodes.map(node=>[node.id,[]]));
-  for(const edge of graph.edges.filter(edge=>supports(edge,movement,taskType)).sort((a,b)=>a.id.localeCompare(b.id,'en'))){
+  for(const edge of graph.edges.filter(edge=>operationalEdgeEnabled(graph,edge)&&supports(edge,movement,taskType)).sort((a,b)=>a.id.localeCompare(b.id,'en'))){
     const durationMs=Math.ceil(edge.distanceMm*1000/edge.speedMmPerSec[movement]);
     for(const traversal of traversals(edge))adjacency.get(traversal.from).push({
       edgeId:edge.id,fromNodeId:traversal.from,toNodeId:traversal.to,traversal:traversal.traversal,

@@ -52,7 +52,13 @@ test('warehouse four main aisles use block-side down and wall-side up without ch
   for(const side of ['E','W']){
     const down=graph.edges.filter(e=>e.warehouseSide===side&&e.mainAisleRole==='block-side');
     const up=graph.edges.filter(e=>e.warehouseSide===side&&e.mainAisleRole==='wall-side');
-    assert.ok(down.length>5&&up.length===down.length);
+    assert.ok(down.length>5&&up.length>5);
+    const span=edges=>[Math.min(...edges.map(e=>nodeMap.get(e.fromNodeId).y)),Math.max(...edges.map(e=>nodeMap.get(e.toNodeId).y))];
+    assert.deepEqual(span(down),span(up),'splitting explicit junctions must not shorten or duplicate a main aisle');
+    for(const pieces of [down,up]){
+      const sorted=pieces.toSorted((a,b)=>nodeMap.get(a.fromNodeId).y-nodeMap.get(b.fromNodeId).y);
+      for(let i=1;i<sorted.length;i++)assert.equal(sorted[i-1].toNodeId,sorted[i].fromNodeId,'main aisle remains continuous');
+    }
     assert.ok(down.every(e=>e.lanes.every(l=>l.direction==='forward')));
     assert.ok(up.every(e=>e.lanes.every(l=>l.direction==='reverse')));
     assert.ok([...down,...up].every(e=>nodeMap.get(e.fromNodeId).y<nodeMap.get(e.toNodeId).y));

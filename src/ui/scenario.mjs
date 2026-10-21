@@ -1,4 +1,4 @@
-import {warehouseLocations,NORMAL_WAITING_PRIORITY} from '../map/warehouse-layout.mjs';
+import {warehouseLocations,flexibleWarehouseLocations,NORMAL_WAITING_PRIORITY} from '../map/warehouse-layout.mjs';
 import syntheticTopology from '../../examples/synthetic-operational-topology.json' with {type:'json'};
 import {defaultProductStreams,THEORETICAL_LINE_INTERVALS_MIN} from '../core/production-streams.mjs';
 import {syntheticWarehousePolicy} from '../../examples/synthetic-warehouse-policy.mjs';
@@ -37,6 +37,9 @@ export function createDemoScenario(preset='standard',{metricProfile=null}={}) {
     // User requested this existing example as the editable initial allocation.
     // It does not approve physical CAD coordinates or route geometry.
     s.warehousePolicy={...syntheticWarehousePolicy(),evidence:'user-requested-example-default'};
+    s.warehouseRouteMode='normal';
+    s.evidence.warehouseRouteMode='user-confirmed-run-start-route-mode';
+    s.warehouse.push(...flexibleWarehouseLocations());
     s.postTaskPolicy={evidence:'user-confirmed-shared-priority',waitingPriority:[...NORMAL_WAITING_PRIORITY]};
     // User-confirmed startup only. The actual stop coordinates remain synthetic.
     s.initialParking={evidence:'user-confirmed-initial-placement',placeIds:['CHARGE-PLACE1','CHARGE-PLACE2','PILLAR-WAIT-W','PILLAR-WAIT-E']};

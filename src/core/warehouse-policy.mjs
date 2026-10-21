@@ -61,7 +61,7 @@ export function chooseWarehouseLocation({pallet,policy,slots,pallets,rowBusy}){
   let busy=false,permission=false;
   for(const rowId of priority){
     if(rowBusy.has(rowId)){busy=true;continue;}
-    const row=[...slots.values()].filter(s=>s.rowId===rowId);
+    const row=[...slots.values()].filter(s=>s.rowId===rowId&&s.storageEnabled!==false);
     const cols=[...new Set(row.map(s=>s.column))].sort((a,b)=>row[0].blockId.startsWith('WB')?a-b:b-a);
     for(const column of cols){
       const lower=row.find(s=>s.column===column&&s.tier===1),upper=row.find(s=>s.column===column&&s.tier===2);
@@ -91,18 +91,22 @@ export function validateStoredPallets(slots,pallets,policy,lineIds){
 export function warehouseAvailability(slots,pallets,policy=null){
   let occupied=0,reserved=0,blockedUpper=0,immediatelyPlaceable=0,additionalIfFull=0,additionalIfPartial=0;
   const assignedRows=policy?new Set(policy.rowAssignments.filter(a=>warehouseRowOwner(a)!=='UNASSIGNED').map(a=>a.rowId)):null;
-  const assignedCapacity=assignedRows?[...slots.values()].filter(s=>assignedRows.has(s.rowId)).length:slots.size;
+  const enabled=[...slots.values()].filter(s=>s.storageEnabled!==false);
+  const flexible=[...slots.values()].filter(s=>s.flexibleAreaId);
+  const assignedCapacity=assignedRows?enabled.filter(s=>assignedRows.has(s.rowId)).length:enabled.length;
   for(const s of slots.values()){
     occupied+=s.palletIds.length;reserved+=s.reserved.length;
     if(s.tier!==1)continue;
     if(assignedRows&&!assignedRows.has(s.rowId))continue;
     const upper=[...slots.values()].find(u=>u.rowId===s.rowId&&u.column===s.column&&u.tier===2);
     const lowerFull=canUseUpper(s,pallets),lowerPartial=s.palletIds.length&&!lowerFull;
-    const available=slot=>slot&&slot.permission!==false&&!slot.palletIds.length&&!slot.reserved.length;
+    const available=slot=>slot&&slot.storageEnabled!==false&&slot.permission!==false&&!slot.palletIds.length&&!slot.reserved.length;
     if(lowerPartial)blockedUpper++;
     if(available(s)){immediatelyPlaceable++;additionalIfFull+=1+(available(upper)?1:0);additionalIfPartial++;}
     else if(lowerFull&&available(upper)){immediatelyPlaceable++;additionalIfFull++;additionalIfPartial++;}
   }
-  return {theoretical:slots.size,assignedCapacity,unassignedCapacity:slots.size-assignedCapacity,
+  return {theoretical:slots.size-flexible.length,assignedCapacity,unassignedCapacity:enabled.length-assignedCapacity,
+    ...(flexible.length?{flexibleFloorLocations:flexible.length,flexibleUsableLocations:flexible.filter(s=>s.storageEnabled!==false).length,
+      upperTierStatus:'unresolved',modeCapacity:enabled.length}:{}),
     occupied,reserved,blockedUpper,immediatelyPlaceable,additionalIfFull,additionalIfPartial};
 }

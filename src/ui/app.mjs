@@ -5,6 +5,7 @@ import {createDemoScenario,initialAgfFromSettings,alignerRefillPolicyDescription
 import {syntheticMetricLayout} from '../../examples/synthetic-metric-layout.mjs';
 import {loadLocalMetricProfile} from './metric-profile.mjs';
 import {snapshotIndexAt,replayFrameTime,analyzeRun,compareRuns,effectiveStatus,workingStatuses} from './replay-model.mjs';
+import {installPlaybackShortcut} from './playback-shortcuts.mjs';
 import {initMap,renderWarehouseBlock,describeSlot} from './map-view.mjs';
 import {renderAnalysis,renderComparison,metric} from './analysis-view.mjs';
 import {initCadPanel} from './cad-panel.mjs';
@@ -15,7 +16,7 @@ import {TRANSPORT_HISTORY_COLUMNS,buildTransportHistoryRows,renderTransportHisto
 import {appendRunInput,createInitialPreview} from './run-input.mjs';
 import {warehouseOwnerLegend} from './warehouse-colors.mjs';
 import {nativeInvalidFields,applySettingsError,clearSettingsErrors} from './settings-validation.mjs';
-import {WAREHOUSE_BLOCKS} from '../map/warehouse-layout.mjs';
+import {WAREHOUSE_BLOCKS,FLEXIBLE_WAREHOUSE_AREA} from '../map/warehouse-layout.mjs';
 import {escapeHtml as esc,clock,states,stateLabel,taskNames,reasons,eventNames,areaName,locationName,badge,productLabel,headingLabel,turnDescription} from './format.mjs';
 
 const $=id=>document.getElementById(id);
@@ -40,6 +41,8 @@ document.querySelector('.map-legend').insertAdjacentHTML('afterend',warehouseOwn
 organizeSettings();
 
 function populateSettings(scenario) {
+  $('warehouse-route-mode').value=scenario.warehouseRouteMode??'normal';
+  $('warehouse-route-mode').disabled=scenario.warehouseRouteMode===undefined;
   clearSettingsErrors($('settings-form'));
   populateExtendedSettings(scenario);
   $('duration').value=scenario.durationMin;$('lineCapacity').value=scenario.lineCapacity;
@@ -75,6 +78,7 @@ function scenarioFromSettings() {
     throw new Error('設定値の入力範囲・単位を確認してください。');
   }
   const scenario=structuredClone(base);
+  if(base.warehouseRouteMode!==undefined)scenario.warehouseRouteMode=$('warehouse-route-mode').value;
   scenario.durationMin=numeric('duration');scenario.mode=$('mode').value;scenario.fallback=$('fallback').value;
   scenario.lineCapacity=numeric('lineCapacity');
   scenario.wrapper={inputCapacity:numeric('inputCapacity'),outputCapacity:numeric('outputCapacity')};
@@ -267,8 +271,13 @@ function renderTasks(){if(!result&&!preview)return;const snap=snapshot();
   document.querySelectorAll('[data-refill-all]').forEach(b=>{b.disabled=!result;});
 }
 function openWarehouse(id){pause();selectedBlock=id;renderWarehouse();if(!$('warehouse-dialog').open)$('warehouse-dialog').showModal();}
-function renderWarehouse(){$('warehouse-body').innerHTML=renderWarehouseBlock(selectedBlock,numeric('warehouse-tier'),snapshot());
-  $('block-tabs').innerHTML=WAREHOUSE_BLOCKS.map(b=>`<button data-block-tab="${b.id}" class="${b.id===selectedBlock?'tab-active':''}" aria-pressed="${b.id===selectedBlock}">${b.id}</button>`).join('');
+function renderWarehouse(){
+  const flexible=selectedBlock===FLEXIBLE_WAREHOUSE_AREA.id;
+  $('warehouse-tier').querySelector('option[value="2"]').disabled=flexible;
+  if(flexible)$('warehouse-tier').value='1';
+  $('warehouse-body').innerHTML=renderWarehouseBlock(selectedBlock,numeric('warehouse-tier'),snapshot());
+  const blocks=[...WAREHOUSE_BLOCKS,...(Object.values(snapshot().warehouse).some(s=>s.flexibleAreaId)?[FLEXIBLE_WAREHOUSE_AREA]:[])];
+  $('block-tabs').innerHTML=blocks.map(b=>`<button data-block-tab="${b.id}" class="${b.id===selectedBlock?'tab-active':''}" aria-pressed="${b.id===selectedBlock}">${b.id===FLEXIBLE_WAREHOUSE_AREA.id?'可変領域':b.id}</button>`).join('');
   $('slot-detail').textContent='保管位置を選択すると詳細を表示します。';}
 function requireSavedSettings(){if(!result)throw new Error('先に設定を反映して実行してください。');if(dirty)throw new Error('設定変更が未反映です。「実行」で条件を確定してから手動入力してください。');}
 function openReservation(kind){clearError();try{requireSavedSettings();pause();reservationKind=kind;
@@ -309,6 +318,7 @@ $('reset').addEventListener('click',()=>{pause();clearError();base=createScenari
 $('compare').addEventListener('click',compare);$('compare-page').addEventListener('click',compare);
 $('play').addEventListener('click',play);$('pause').addEventListener('click',pause);$('stop').addEventListener('click',()=>{pause();setTime(0);});
 $('speed').addEventListener('change',()=>{const wasPlaying=frame!==null;pause();if(wasPlaying)play();});
+installPlaybackShortcut({document,speed:$('speed'),onUnlock:()=>notify('再生速度で10倍を選択できるようになりました。')});
 $('seek').addEventListener('input',()=>{pause();setTime(numeric('seek'));});
 $('next-event').addEventListener('click',()=>{pause();const next=result.events.find(e=>e.timeMs>timeMs);setTime(next?.timeMs??analysis.durationMs);});
 $('map-fit').addEventListener('click',map.fit);$('map-in').addEventListener('click',()=>map.zoom(.8));$('map-out').addEventListener('click',()=>map.zoom(1.25));$('map-warehouse').addEventListener('click',map.warehouse);$('map-palletizing').addEventListener('click',map.palletizing);

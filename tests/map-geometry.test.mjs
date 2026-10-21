@@ -7,6 +7,7 @@ import {createDemoScenario} from '../src/ui/scenario.mjs';
 import {WAREHOUSE_BLOCKS} from '../src/map/warehouse-layout.mjs';
 import topology from '../examples/synthetic-operational-topology.json' with {type:'json'};
 import {readFileSync} from 'node:fs';
+import {findOperationalPath} from '../src/map/operational-topology.mjs';
 
 // Inspect the actual rendered SVG, not a parallel model of its expected layout.
 const svg={innerHTML:'',attributes:{},setAttribute(key,value){this.attributes[key]=value;},addEventListener(){}};
@@ -64,14 +65,15 @@ test('G07/G08 normal entry reaches the HO-facing south opening without overshoot
   assert.equal(west.cy,wh.y);assert.ok(item('WH-W-GATE').class.includes('inactive'));
   assert.ok(west.cx<east.cx);
 });
-test('08a four exterior shutters correspond to HO and PGW1-PGW3 sides without treating warehouse names as building ends',()=>{
+test('exterior shutters retain PZ equipment correspondence and place WH west opening beyond WB1 on the north wall',()=>{
   const entry=box('PZ-IN'),exit=box('PZ-S-OUT'),west=box('WH-W-GATE');
   const one=equipment('PGW1'),three=equipment('PGW3'),ho=equipment('HO'),two=equipment('PGW2');
   assert.ok(exit.cx>=one.x&&exit.cx<=three.right,'exit lies on PGW1-PGW3 side');
   assert.ok(exit.cx-entry.cx>two.cx-ho.cx,'exit separation exceeds one equipment pitch');
   assert.ok(entry.right<exit.x,'opening symbols cannot overlap');
-  assert.ok(Math.abs(west.cx-entry.cx)<Math.abs(west.cx-wh.x),'west SH is the entry-side opening, not the building west end');
-  assert.ok(Math.abs(west.cx-entry.cx)<Math.abs(west.cx-exit.cx));
+  assert.ok(west.cx>wh.x&&west.cx<block('WB1').x,'west SH is west of WB1 but remains inside the north wall extent');
+  assert.equal(west.cy,wh.y);
+  assert.ok(west.right<box('FIRE-NORTH').x,'west racks and aisles separate the opening from the central firewall');
   assert.ok(Math.abs(east.cx-exit.cx)<Math.abs(east.cx-entry.cx));
   assert.notEqual(west.cx,entry.cx);assert.notEqual(east.cx,exit.cx);
 });
@@ -183,16 +185,16 @@ test('synthetic replay paths cross the wall only through fire shutters and never
       }
     }
   }
-  const entry=graph.edges.filter(e=>e.splitSourceEdgeId==='E08').sort((a,b)=>a.splitPartIndex-b.splitPartIndex),
-    exit=graph.edges.filter(e=>e.splitSourceEdgeId==='E09').sort((a,b)=>a.splitPartIndex-b.splitPartIndex);
-  assert.equal(entry.length,4);
+  const route=(from,to)=>findOperationalPath(graph,from,to,{movement:'empty',taskType:'01'}).steps;
+  const entry=route('WH-GATE','PZ-ENTRY'),exit=route('PZ-EXIT','WH-GATE');
+  assert.equal(entry.length,5);
   assert.equal(entry[0].fromNodeId,'WH-GATE');assert.equal(entry.at(-1).toNodeId,'PZ-ENTRY');
   assert.ok(entry.every((e,i)=>!i||entry[i-1].toNodeId===e.fromNodeId));
   assert.deepEqual([entry[0].displayPath[0],...entry.map(e=>e.displayPath[1])],
-    [{x:862.5,y:475},{x:862.5,y:390},{x:800,y:390},{x:630,y:390},{x:630,y:300}]);
+    [{x:862.5,y:475},{x:862.5,y:440},{x:862.5,y:390},{x:800,y:390},{x:630,y:390},{x:630,y:300}]);
   assert.equal(exit[0].fromNodeId,'PZ-EXIT');assert.equal(exit.at(-1).toNodeId,'WH-GATE');
   assert.ok(exit.every((e,i)=>!i||exit[i-1].toNodeId===e.fromNodeId));
   assert.deepEqual([exit[0].displayPath[0],...exit.map(e=>e.displayPath[1])],
-    [{x:800,y:300},{x:800,y:390},{x:862.5,y:390},{x:862.5,y:475}]);
-  assert.ok([...entry,...exit].every(e=>e.lanes.every(l=>l.direction==='forward')));
+    [{x:800,y:300},{x:800,y:390},{x:862.5,y:390},{x:862.5,y:440},{x:862.5,y:475}]);
+  assert.ok([...entry,...exit].every(step=>graph.edges.find(e=>e.id===step.edgeId).lanes.some(l=>l.direction==='both'||l.direction===step.traversal)));
 });

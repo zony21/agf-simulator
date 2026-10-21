@@ -1,6 +1,6 @@
 import { selectAgfWithReason } from './select-agf.mjs';
 import { batteryModel, validateBatteryModel, createBatteryLedger } from './battery-model.mjs';
-import {validateOperationalTopology,findOperationalPath,resolveInterfaceNode,splitSyntheticDisplayTurns} from '../map/operational-topology.mjs';
+import {validateOperationalTopology,findOperationalPath,resolveInterfaceNode,splitSyntheticDisplayTurns,operationalEdgeEnabled} from '../map/operational-topology.mjs';
 import {createTrafficController} from './traffic-controller.mjs';
 import {directionHeading,turnAngle,cardinalHeading,HEADING_DEGREES,validateMotionControl,handlingDurations} from './motion-control.mjs';
 import {chooseAvoidance,findExplicitAvoidancePlan,findExplicitOvertakingPlan} from './interference-control.mjs';
@@ -8,6 +8,7 @@ import {validateWarehousePolicy,validateProduct,validateStoredPallets,chooseWare
 import {generateProductionEvents} from './production-streams.mjs';
 import {validateTaskPriorities,resolveTaskPriority,orderPendingTasks} from './task-priority.mjs';
 import {NORMAL_WAITING_PLACES,NORMAL_WAITING_PRIORITY} from '../map/warehouse-layout.mjs';
+import {prepareWarehouseRouting} from '../map/warehouse-routing.mjs';
 
 const minute = value => Math.round(value * 60_000);
 const required = (test, message) => { if (!test) throw new Error(message); };
@@ -31,7 +32,7 @@ const saveRoute=path=>{
  * or PLC/WCS/RCS commands are performed.
  */
 export function simulate(rawScenario) {
-  const scenario = clone(rawScenario);
+  const scenario = prepareWarehouseRouting(clone(rawScenario));
   const taskPriorities=scenario.taskPriorities;
   validateTaskPriorities(taskPriorities);
   const durationMs = minute(scenario.durationMin);
@@ -74,7 +75,7 @@ export function simulate(rawScenario) {
   if(graphMode)validateOperationalTopology(topology);
   const graphNodes=graphMode?new Map(topology.nodes.map(node=>[node.id,node])):null;
   const graphEdges=graphMode?new Map(topology.edges.map(edge=>[edge.id,edge])):null;
-  const traffic=graphMode?createTrafficController(topology.edges,{nodes:topology.nodes}):null;
+  const traffic=graphMode?createTrafficController(topology.edges.filter(edge=>operationalEdgeEnabled(topology,edge)),{nodes:topology.nodes}):null;
   const gates=graphMode?new Map(topology.shutters.map(gate=>[gate.id,{passable:gate.initiallyPassable}])):null;
   const lines = new Map(Array.from({length:8}, (_,i) => ['L' + (i+1), []]));
   const agfs = (scenario.agfs ?? []).map(a => ({...a, status:a.status ?? 'idle', taskId:null,
@@ -136,7 +137,8 @@ export function simulate(rawScenario) {
       required((waitingPlaces.has(target)||chargePlaces.has(target))&&graphNodes.get(target)?.type===expectedType&&
         resolveInterfaceNode(topology,target)===target,
         'normal waiting target needs an explicit synthetic stop');
-      const starts=topology.nodes.filter(n=>['home','pickup','dropoff','charge','wait'].includes(n.type));
+      const starts=topology.nodes.filter(n=>['home','pickup','dropoff','charge','wait'].includes(n.type)&&
+        (n.enabledRouteModes===undefined||n.enabledRouteModes.includes(topology.warehouseRouteMode??'normal')));
       for(const start of starts)required(findOperationalPath(topology,start.id,target,{movement:'wait',taskType:'WAIT'}),
         'unreachable normal waiting return target: '+target);
     }
@@ -251,6 +253,7 @@ export function simulate(rawScenario) {
     productionStatus:Object.fromEntries([...productionStatus].map(([k,v])=>[k,clone(v)])),
     temporaryPallets:clone([...temps.values()]),
     warehouse:snapshotWarehouse(),
+    ...(scenario.warehouseRouteMode?{warehouseRouteMode:scenario.warehouseRouteMode}:{}),
     tasks:[...tasks.values()].map(saveEntity), pallets:[...pallets.values()].map(saveEntity),
     ...(warehousePolicy?{storagePolicyActive:true}:{}),
     ...(postTaskPolicy?{waitingPlaces:Object.fromEntries(waitingPlaces),
@@ -286,9 +289,16 @@ export function simulate(rawScenario) {
     const from=graphNodes.get(fromNodeId),to=graphNodes.get(toNodeId);
     return directionHeading(from,to);
   };
+  // Topology, mode and speeds are immutable within a Run. Permissions and
+  // occupancy are checked separately at dispatch/entry; they do not change
+  // this shortest-path query. Never share the cache with another Run.
+  const routeCache=new Map();
   const routeFor=(startNodeId,interfaceId,movement,taskType)=>{
+    const key=JSON.stringify([startNodeId,interfaceId,movement,taskType]);
+    if(routeCache.has(key))return routeCache.get(key);
     const endNodeId=resolveInterfaceNode(topology,interfaceId);
-    return endNodeId?findOperationalPath(topology,startNodeId,endNodeId,{movement,taskType}):null;
+    const path=endNodeId?findOperationalPath(topology,startNodeId,endNodeId,{movement,taskType}):null;
+    const saved=path?saveRoute(path):null;routeCache.set(key,saved);return saved;
   };
   const completeRoute=agf=>{
     const {nextType,delayMs,taskId,movement}=agf.movement;
@@ -765,7 +775,7 @@ export function simulate(rawScenario) {
     }
     scheduleBlockedRetries();
   };
-  const canReserveSlot = s => s && s.permission !== false &&
+  const canReserveSlot = s => s && s.storageEnabled!==false && s.permission !== false &&
     s.palletIds.length + s.reserved.length < s.capacity && !rowBusy.has(s.rowId);
   const reserveSlot = (slotId,palletId) => {
     const s=slots.get(slotId);
@@ -868,7 +878,7 @@ export function simulate(rawScenario) {
       wrapper.input.push(t.palletId); pallets.get(t.palletId).stage='wrapper_input';
     } else if (t.kind === '02' || t.kind === '05') {
       const s=slots.get(t.destinationId);
-      required(s && s.reserved.includes(t.palletId) &&
+      required(s && s.storageEnabled!==false && s.reserved.includes(t.palletId) &&
         s.palletIds.length < s.capacity, 'unavailable reserved warehouse location');
       if(s.permission===false){t.status='wait_drop';hold(t,'LOCATION_PERMISSION');return false;}
       if(warehousePolicy&&s.tier===2)required(canUseUpper([...slots.values()].find(l=>
@@ -1214,7 +1224,8 @@ export function simulate(rawScenario) {
     timingStatus:graphMode?'synthetic-graph-assumption':'scenario-assumption'});
   refillAllEmptyAligners();
   chargeIdleAgfs();
-  const operatorPhase=e=>e.type==='ALIGNER_REFILL_OPERATED'?2:e.type==='SEGMENT_REQUEST'?1:0;
+  const deadlockChecks=new Set();
+  const operatorPhase=e=>e.type==='TRAFFIC_DEADLOCK_CHECK'?3:e.type==='ALIGNER_REFILL_OPERATED'?2:e.type==='SEGMENT_REQUEST'?1:0;
   const advanceWrapperWait=endMs=>{
     const elapsed=endMs-now;
     if(elapsed<=0)return;
@@ -1241,7 +1252,14 @@ export function simulate(rawScenario) {
     advanceWrapperWait(e.timeMs);
     batteryLedger?.advance(now,e.timeMs,tasks);
     now=e.timeMs;
-    if (e.type === 'PRODUCTION_DUE'||e.type==='PALLET_EXITED') {
+    if(e.type==='TRAFFIC_DEADLOCK_CHECK'){
+      deadlockChecks.delete(now);
+      // Release wakes same-time waiters. Diagnose only after those requests
+      // have rechecked their actual blockers; this event changes no control state.
+      const deadlocks=traffic.detectDeadlocks();
+      if(deadlocks.length)record('DEADLOCK_DETECTED',{cycles:deadlocks,recoveryPolicy:'detect-only'});
+      continue;
+    }else if (e.type === 'PRODUCTION_DUE'||e.type==='PALLET_EXITED') {
       if(e.retry)retryScheduled.delete(e.lineId);
       const held=bufferProduction.get(e.lineId);
       // A stopped line has one pending production, not an unbounded queue of
@@ -1548,8 +1566,7 @@ export function simulate(rawScenario) {
             if(movement.wrapperDeparture)a.departurePlanned=false;
             record('SEGMENT_WAITING',{taskId:movement.taskId,agfId:a.id,edgeId:step.edgeId,
               blockers:entered.blockers,reason:entered.reason??'OCCUPIED'});
-            const deadlocks=traffic.detectDeadlocks();
-            if(deadlocks.length)record('DEADLOCK_DETECTED',{cycles:deadlocks,recoveryPolicy:'detect-only'});
+            if(!deadlockChecks.has(now)){deadlockChecks.add(now);schedule(now,'TRAFFIC_DEADLOCK_CHECK');}
           }
           if(!tryOvertaking(a,entered.blockers))tryAvoidance(a,entered.blockers,edge,entered.reason);
         }else{

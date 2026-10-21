@@ -4,6 +4,7 @@ import {initMap} from '../src/ui/map-view.mjs';
 import {readFileSync} from 'node:fs';
 import {SCHEMATIC_LAYOUT} from '../src/map/schematic-layout.mjs';
 import {metricPoint,convertTopologyToMetric,createMetricCanvasProjection} from '../src/map/metric-layout.mjs';
+import {findOperationalPath} from '../src/map/operational-topology.mjs';
 
 // Explicit synthetic metric mapping. This is not CAD geometry or a site scale.
 const profile={schemaVersion:'metric-layout-profile-v1',id:'SYNTHETIC-METRIC-MAP',revision:1,
@@ -125,9 +126,9 @@ test('PZ horizontal warping is confined above the warehouse and preserves its co
 
 test('metric normal outdoor arrows use exactly the saved E08 and E09 edge geometry',()=>{
   const {html,graph}=nonlinearMap();
-  for(const [source,id] of [['E08','NORMAL-ENTRY'],['E09','NORMAL-RETURN']]){
-    const parts=graph.edges.filter(e=>e.splitSourceEdgeId===source).sort((a,b)=>a.splitPartIndex-b.splitPartIndex);
-    const points=parts.flatMap((edge,i)=>i?edge.displayPath.slice(1):edge.displayPath);
+  for(const [from,to,id] of [['WH-GATE','PZ-ENTRY','NORMAL-ENTRY'],['PZ-EXIT','WH-GATE','NORMAL-RETURN']]){
+    const route=findOperationalPath(graph,from,to,{movement:'empty',taskType:'01'});
+    const points=route.steps.flatMap((step,i)=>i?step.displayPath.slice(1):step.displayPath);
     assert.ok(points.length>2);
     assert.equal(attr(pathTag(html,id),'d'),points.map((p,i)=>(i?'L':'M')+p.x+' '+p.y).join(' '));
   }

@@ -12,7 +12,7 @@ export const SCHEMATIC_LAYOUT=Object.freeze({
     pzEntry:Object.freeze({nodeId:'PZ-ENTRY',x:630,y:300,boundaryY:322,shutterId:'SH-PZ-ENTRY'}),
     pzExit:Object.freeze({nodeId:'PZ-EXIT',x:800,y:300,boundaryY:322,shutterId:'SH-PZ-EXIT'}),
     whEast:Object.freeze({nodeId:'WH-GATE',x:862.5,y:475,boundaryY:458,shutterId:'SH-EAST'}),
-    whWest:Object.freeze({nodeId:'WH-W-GATE',x:650,y:475,boundaryY:458,shutterId:'SH-WEST'})
+    whWest:Object.freeze({nodeId:'WH-W-GATE',x:215,y:475,boundaryY:458,shutterId:'SH-WEST'})
   }),
   gateCorrespondence:Object.freeze({
     evidence:'confirmed-relative-gate-correspondence-not-measured-axis',

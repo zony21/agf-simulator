@@ -1,4 +1,5 @@
-import {WAREHOUSE_BLOCKS,warehouseLocations,slotStatus,displayedSlotStatus,WAREHOUSE_SERVICE} from '../map/warehouse-layout.mjs';
+import {WAREHOUSE_BLOCKS,FLEXIBLE_WAREHOUSE_AREA,flexibleWarehouseLocations,warehouseLocations,slotStatus,displayedSlotStatus,WAREHOUSE_SERVICE} from '../map/warehouse-layout.mjs';
+import {findOperationalPath} from '../map/operational-topology.mjs';
 import {escapeHtml as esc,stateLabel,locationName,productLabel} from './format.mjs';
 import {warehouseRowStyle,warehouseOwnerLegend} from './warehouse-colors.mjs';
 import {metricPoint,createMetricCanvasProjection} from '../map/metric-layout.mjs';
@@ -7,7 +8,8 @@ import {TEMP_PLACE_SYMBOL,layoutTempPlaceSymbols} from './temp-place-symbols.mjs
 
 import {effectiveStatus} from './replay-model.mjs';
 
-const slots=warehouseLocations();
+const slots=[...warehouseLocations(),...flexibleWarehouseLocations()];
+const routeFlowCache=new WeakMap();
 const palette={empty:'#e2e8f0',occupied:'#10b981',reserved:'#f59e0b',unavailable:'#64748b',unknown:'#cbd5e1',unsupported:'#dbe5f1'};
 const statusNames={empty:'空き',occupied:'使用中',reserved:'予約済み',unavailable:'使用不可',unknown:'未取得',unsupported:'下段成立待ち'};
 // These are drawing coordinates of a schematic, with no relationship to CAD coordinates.
@@ -225,6 +227,7 @@ export function initMap({svg,onSelectAgf,onSelectBlock}) {
 
   function render(next,selectedId,{timeMs=0,topology=null}={}) {
     snapshot=next;selected=selectedId;
+    const detour=(topology?.warehouseRouteMode??snapshot.warehouseRouteMode)==='detour';
     tempTopology=topology;
     layoutProfile=topology?.metricLayoutProfile??null;
     projection=createMetricCanvasProjection(layoutProfile??legacyProfile,{padding:layoutProfile?96:24,sourceBounds:layout.worldBounds});
@@ -282,7 +285,19 @@ export function initMap({svg,onSelectAgf,onSelectBlock}) {
     }).join('');
     const nodeMap=topology?new Map(topology.nodes.map(node=>[node.id,node])):null;
     const normalPaths=new Map();
-    if(topology)for(const [source,id] of [['E08','NORMAL-ENTRY'],['E09','NORMAL-RETURN']]){
+    if(topology?.warehouseRoutingVersion){
+      if(!routeFlowCache.has(topology)){
+        const flows=new Map(),gate=detour?'WH-W-GATE':'WH-GATE';
+        for(const [from,to,id] of [[gate,detour?'PZ-EXIT':'PZ-ENTRY','NORMAL-ENTRY'],
+          [detour?'PZ-ENTRY':'PZ-EXIT',gate,'NORMAL-RETURN']]){
+          const route=findOperationalPath(topology,from,to,{movement:'empty',taskType:'01'});
+          if(route)flows.set(id,route.steps.flatMap((step,i)=>i?step.displayPath.slice(1):step.displayPath)
+            .map((p,i)=>(i?'L':'M')+p.x+' '+p.y).join(' '));
+        }
+        routeFlowCache.set(topology,flows);
+      }
+      for(const [id,path] of routeFlowCache.get(topology))normalPaths.set(id,path);
+    }else if(topology)for(const [source,id] of [['E08','NORMAL-ENTRY'],['E09','NORMAL-RETURN']]){
       const parts=(topology.edges??[]).filter(edge=>edge.splitSourceEdgeId===source||edge.id===source)
         .sort((a,b)=>(a.splitPartIndex??0)-(b.splitPartIndex??0));
       if(parts.length&&parts.every(edge=>edge.displayPath?.length>=2)){
@@ -290,6 +305,13 @@ export function initMap({svg,onSelectAgf,onSelectBlock}) {
         normalPaths.set(id,points.map((p,index)=>(index?'L':'M')+p.x+' '+p.y).join(' '));
       }
     }
+    const flexCells=detour?`<path data-map-id="WB12-DETOUR-LANE" data-lane-count="1" d="M215 635 H615" class="normal-flow"/>`:
+      [1,2].map(row=>Array.from({length:13},(_,c)=>{
+        const slot=slots.find(s=>s.flexibleAreaId&&s.row===row&&s.column===c+1);
+        const owner=warehouseRowStyle(snapshot.warehouseAllocation,slot.rowId),state=displayedSlotStatus(snapshot.warehouse[slot.id],snapshot);
+        return `<rect data-flex-slot="${slot.id}" data-tiers="1" x="${225+c*266/13}" y="${629+(row-1)*6}" width="${266/13-1}" height="5" fill="${state==='occupied'?palette.occupied:state==='reserved'?palette.reserved:owner.tint}" stroke="${owner.color}" stroke-width=".5"><title>${esc(slot.id+' · '+owner.label+' · '+statusNames[state]+' · 上段未確定')}</title></rect>`;
+      }).join('')).join('');
+    const flexibleRegion=`<g data-block="WB1-WB2-FLEX" data-flex-mode="${detour?'corridor':'storage'}" role="button" tabindex="0" aria-label="WB1・WB2間 ${detour?'迂回1車線通路・保管禁止':'26平面ロケーション・上段未確定'}"><rect x="225" y="628" width="266" height="14" rx="2" fill="${detour?'#cffafe':'#f8fafc'}" stroke="${detour?'#0891b2':'#94a3b8'}" stroke-width="1"/>${flexCells}<title>${detour?'迂回用1車線。26平面ロケーションは使用不可。':'2行×13列、26平面ロケーション。上段は未確定、未割当行には入庫しません。'}</title></g>`;
     const selectedAgf=snapshot.agfs.find(agf=>agf.id===selected);
     const routeOverlay=topology&&selectedAgf?.movement?.steps?.length?selectedAgf.movement.steps.map(step=>{
       const from=nodeMap.get(step.fromNodeId),to=nodeMap.get(step.toNodeId);
@@ -317,15 +339,18 @@ export function initMap({svg,onSelectAgf,onSelectBlock}) {
       ${equipmentStrip}
       <g data-acceptance="G09"><title>同一走行空間：北 ← ／ 南 → ・設備前で明示的に合流</title><rect data-map-id="PZ-SHARED" data-physical-separation="false" x="55" y="158" width="985" height="69" rx="8" fill="#06b6d4" fill-opacity=".07"/><path data-map-id="PZ-A1" d="M55 173 H1040" class="provisional-path" marker-start="url(#arrow)"/><path data-map-id="PZ-A2" d="M55 211 H1040" class="provisional-path" marker-end="url(#arrow)"/><path data-map-id="PZ-MERGES" d="${[70.5,120,133.5,196.5,259.5,322.5,385.5,448.5,511.5,574.5,pzEntry.x,637.5,pzExit.x,700.5,763.5,826.5,840,844.5,889.5,922.5,952.5,1000.5,1015.5].map(x=>`M${x} 173 V211`).join(' ')}" class="provisional-path" opacity=".45"/>${text(550,197,'北 ← ／ 南 →','path-label','data-pz-note="true"')}</g>
       <g data-acceptance="G03"><rect data-map-id="PZ-IN" aria-label="パレタイズ入口SH" x="${pzEntry.x-20}" y="291" width="40" height="31" class="shutter-gate" data-anchor-x="${pzEntry.x}" data-anchor-y="306.5" data-anchor-face="center"/></g>
-      <g data-acceptance="G04"><title>倉庫東SHと倉庫東主通路群の軸。PZ出口とは東西オフセットあり</title><path d="M${eastAxis} 458 V500" class="alignment-axis"/><rect data-map-id="PZ-S-OUT" aria-label="パレタイズ出口SH" x="${pzExit.x-8}" y="291" width="16" height="31" class="shutter-gate" data-anchor-x="${pzExit.x}" data-anchor-y="306.5" data-anchor-face="center"/><rect data-map-id="WH-E-GATE" aria-label="製品倉庫東SH" x="${whEast.x-36}" y="444" width="72" height="28" class="shutter-gate" data-anchor-x="${whEast.x}" data-anchor-y="458" data-anchor-face="center"/>${text(whEast.x,438,'東SH','shutter-label')}</g>
+      <g data-acceptance="G04"><title>倉庫東SHと倉庫東主通路群の軸。2台並列可・対向同時通過未確定</title><path d="M${eastAxis} 458 V500" class="alignment-axis"/><rect data-map-id="PZ-S-OUT" aria-label="パレタイズ出口SH" x="${pzExit.x-8}" y="291" width="16" height="31" class="shutter-gate" data-anchor-x="${pzExit.x}" data-anchor-y="306.5" data-anchor-face="center"/><rect data-map-id="WH-E-GATE" aria-label="製品倉庫東SH${detour?'・不使用':'・使用中・2台並列可'}" x="${whEast.x-36}" y="444" width="72" height="28" class="shutter-gate${detour?' inactive':''}" data-anchor-x="${whEast.x}" data-anchor-y="458" data-anchor-face="center"/>${text(whEast.x,438,detour?'東SH（不使用）':'東SH（使用）','shutter-label')}</g>
       <g data-acceptance="G05"></g>
-      <g data-acceptance="G06"><path data-map-id="NORMAL-RETURN" d="M${pzExit.x} 300 V390 H${whEast.x} V475" class="normal-flow return-flow" marker-end="url(#arrow)"/>${text(whEast.x+18,426,'出口SH → 倉庫東SH','map-small')}</g>
-      <g data-acceptance="G07"><path data-map-id="NORMAL-ENTRY" d="M${whEast.x} 475 V390 H${pzEntry.x} V300" class="normal-flow entry-flow" marker-end="url(#arrow)"/>${text(250,380,'倉庫東SH → PZ入口SH（HO南側）','map-small')}</g>
-      <g data-acceptance="G08"><title>倉庫西SH：通常不使用・異常時迂回は未確定</title><rect data-map-id="WH-W-GATE" aria-label="製品倉庫西SH" x="${whWest.x-35}" y="444" width="70" height="28" class="shutter-gate inactive" data-anchor-x="${whWest.x}" data-anchor-y="458" data-anchor-face="center"/>${text(whWest.x,438,'西SH（通常不使用）','shutter-label')}</g>
+      <g data-acceptance="G06"><path data-map-id="NORMAL-RETURN" d="M${detour?pzEntry.x:pzExit.x} 300 V${detour?410:390} H${detour?whWest.x:whEast.x} V475" class="normal-flow return-flow" marker-end="url(#arrow)"/>${text(whEast.x+18,426,detour?'PZ入口SHから退出 → WH西SH':'出口SH → 倉庫東SH','map-small')}</g>
+      <g data-acceptance="G07"><path data-map-id="NORMAL-ENTRY" d="M${detour?whWest.x:whEast.x} 475 V390 H${detour?pzExit.x:pzEntry.x} V300" class="normal-flow entry-flow" marker-end="url(#arrow)"/>${text(250,380,detour?'WH西SH → PZ出口SHから進入':'倉庫東SH → PZ入口SH（HO南側）','map-small')}</g>
+      <g data-acceptance="G08"><title>WH北壁、西側製品置場より西。2台並列可・各レーン方向と対向同時通過は未確定</title><rect data-map-id="WH-W-GATE" aria-label="製品倉庫西SH${detour?'・使用中・2台並列可':'・通常不使用'}" x="${whWest.x-7}" y="444" width="22" height="28" class="shutter-gate${detour?'':' inactive'}" data-anchor-x="${whWest.x}" data-anchor-y="458" data-anchor-face="center"/>${text(whWest.x+25,438,detour?'西SH（使用・2台並列）':'西SH（通常不使用）','shutter-label')}</g>
+      <g data-map-id="WB1-WEST-TWO-LANES" data-lane-count="2"><title>WB1西側2車線。既存西主通路2本と別。実レーン方向・接続・旋回位置は未確定、経路は合成モデル</title><path d="M215 500 V635 M223 500 V635" class="provisional-path"/>${text(142,559,'WB1西側','map-small')}${text(142,575,'2車線','map-small')}</g>
+      ${flexibleRegion}${text(500,635,detour?'迂回1車線':'可変26位置','map-small')}
       <g data-acceptance="G10"><title>仮置き場は出口東隣・南壁沿い。記号サイズは実寸ではない</title><g data-temp-place-placeholder="true"></g></g>
       <g data-acceptance="G11">${aisleXs.map((x,i)=>`<path data-map-id="WH-${i<2?'W':'E'}-MAIN-${i%2+1}" data-direction="${i===0||i===3?'north-to-south':'south-to-north'}" d="M${x} 500 V915" class="provisional-path" ${i===0||i===3?'marker-end':'marker-start'}="url(#arrow)"/>${text(x,495,(i<2?'西':'東')+(i%2+1)+(i===0||i===3?'↓':'↑'),'aisle-label')}`).join('')}</g>
       <g data-acceptance="G12"><path data-map-id="CENTRAL-WALL" d="M${whX(550)} 490 V545 M${whX(550)} 580 V752 M${whX(550)} 787 V915" class="center-wall"/><rect data-map-id="FIRE-NORTH" x="${whX(530)}" y="545" width="40" height="35" rx="3" class="fire-gate"/><rect data-map-id="FIRE-SOUTH" x="${whX(530)}" y="752" width="40" height="35" rx="3" class="fire-gate"/>${text(whX(550),568,'北防火SH','shutter-label')}${text(whX(550),775,'南防火SH','shutter-label')}<text x="${whX(558)}" y="650" class="map-small" transform="rotate(90 ${whX(558)} 650)">中央壁・横断不可</text></g>
-      <g data-acceptance="G13">${blocks}${text(whX(710),640,'EB第10列：パレットなし・通行可否未確定','map-small')}${text(whX(1040),487,'概念保管位置 802 PL','map-small align-end')}</g>
+      <g data-acceptance="G13">${blocks}${text(whX(710),640,'EB第10列：パレットなし・通行可否未確定','map-small')}${text(whX(1040),487,'基本802PL＋可変26平面位置（上段未確定）','map-small align-end')}</g>
+      ${text(460,487,detour?'迂回ルート · WH西SH · PZ出入口反転':'通常ルート · WH東SH','map-small')}
       <g data-acceptance="G14"><title>通常待機は柱前東・西を先に使用し、両方が占有中なら空いている充電場所で停止する。停止だけでは充電器を占有しない。</title>${WAREHOUSE_SERVICE.chargePlaces.map((p,i)=>{
         const y=829+i*31;
         return `<g data-equipment="${p.id}" class="equipment">${rect(whX(719.5),y,125,27,'equipment-body','',{x:whX(782),y:y+13.5,face:'center'})}${text(whX(725),y+13.5,'充電場所'+(i+1),'map-small')}</g>`;
@@ -375,8 +400,9 @@ export function initMap({svg,onSelectAgf,onSelectBlock}) {
 }
 
 export function renderWarehouseBlock(blockId,tier,snapshot) {
-  const block=WAREHOUSE_BLOCKS.find(b=>b.id===blockId);
+  const block=[...WAREHOUSE_BLOCKS,FLEXIBLE_WAREHOUSE_AREA].find(b=>b.id===blockId);
   if(!block)return '';
+  if(block.tiers===1)tier=1;
   const own=slots.filter(s=>s.blockId===blockId);
   const counts=Object.fromEntries(Object.keys(palette).map(state=>[state,own.filter(s=>displayedSlotStatus(snapshot.warehouse[s.id],snapshot)===state).length]));
   const cell=(row,column)=>{
@@ -389,13 +415,14 @@ export function renderWarehouseBlock(blockId,tier,snapshot) {
     const rowId=block.id+'-R'+String(row).padStart(2,'0'),owner=warehouseRowStyle(snapshot.warehouseAllocation,rowId);
     return `<span class="row-number warehouse-owner-row" data-warehouse-row="${rowId}" data-owner="${owner.owner}" style="--owner-color:${owner.color}">${row}行<small>↔ 1車線</small><small class="warehouse-owner-label">${esc(owner.label)}</small></span>`;
   };
-  return `<div class="block-summary"><div><span class="eyebrow">WAREHOUSE / ${block.id}</span><h2>${block.label} · ${block.id}</h2><p>${block.rows}行 × ${block.columns}列 × 2段 ${block.emptyColumns.length?'（第10列は配置対象外）':''}</p></div><strong>${own.length}<small>保管位置</small></strong></div>
+  return `<div class="block-summary"><div><span class="eyebrow">WAREHOUSE / ${block.id}</span><h2>${block.label} · ${block.id}</h2><p>${block.rows}行 × ${block.columns}列 × ${block.tiers}段 ${block.tiers===1?'（26平面位置・上段未確定）':''}${block.emptyColumns.length?'（第10列は配置対象外）':''}</p></div><strong>${own.length}<small>保管位置</small></strong></div>
+    ${block.tiers===1?`<p class="notice">${snapshot.warehouseRouteMode==='detour'?'迂回モード：1車線通路として使用中。保管・搬入予約は禁止です。':'通常モード：製品置場です。使用には明示的な系列／特注行割当が必要です。'} 運転途中でのモード切替は行いません。</p>`:''}
     <div class="slot-counts">${Object.entries(counts).filter(([s])=>s!=='unknown').map(([s,n])=>`<span><i class="legend-dot slot-${s}"></i>${statusNames[s]} <b>${n}</b></span>`).join('')}</div>
     ${warehouseOwnerLegend()}<p class="muted">行の枠・背景は系列割当、●／◷／×とマスの色は保管状態です。未割当行には入庫しません。</p>
     <div class="notice">概念図・Runの保存済み在庫 ／ 各行は双方向1車線、横並び通行不可。個別停止位置・主通路への接続は未確認です。</div>
     <div class="warehouse-scroll"><div class="slot-grid" style="--cols:${block.columns}"><span></span>${Array.from({length:block.columns},(_,i)=>`<span class="col-number">${i+1}列</span>`).join('')}
       ${Array.from({length:block.rows},(_,i)=>`${rowHeader(i+1)}${Array.from({length:block.columns},(_,c)=>cell(i+1,c+1)).join('')}`).join('')}</div></div>
-    <p class="muted">${tier}段を表示中。集計は2段合計。${block.emptyColumns.length?'斜線の空列は道路を意味しません。':''}位置を選ぶとパレット・予約を確認できます。</p>`;
+    <p class="muted">${tier}段を表示中。集計は${block.tiers}段合計。${block.emptyColumns.length?'斜線の空列は道路を意味しません。':''}位置を選ぶとパレット・予約を確認できます。</p>`;
 }
 
 export function describeSlot(id,snapshot) {

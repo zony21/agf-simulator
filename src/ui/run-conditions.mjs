@@ -1,5 +1,6 @@
 import {escapeHtml as esc} from './format.mjs';
 import {warehouseRowOwner} from '../core/warehouse-policy.mjs';
+import {warehouseRouteName} from '../map/warehouse-routing.mjs';
 
 const lineNames=['GWI','GWII','GWIII','GWIV','GWV','GWVI','GWVII','GWVIII'];
 const variants=[['normal','full','普通満載'],['normal','partial','普通端数'],['special','full','特注満載'],['special','partial','特注端数']];
@@ -74,6 +75,10 @@ export function buildRunConditions(run,{runId=run.runId??null,executedAt=run.exe
   add('EQUIPMENT','warehouse','initialPalletCount',(s.warehouse??[]).reduce((n,slot)=>n+(slot.palletIds?.length??0),0),evidence('inventory'));
   add('EQUIPMENT','manualRequests','initialCount',s.manualRequests?.filter(e=>e.timeMs===0).length??0,evidence('inventory'));
   add('AGF','mode','',s.mode,'saved-run','選定方式');
+  if(s.warehouseRouteMode){
+    add('GRAPH','warehouseRouteMode','',s.warehouseRouteMode,'user-confirmed','倉庫走行モード：'+warehouseRouteName(s.warehouseRouteMode));
+    add('GRAPH','warehouseRouting','',s.operationalTopology?.warehouseRouting,'saved-run','モード別接続・通過条件・未確定事項');
+  }
   add('AGF','selection','destinationAreaPriority',s.mode==='area_first','user-confirmed');
   add('AGF','selection','sourceAreaPriority',s.mode==='source_area_agf_priority','user-confirmed');
   add('AGF','selection','batteryOrder',s.mode==='source_area_agf_priority'?'configured AGF rank':'ascending battery percentage','user-confirmed');
@@ -173,8 +178,14 @@ export function buildRunConditions(run,{runId=run.runId??null,executedAt=run.exe
   }
   const warehouseRows=new Map(),assignments=new Map((s.warehousePolicy?.rowAssignments??[]).map(a=>[a.rowId,a]));
   for(const slot of s.warehouse??[])if(slot.rowId)warehouseRows.set(slot.rowId,{block:slot.blockId,row:slot.row});
-  add('WAREHOUSE','capacity','theoreticalPL',(s.warehouse??[]).reduce((n,slot)=>n+(slot.capacity??1),0),evidence('structure'));
-  add('WAREHOUSE','capacity','assignedPL',s.warehousePolicy?(s.warehouse??[]).filter(slot=>ownerOf(assignments.get(slot.rowId))!=='UNASSIGNED').reduce((n,slot)=>n+(slot.capacity??1),0):null,s.warehousePolicy?.evidence??'unconfigured');
+  add('WAREHOUSE','capacity','theoreticalPL',(s.warehouse??[]).filter(slot=>!slot.flexibleAreaId).reduce((n,slot)=>n+(slot.capacity??1),0),evidence('structure'));
+  const flexible=(s.warehouse??[]).filter(slot=>slot.flexibleAreaId);
+  if(flexible.length){
+    add('WAREHOUSE','flexibleArea','floorLocations',flexible.length,'user-confirmed','可変領域の平面ロケーション数');
+    add('WAREHOUSE','flexibleArea','storageEnabled',s.warehouseRouteMode!=='detour','user-confirmed','このRunでの保管利用');
+    add('WAREHOUSE','flexibleArea','upperTierStatus','unresolved','unresolved','可変領域の上段');
+  }
+  add('WAREHOUSE','capacity','assignedPL',s.warehousePolicy?(s.warehouse??[]).filter(slot=>slot.storageEnabled!==false&&ownerOf(assignments.get(slot.rowId))!=='UNASSIGNED').reduce((n,slot)=>n+(slot.capacity??1),0):null,s.warehousePolicy?.evidence??'unconfigured');
   for(const [rowId,row] of [...warehouseRows].sort(([a],[b])=>a.localeCompare(b,'en'))){
     const owner=ownerOf(assignments.get(rowId)),priority=s.warehousePolicy?.rowPriority?.[owner]?.indexOf(rowId);
     for(const [key,value] of Object.entries({...row,owner,rowPriority:priority===undefined||priority<0?null:priority+1}))add('WAREHOUSE',rowId,key,value,s.warehousePolicy?.evidence??'unconfigured');

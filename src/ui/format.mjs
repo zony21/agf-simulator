@@ -31,7 +31,8 @@ export const reasons={LOCATION_PERMISSION:'入庫許可なし',SAME_ROW_ACTIVE:'
   HP_TARGET_UNRESOLVED:'復帰先が未設定',HP_CAPACITY_UNRESOLVED:'待機場所の占有・予約の解放待ち',UNREACHABLE_WAIT_ROUTE:'倉庫待機場所への経路が到達不能',
   WRAPPER_INPUT_FULL:'包装機の投入空き待ち',WRAPPER_INBOUND_LIMIT:'包装投入への同時AGF割当が上限（合成条件）',NO_ELIGIBLE_AGF:'実行可能AGF待ち',NO_AREA_AGF:'目的地エリアのAGF待ち',ALIGNER_NOT_READY:'整列機の搬送OK待ち',
   NO_READY_ALIGNER:'整列機の搬送OK待ち',MAGAZINE_PERMISSION:'マガジン許可待ち',UNREACHABLE_ROUTE:'合成グラフ上で到達不能',
-  UNREACHABLE_CHARGE_ROUTE:'充電経路へ到達不能',CHARGE_PLACE_OCCUPIED:'充電停止位置の解放待ち',OCCUPIED:'区間・交差点の解放待ち',SHUTTER:'シャッター許可待ち'};
+  UNREACHABLE_CHARGE_ROUTE:'充電経路へ到達不能',CHARGE_PLACE_OCCUPIED:'充電停止位置の解放待ち',OCCUPIED:'区間・交差点の解放待ち',SHUTTER:'シャッター許可待ち',
+  APPROACH_OCCUPIED:'シャッター接続通路の解放待ち',OPPOSING_PASSAGE_UNCONFIRMED:'対向同時通過未確定・反対方向の通過完了待ち'};
 export const eventNames={RUN_STARTED:'シミュレーション開始',RUN_ENDED:'シミュレーション終了',TASK_PICKED:'荷受け完了',TASK_DROPPED:'荷下ろし完了',CHARGE_ENDED:'充電完了',
   MANUAL_TASK_RESERVED:'手動搬送予約',MAGAZINE_REFILL_REQUESTED:'空PL補充要求',WRAP_OUTPUT_BLOCKED:'包装機出口待ち',
   SIMULATION_STARTED:'シミュレーション開始',PALLET_EXITED:'系列から搬出',TASK_REQUESTED:'搬送要求',TASK_ASSIGNED:'AGF割当',
@@ -78,6 +79,7 @@ Object.assign(reasons,{WRAPPER_INPUT:'包装機入口待ち',WRAPPER_INPUT_FULL_
   OVERTAKING:'横通過の完了待ち',
   WRAPPER_PERMISSION:'包装機受入許可待ち',OVERTAKING_RESOURCE_OCCUPIED:'横通過の対象領域・復帰先の空き待ち'});
 export const locationName=id=>({ 'WRAP-INPUT':'包装機 投入','WRAP-OUTPUT':'包装機 回収',OT1:'仮置き1',OT2:'仮置き2',OT3:'仮置き3',
+  'WH-W-GATE':'WH西SH','WH-GATE':'WH東SH','WB1-WB2-FLEX':'WB1・WB2間可変領域',
   'PILLAR-WAIT-W':'柱前西','PILLAR-WAIT-E':'柱前東',
   CHARGER1:'充電器1',CHARGER2:'充電器2','CHARGE-PLACE1':'充電場所1','CHARGE-PLACE2':'充電場所2'}[id]??(/^L\d$/.test(id??'')?'系列'+id.slice(1):/^M\d$/.test(id??'')?'マガジン'+id.slice(1):/^AL\d$/.test(id??'')?'整列機'+id.slice(2):id??'—'));
 export const productLabel=p=>p?.productType&&p?.loadType?

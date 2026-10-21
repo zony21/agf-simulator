@@ -113,7 +113,8 @@ test('partial warehouse allocation retains 802 physical slots and stores only in
   scenario.warehousePolicy.rowPriority=Object.fromEntries(scenario.warehousePolicy.rowAssignments.map(a=>[warehouseRowOwner(a),[a.rowId]]));
   const run=simulate(scenario),data=analyzeRun(run);capacityAssertions(run);flowAssertions(run);
   assert.equal(data.storage.theoretical,802);assert.ok(data.storage.assignedCapacity<802);
-  assert.equal(data.storage.unassignedCapacity,802-data.storage.assignedCapacity);
+  assert.equal(data.storage.unassignedCapacity,802+26-data.storage.assignedCapacity);
+  assert.equal(data.storage.flexibleFloorLocations,26);assert.equal(data.storage.upperTierStatus,'unresolved');
   const assigned=new Set(scenario.warehousePolicy.rowAssignments.map(a=>a.rowId));
   assert.ok(Object.values(run.final.warehouse).filter(s=>!assigned.has(s.rowId)).every(s=>s.palletIds.length===0&&s.reserved.length===0));
 });

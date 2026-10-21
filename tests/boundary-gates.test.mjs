@@ -32,11 +32,13 @@ test('PZ exit is clearly separated from HO-side entry and belongs to the PGW1 to
   assert.ok(exit.y>pgw1.y&&exit.y>pgw3.y,'exit is on the equipment southern side');
 });
 
-test('warehouse gate correspondence follows PZ entry and exit sides without placing west gate at building west end',()=>{
+test('warehouse west gate is on the north wall beyond west racks while east gate retains PZ exit correspondence',()=>{
   const entry=point(source,'PZ-ENTRY'),exit=point(source,'PZ-EXIT');
   const west=point(source,'WH-W-GATE'),east=point(source,'WH-GATE'),warehouse=source.layoutGeometry.buildings.WH;
-  assert.ok(Math.abs(west.x-entry.x)<Math.abs(west.x-exit.x),'west opening corresponds to entry side');
-  assert.ok(Math.abs(west.x-entry.x)<Math.abs(west.x-warehouse.x),'west is near entry rather than building west end');
+  assert.ok(west.x>warehouse.x&&west.x<225,'north-wall opening is west of WB1');
+  assert.ok(west.x<580&&580<715,'west opening, west racks/aisles and central firewall are separate');
+  const opening=source.layoutGeometry.boundaries.find(b=>b.id==='WH-NORTH').permittedCrossings.find(c=>c.gateNodeId===west.id);
+  assert.equal(opening.point.y,warehouse.y);assert.equal(opening.point.x,west.x);
   assert.ok(Math.abs(east.x-exit.x)<Math.abs(east.x-entry.x),'east opening corresponds to exit side');
   assert.equal(source.layoutGeometry.gateCorrespondence?.physicalSameAxisConfirmed,false);
 });
@@ -54,7 +56,9 @@ test('warehouse has a saved synthetic east offset and separate normal-east and u
   assert.equal(layout.warehouseOffsetX,180);
   const east=point(source,'WH-GATE'),west=point(source,'WH-W-GATE');
   assert.ok(west&&east);assert.notEqual(west.id,east.id);assert.ok(west.x<east.x);
-  assert.equal(source.edges.some(edge=>edge.fromNodeId===west.id||edge.toNodeId===west.id),false);
+  const connections=source.edges.filter(edge=>edge.fromNodeId===west.id||edge.toNodeId===west.id);
+  assert.ok(connections.length>0&&connections.every(edge=>edge.enabledRouteModes?.includes('detour')&&!edge.enabledRouteModes.includes('normal')));
+  assert.equal(route(source,'WH-W-GATE','PZ-ENTRY'),null,'west shutter is unavailable in normal mode');
   const wall=layout.buildings.WH.x+510;
   for(const id of ['WH-E-NORTH-WALL','WH-W-NORTH-WALL','WH-E-SOUTH-WALL','WH-W-SOUTH-WALL']){
     const node=point(source,id);assert.ok(node.y>layout.buildings.WH.y);
@@ -65,7 +69,7 @@ test('warehouse has a saved synthetic east offset and separate normal-east and u
 test('normal east warehouse to PZ entry is a shortest time-cost route without passing the entry then reversing',()=>{
   const graph=convertTopologyToMetric(source,syntheticMetricLayout);
   const path=route(graph,'WH-GATE','PZ-ENTRY');assert.ok(path);
-  assert.deepEqual(nodeIds(path),['WH-GATE','E08-TURN1','E09-TURN1','E08-TURN2','PZ-ENTRY']);
+  assert.deepEqual(nodeIds(path),['WH-GATE','WH-E-OUTER-L1','E08-TURN1','E09-TURN1','E08-TURN2','PZ-ENTRY']);
   const goal=point(graph,'PZ-ENTRY'),start=point(graph,'WH-GATE');
   const points=path.steps.flatMap(step=>step.displayPath);
   assert.ok(points.every(p=>p.x>=goal.x&&p.x<=start.x));
@@ -80,9 +84,11 @@ test('normal east warehouse to PZ entry is a shortest time-cost route without pa
 test('normal PZ exit goes through outside junctions to east warehouse without using entry',()=>{
   const graph=convertTopologyToMetric(source,syntheticMetricLayout);
   const path=route(graph,'PZ-EXIT','WH-GATE','loaded');assert.ok(path);
-  assert.deepEqual(nodeIds(path),['PZ-EXIT','E09-TURN1','E08-TURN1','WH-GATE']);
+  assert.deepEqual(nodeIds(path),['PZ-EXIT','E09-TURN1','E08-TURN1','WH-E-OUTER-L1','WH-GATE']);
   assert.equal(nodeIds(path).includes('PZ-ENTRY'),false);
-  assert.ok(path.steps.every(step=>graph.edges.find(edge=>edge.id===step.edgeId).occupancyResourceIds.includes('OUTDOOR-JUNCTION')));
+  assert.ok(path.steps.every(step=>{const edge=graph.edges.find(edge=>edge.id===step.edgeId);
+    return edge.occupancyResourceIds.includes('OUTDOOR-JUNCTION')||
+      edge.directionalPassageId==='SH-EAST-PARALLEL'&&edge.lanes[0].resourceId==='SH-EAST-LANE1';}));
   close(path.modelDistanceMm,path.steps.reduce((sum,step)=>sum+metricPathLength(step.displayPath),0));
 });
 

@@ -1,4 +1,4 @@
-import {validateOperationalTopology} from '../map/operational-topology.mjs';
+import {validateOperationalTopology,operationalEdgeEnabled} from '../map/operational-topology.mjs';
 
 const required=(condition,message)=>{if(!condition)throw new Error(message);};
 
@@ -37,7 +37,7 @@ const pathFor=(graph,startNodeId,targetNodeId,edgeIds,{movement,taskType,tempora
   if(!Array.isArray(edgeIds)||!edgeIds.length)return null;
   for(const edgeId of edgeIds){
     const edge=edges.get(edgeId);
-    if(!edge)return null;
+    if(!edge||!operationalEdgeEnabled(graph,edge))return null;
     const traversal=edge.fromNodeId===current?'forward':edge.toNodeId===current?'reverse':null;
     const normalDirection=edge.lanes.some(l=>l.direction==='both'||l.direction===traversal);
     const temporaryDirectionException=!normalDirection&&temporaryReverseEdgeIds.includes(edgeId);

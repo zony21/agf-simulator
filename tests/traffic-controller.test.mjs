@@ -73,3 +73,19 @@ test('wait-for cycles are detected without inventing an automatic recovery polic
   assert.deepEqual(traffic.detectDeadlocks(),[['A1','A2']]);
   assert.equal(traffic.recoveryPolicy,'detect-only');
 });
+
+test('shortening a merge lookahead releases future node reservations together with their resource owners',()=>{
+  const nodes=['A','B','C','D','X'].map(id=>({id,exclusiveTraffic:true}));
+  const links=[['AB','A','B'],['BC','B','C'],['CD','C','D'],['XD','X','D']].map(([id,fromNodeId,toNodeId])=>
+    edge({id,fromNodeId,toNodeId,lanes:[{id:id+'-L1',direction:'both'}],
+      occupancyResourceIds:[id+'-MERGE'],mergeConflictResourceId:id+'-MERGE'}));
+  const traffic=createTrafficController(links,{nodes});
+  const step=id=>{const e=links.find(e=>e.id===id);return {edgeId:id,fromNodeId:e.fromNodeId,toNodeId:e.toNodeId,traversal:'forward'};};
+  const first=traffic.tryEnter({...step('AB'),agfId:'ONE',lookaheadSteps:[step('BC'),step('CD')]});
+  assert.equal(first.entered,true);assert.equal(traffic.snapshot().nodeReservations.D,'ONE');
+  traffic.release('ONE',{retainResourceIds:first.futureResourceIds});traffic.commitArrival({agfId:'ONE',nodeId:'B'});
+  assert.equal(traffic.tryEnter({...step('BC'),agfId:'ONE',lookaheadSteps:[]}).entered,true);
+  traffic.depart({agfId:'ONE',fromNodeId:'B'});traffic.release('ONE');traffic.commitArrival({agfId:'ONE',nodeId:'C'});
+  assert.equal(traffic.snapshot().nodeReservations.D,undefined);assert.equal(traffic.snapshot().owners['node:D'],undefined);
+  assert.equal(traffic.tryEnter({...step('XD'),agfId:'TWO'}).entered,true);
+});

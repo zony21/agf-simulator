@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {validateOperationalTopology} from '../src/map/operational-topology.mjs';
+import {validateOperationalTopology,findOperationalPath} from '../src/map/operational-topology.mjs';
+import {createTrafficController} from '../src/core/traffic-controller.mjs';
 
 const graph=JSON.parse(readFileSync(new URL('../examples/synthetic-operational-topology.json',import.meta.url),'utf8'));
 const nodes=new Map(graph.nodes.map(node=>[node.id,node]));
@@ -68,18 +69,20 @@ test('atomic synthetic passages reject disconnected parts and independently rese
 });
 
 test('outdoor return cannot pass through a vehicle stopped at the existing inlet turn',()=>{
-  const parts=graph.edges.filter(edge=>edge.splitSourceEdgeId==='E09').sort((a,b)=>a.splitPartIndex-b.splitPartIndex);
-  assert.equal(parts.length,3);
-  assert.deepEqual([parts[0].fromNodeId,...parts.map(edge=>edge.toNodeId)],
-    ['PZ-EXIT','E09-TURN1','E08-TURN1','WH-GATE']);
+  const route=findOperationalPath(graph,'PZ-EXIT','WH-GATE',{movement:'loaded',taskType:'02'});
+  const parts=route.steps.map(step=>graph.edges.find(edge=>edge.id===step.edgeId));
+  assert.equal(parts.length,4);
+  assert.deepEqual([route.steps[0].fromNodeId,...route.steps.map(step=>step.toNodeId)],
+    ['PZ-EXIT','E09-TURN1','E08-TURN1','WH-E-OUTER-L1','WH-GATE']);
   assert.ok(nodes.get('E09-TURN1').exclusiveTraffic);
   assert.ok(nodes.get('E08-TURN1').exclusiveTraffic);
-  assert.equal(parts.reduce((total,edge)=>total+edge.distanceMm,0),parts[0].splitSourceDistanceMm);
-  const incoming=graph.edges.find(edge=>edge.id==='E08');
-  assert.ok(parts.every(edge=>sharedResources(edge,incoming)));
-  assert.equal(incoming.mergeConflictResourceId,'OUTDOOR-JUNCTION');
-  assert.equal(parts[2].mergeConflictResourceId,incoming.mergeConflictResourceId,
-    'opposite arrivals must reserve through the whole shared passage before reaching its endpoints');
+  const traffic=createTrafficController(graph.edges,{nodes:graph.nodes});
+  traffic.setNodeOccupant({agfId:'STOPPED',nodeId:'E08-TURN1'});
+  traffic.setNodeOccupant({agfId:'RETURN',nodeId:'PZ-EXIT'});
+  const result=traffic.tryEnter({...route.steps[0],agfId:'RETURN',lookaheadSteps:route.steps.slice(1)});
+  assert.equal(result.entered,false);assert.deepEqual(result.blockers,['STOPPED']);
+  assert.ok(parts.slice(0,3).every(edge=>edge.mergeConflictResourceId==='OUTDOOR-JUNCTION'));
+  assert.equal(parts.at(-1).lanes[0].resourceId,'SH-EAST-LANE1','portal has an independent parallel lane resource');
 });
 
 test('all aligner west-access stations and vertical approach turns retain separate exclusive stops',()=>{

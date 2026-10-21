@@ -7,7 +7,7 @@ export function snapshotIndexAt(events,timeMs) {
   return lo-1;
 }
 export function replayTime(anchorMs,elapsedWallMs,speed,durationMs) {
-  if(![1,2,4].includes(speed)||![anchorMs,elapsedWallMs,durationMs].every(n=>Number.isFinite(n)&&n>=0))
+  if(![1,2,4,10].includes(speed)||![anchorMs,elapsedWallMs,durationMs].every(n=>Number.isFinite(n)&&n>=0))
     throw new Error('Invalid replay clock');
   return Math.min(Math.round(durationMs),Math.floor(anchorMs+elapsedWallMs*speed));
 }

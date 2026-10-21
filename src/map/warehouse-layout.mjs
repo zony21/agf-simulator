@@ -14,6 +14,19 @@ export const WAREHOUSE_RULES = Object.freeze({
   freeWallCrossing:false,emptyColumnAccess:'unresolved',physicalEtaAllowed:false
 });
 
+// User-confirmed floor positions. A second tier and measured geometry are unresolved.
+export const FLEXIBLE_WAREHOUSE_AREA=Object.freeze({id:'WB1-WB2-FLEX',label:'WB1・WB2間の可変領域',
+  rows:2,columns:13,tiers:1,emptyColumns:Object.freeze([]),upperTierStatus:'unresolved',
+  storageMode:'normal',corridorMode:'detour',corridorLaneCount:1,evidence:'user-confirmed-flexible-floor-area'});
+export function flexibleWarehouseLocations(){
+  return Array.from({length:2},(_,r)=>Array.from({length:13},(_,c)=>({
+    id:`WB1-WB2-FLEX-R0${r+1}-C${String(c+1).padStart(2,'0')}-T1`,
+    blockId:FLEXIBLE_WAREHOUSE_AREA.id,row:r+1,column:c+1,tier:1,
+    rowId:`WB1-WB2-FLEX-R0${r+1}`,flexibleAreaId:FLEXIBLE_WAREHOUSE_AREA.id,
+    capacity:1,permission:true,storageEnabled:true,upperTierStatus:'unresolved'
+  }))).flat();
+}
+
 export const WAREHOUSE_MAIN_AISLES=Object.freeze(['W','E'].flatMap(side=>[1,2].map(n=>{
   const blockSide=side==='W'?n===1:n===2;
   return Object.freeze({id:`WH-${side}-MAIN-${n}`,side:side==='W'?'west':'east',access:'allowed',
@@ -59,6 +72,7 @@ export function warehouseLocations() {
 
 export function slotStatus(slot) {
   if(!slot)return 'unknown';
+  if(slot.storageEnabled===false)return 'unavailable';
   if(slot.permission===false)return 'unavailable';
   if(slot.palletIds?.length)return 'occupied';
   if(slot.reserved?.length)return 'reserved';

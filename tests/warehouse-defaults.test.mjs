@@ -12,7 +12,8 @@ for(const preset of ['standard','extended'])test(`${preset} starts with the user
   assert.equal(scenario.warehousePolicy.evidence,'user-requested-example-default');
   assert.doesNotThrow(()=>validateWarehousePolicy(scenario.warehousePolicy,scenario.warehouse,
     {lineIds:Array.from({length:8},(_,i)=>'L'+(i+1)),specialEnabled:true}));
-  assert.equal(scenario.warehouse.length,802);
+  assert.equal(scenario.warehouse.filter(slot=>!slot.flexibleAreaId).length,802);
+  assert.equal(scenario.warehouse.filter(slot=>slot.flexibleAreaId&&slot.tier===1).length,26);
   assert.ok(scenario.warehouse.every(slot=>slot.palletIds.length===0));
   const preview=createInitialPreview(scenario);
   assert.deepEqual(preview.scenario.warehousePolicy,scenario.warehousePolicy);

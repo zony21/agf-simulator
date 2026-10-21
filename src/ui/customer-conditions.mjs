@@ -1,4 +1,5 @@
 import {escapeHtml as esc,locationName} from './format.mjs';
+import {warehouseRouteName} from '../map/warehouse-routing.mjs';
 
 export const LINE_LABELS=['GWI','GWII','GWIII','GWIV','GWV','GWVI','GWVII','GWVIII'];
 export const selectionLabel=mode=>({area_first:'搬送先エリア優先',low_battery_first:'バッテリー残量優先',
@@ -27,6 +28,8 @@ export const evidenceLabel=evidence=>({
 export function customerLocationName(id){
   if(!id)return '未設定';
   if(/^L[1-8]$/.test(id))return LINE_LABELS[Number(id.slice(1))-1]+' パレタイザ';
+  const flex=/^WB1-WB2-FLEX-R(\d+)-C(\d+)-T1$/.exec(id);
+  if(flex)return `WB1・WB2間可変領域 ${Number(flex[1])}行 ${Number(flex[2])}列（平面位置）`;
   const pgw=/^PZ-L([1-8])-PICKUP$/.exec(id);if(pgw)return 'PGW'+pgw[1]+'前';
   const slot=/^(WB[1-3]|EB[12])-R(\d+)-C(\d+)-T([12])$/.exec(id);
   if(slot)return ({WB1:'西側1',WB2:'西側2',WB3:'西側3',EB1:'東側1',EB2:'東側2'})[slot[1]]+` ${Number(slot[2])}行 ${Number(slot[3])}列 ${slot[4]}段`;
@@ -44,7 +47,15 @@ export function customerConditionRows(run){
   add('duration','基本条件','シミュレーション時間',s.durationMin,'分');
   add('agf.count','基本条件','AGF台数',s.agfs?.length??0,'台');
   add('charger.count','基本条件','充電器台数',s.chargerIds?.length??0,'台');
-  add('warehouse.capacity','基本条件','倉庫の理論容量',(s.warehouse??[]).reduce((n,slot)=>n+(slot.capacity??1),0),'PL');
+  add('warehouse.capacity','基本条件','既存保管ブロックの理論容量',(s.warehouse??[]).filter(slot=>!slot.flexibleAreaId).reduce((n,slot)=>n+(slot.capacity??1),0),'PL');
+  if(s.warehouseRouteMode){
+    add('warehouse.routeMode','基本条件','倉庫走行モード',warehouseRouteName(s.warehouseRouteMode));
+    add('warehouse.shutter','交通条件','使用するWH外周シャッター',s.warehouseRouteMode==='detour'?'WH西SH':'WH東SH');
+    add('warehouse.pzRoles','交通条件','PZの進入／退出',s.warehouseRouteMode==='detour'?'PZ出口SHから進入／PZ入口SHから退出':'PZ入口SHから進入／PZ出口SHから退出');
+    add('warehouse.flexible','倉庫条件','WB1・WB2間',s.warehouseRouteMode==='detour'?'1車線通路・26平面位置は保管禁止':'2行×13列・26平面ロケーション（上段未確定）');
+    add('warehouse.westLanes','交通条件','WB1西側通路','2車線・各レーン方向と実停止位置は未確定');
+    add('warehouse.portalCapacity','交通条件','WH外周SH通過','2台並列可・対向同時通過は未確定（合成モデルは対向待機）');
+  }
   add('warehouse.initialStock','基本条件','初期製品在庫',(s.warehouse??[]).reduce((n,slot)=>n+(slot.palletIds?.length??0),0),'PL');
   add('mode','基本条件','AGF選定方式',selectionLabel(s.mode));
   add('agfPriority.applied','AGF選定条件','AGF個別順位を選定に適用',s.mode==='source_area_agf_priority');

@@ -13,7 +13,10 @@ const copy=()=>structuredClone(graph);
 test('synthetic operational topology is explicit, metric, but never presented as CAD physical ETA',()=>{
   const result=validateOperationalTopology(graph);
   assert.equal(result.datasetKind,'synthetic');
-  assert.equal(result.nodes,217);
+  assert.equal(result.nodes,240);
+  assert.equal(graph.warehouseRoutingVersion,1);
+  for(const id of ['WH-W-INNER-L1','WH-W-INNER-L2','WH-FLEX-EAST','WB1-WB2-FLEX-R01-DROP','WB1-WB2-FLEX-R02-DROP'])
+    assert.ok(graph.nodes.some(node=>node.id===id),id+' is an explicit new route stop');
   assert.ok(graph.nodes.some(node=>node.id==='E09-TURN1'&&node.type==='turn'));
   assert.ok(graph.nodes.some(node=>node.id==='WH-W-GATE'&&node.type==='shutter-wait'));
   assert.equal(graph.nodes.filter(n=>n.evidence==='synthetic-device-interface-not-site-stop').length,23);

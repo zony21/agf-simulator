@@ -1,10 +1,11 @@
-import {WAREHOUSE_BLOCKS,NORMAL_WAITING_PRIORITY} from '../map/warehouse-layout.mjs';
+import {WAREHOUSE_BLOCKS,FLEXIBLE_WAREHOUSE_AREA,NORMAL_WAITING_PRIORITY} from '../map/warehouse-layout.mjs';
 import {syntheticWarehousePolicy} from '../../examples/synthetic-warehouse-policy.mjs';
 import {escapeHtml as esc,locationName} from './format.mjs';
 import {CONFIRMED_LINE_MAGAZINE_MAP,alignerRefillPolicyDescription} from './scenario.mjs';
 import {validateTaskPriorities} from '../core/task-priority.mjs';
 
-const rowIds=WAREHOUSE_BLOCKS.flatMap(b=>Array.from({length:b.rows},(_,i)=>`${b.id}-R${String(i+1).padStart(2,'0')}`));
+const rowIdsFor=s=>[...WAREHOUSE_BLOCKS,...(s.warehouse?.some(slot=>slot.flexibleAreaId)?[FLEXIBLE_WAREHOUSE_AREA]:[])]
+  .flatMap(b=>Array.from({length:b.rows},(_,i)=>`${b.id}-R${String(i+1).padStart(2,'0')}`));
 const label=(type,load)=>(type==='normal'?'普通銘柄':'特注銘柄')+'・'+(load==='full'?'満載':'端数');
 export function populateExtendedSettings(s){
   const root=document.getElementById('extended-settings');root.hidden=!s.warehousePolicy;
@@ -24,7 +25,7 @@ export function populateExtendedSettings(s){
     <td><input type="checkbox" data-stream-enabled="${i}" aria-label="${stream.sourceLineId} ${label(stream.productType,stream.loadType)} ON" ${stream.enabled?'checked':''}></td>
     <td><input type="number" min="0.001" step="0.001" data-stream-interval="${i}" value="${stream.intervalMin}" aria-label="${stream.sourceLineId} ${label(stream.productType,stream.loadType)} 間隔（分）"></td>
     <td><input type="number" min="0" step="0.001" data-stream-offset="${i}" value="${stream.startOffsetMin}" aria-label="${stream.sourceLineId} ${label(stream.productType,stream.loadType)} 初回ずらし（分）"></td></tr>`).join('');
-  document.getElementById('warehouse-row-fields').innerHTML=rowIds.map(rowId=>{
+  document.getElementById('warehouse-row-fields').innerHTML=rowIdsFor(s).map(rowId=>{
     const a=s.warehousePolicy.rowAssignments.find(a=>a.rowId===rowId),owner=a?.usage==='special'?'SPECIAL':a?.sourceLineId??'';
     const priority=s.warehousePolicy.rowPriority?.[owner]?.indexOf(rowId)??-1;
     return `<tr><th>${rowId}</th><td><select data-row-owner="${rowId}" aria-label="${rowId} 用途">${[['','未割当'],...Array.from({length:8},(_,i)=>['L'+(i+1),'系列 '+(i+1)]),['SPECIAL','共通・特注銘柄']].map(([v,t])=>`<option value="${v}" ${v===owner?'selected':''}>${t}</option>`).join('')}</select></td>
@@ -68,7 +69,7 @@ export function readExtendedSettings(s){
     enabled:get(`[data-stream-enabled="${i}"]`).checked,
     intervalMin:Number(get(`[data-stream-interval="${i}"]`).value),startOffsetMin:Number(get(`[data-stream-offset="${i}"]`).value)}));
   const assignments=[],priorities={};
-  for(const rowId of rowIds){
+  for(const rowId of rowIdsFor(s)){
     const owner=get(`[data-row-owner="${rowId}"]`).value;
     if(!owner)continue;
     assignments.push({rowId,usage:owner==='SPECIAL'?'special':'normal',sourceLineId:owner==='SPECIAL'?null:owner});

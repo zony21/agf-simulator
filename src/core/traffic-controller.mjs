@@ -8,7 +8,7 @@ export function createTrafficController(edges,{nodes=[]}={}){
   const edgeMap=new Map(edges.map(edge=>[edge.id,edge]));
   const exclusiveNodes=new Set(nodes.filter(node=>node.exclusiveTraffic===true).map(node=>node.id));
   const nodeOccupants=new Map(),nodeReservations=new Map(),overtaking=new Map();
-  const owners=new Map(),held=new Map(),waits=new Map(),activeEdges=new Map();
+  const owners=new Map(),held=new Map(),waits=new Map(),activeEdges=new Map(),activeTargets=new Map(),passageUses=new Map();
   // Groups are explicit logical declarations, never inferred from drawing positions.
   // A stopped follower is conservative: no unspecified separation/speed is assumed.
   const following=new Map(),handling=new Map();let groupSequence=0;
@@ -105,6 +105,14 @@ export function createTrafficController(edges,{nodes=[]}={}){
       const edge=edgeMap.get(edgeId);
       if(!edge)throw new Error('unknown traffic edge '+edgeId);
       if(activeEdges.has(agfId))throw new Error('AGF already holds traffic resources '+agfId);
+      const admissionBlockers=blockersFor(edge.admissionResourceIds??[]).filter(id=>id!==agfId);
+      if(admissionBlockers.length)return wait(agfId,admissionBlockers,requestOrder,'APPROACH_OCCUPIED');
+      const passageDirection=traversal==='forward'?edge.passageForwardDirection:'reverse:'+edge.passageForwardDirection;
+      if(edge.directionalPassageId){
+        const blockers=[...passageUses].filter(([id,use])=>id!==agfId&&
+          use.id===edge.directionalPassageId&&use.direction!==passageDirection).map(([id])=>id);
+        if(blockers.length)return wait(agfId,blockers,requestOrder,'OPPOSING_PASSAGE_UNCONFIRMED');
+      }
       if(!['yes','no-alternating','controlled'].includes(edge.lanePolicy?.simultaneousPassing))
         throw new Error('explicit passing policy required '+edgeId);
       const lease=overtaking.get(agfId),leaseStep=lease?.steps[lease.stepIndex];
@@ -128,6 +136,7 @@ export function createTrafficController(edges,{nodes=[]}={}){
       // the opposite vehicle would need to leave. Ordinary travel ends this
       // narrow reservation span; it is never a whole-route reservation.
       for(const step of lookaheadSteps){
+        if(edge.directionalPassageId&&edge.admissionResourceIds&&passageDirection==='outbound')break;
         const futureEdge=edgeMap.get(step.edgeId);
         if(passageId){if(futureEdge?.atomicPassageId!==passageId)break;}
         else if(futureEdge?.atomicPassageId)passageId=futureEdge.atomicPassageId;
@@ -137,6 +146,12 @@ export function createTrafficController(edges,{nodes=[]}={}){
       let previousNodeId=to;
       for(const futureStep of futureSteps){
         const futureEdge=edgeMap.get(futureStep.edgeId);
+        if(futureEdge.directionalPassageId){
+          const direction=futureStep.traversal==='forward'?futureEdge.passageForwardDirection:'reverse:'+futureEdge.passageForwardDirection;
+          const opposing=[...passageUses].filter(([id,use])=>id!==agfId&&
+            use.id===futureEdge.directionalPassageId&&use.direction!==direction).map(([id])=>id);
+          if(opposing.length)return wait(agfId,opposing,requestOrder,'OPPOSING_PASSAGE_UNCONFIRMED');
+        }
         required(futureStep.fromNodeId===previousNodeId&&['forward','reverse'].includes(futureStep.traversal)&&
           futureStep.fromNodeId===(futureStep.traversal==='forward'?futureEdge.fromNodeId:futureEdge.toNodeId)&&
           futureStep.toNodeId===(futureStep.traversal==='forward'?futureEdge.toNodeId:futureEdge.fromNodeId),
@@ -169,7 +184,8 @@ export function createTrafficController(edges,{nodes=[]}={}){
         const resources=[...new Set([lane.resourceId??lane.id,...sharedResources])];
         const blockers=blockersFor(resources).filter(id=>id!==agfId);
         if(!blockers.length){
-          hold(agfId,resources);activeEdges.set(agfId,edgeId);waits.delete(agfId);
+          hold(agfId,resources);activeEdges.set(agfId,edgeId);activeTargets.set(agfId,to);waits.delete(agfId);
+          if(edge.directionalPassageId)passageUses.set(agfId,{id:edge.directionalPassageId,direction:passageDirection});
           if(exclusiveNodes.has(to))nodeReservations.set(to,agfId);
           for(const nodeId of futureNodes)nodeReservations.set(nodeId,agfId);
           return {entered:true,laneId:lane.id,resources,futureResourceIds:[...new Set(futureResources)],
@@ -208,7 +224,12 @@ export function createTrafficController(edges,{nodes=[]}={}){
       const remaining=resources.filter(id=>retained.has(id));
       if(remaining.length)held.set(agfId,remaining);else held.delete(agfId);
       if(activeEdges.has(agfId)&&overtaking.has(agfId))overtaking.get(agfId).stepIndex++;
-      activeEdges.delete(agfId);waits.delete(agfId);
+      // A shorter lookahead must release both the resource and its reservation.
+      // The just-arrived target remains reserved until commitArrival is called.
+      const arrival=activeTargets.get(agfId);
+      for(const [nodeId,id] of nodeReservations)if(id===agfId&&nodeId!==arrival&&owner('node:'+nodeId)!==agfId)
+        nodeReservations.delete(nodeId);
+      activeEdges.delete(agfId);activeTargets.delete(agfId);passageUses.delete(agfId);waits.delete(agfId);
       if(!keepFollowingOrder)leaveGroup(agfId);
     },
     leaveGroup,

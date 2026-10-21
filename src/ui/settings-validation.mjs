@@ -16,6 +16,8 @@ export function describeSettingsError(error){
   const message=error.message??String(error);
   const result={message:message.replace(/^(WAREHOUSE_CONFIG|PRODUCTION_CONFIG|MOTION_CONFIG|TASK_PRIORITY_CONFIG):\s*/,''),selectors:[],section:null,owner:null};
   if(error.settingsFieldSelectors?.length)return {...result,selectors:error.settingsFieldSelectors};
+  if(/WAREHOUSE_ROUTE_CONFIG/.test(message))return {...result,selectors:['#warehouse-route-mode'],
+    message:message.replace(/^WAREHOUSE_ROUTE_CONFIG:\s*/,''),section:'#warehouse-row-fields'};
   if(/TASK_PRIORITY_CONFIG|taskPriorities/.test(message)){
     const path=message.match(/taskPriorities\.(wrapperOutput|magazines\.M[1-5]|lines\.L[1-8])\b/)?.[1];
     return {...result,section:'#task-priority-fields',selectors:path?[`[data-task-priority="${path}"]`]:[],

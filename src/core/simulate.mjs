@@ -48,9 +48,6 @@ export function simulate(rawScenario) {
   required(battery.reservePct >= 0 && battery.chargeStartPct >= 0 &&
     battery.chargeStartPct < battery.chargeTargetPct && battery.chargeTargetPct <= 100 &&
     battery.chargeMinPerPct > 0, 'invalid battery settings');
-  if(battery.taskStartPct!==undefined)required(Number.isFinite(battery.taskStartPct)&&battery.taskStartPct>=0&&
-    battery.taskStartPct<=100&&battery.chargeTargetPct>=battery.taskStartPct,
-    'invalid task start battery settings');
   validateBatteryModel(battery);
   required(['area_first','low_battery_first','source_area_agf_priority'].includes(scenario.mode), 'mode required');
   if(scenario.mode==='source_area_agf_priority')required(scenario.agfs?.length===4&&scenario.agfPriorities&&
@@ -69,7 +66,6 @@ export function simulate(rawScenario) {
   const motionControl=scenario.motionControl??null;
   validateMotionControl(motionControl);
   const postTaskPolicy=scenario.postTaskPolicy??null;
-  const taskStartPct=Number.isFinite(battery.taskStartPct)?battery.taskStartPct:null;
   required(!postTaskPolicy||graphMode,'HP return requires an explicit synthetic graph');
   required(graphMode||scenario.motionModel===undefined||scenario.motionModel==='fixed_time',
     'motionModel must be fixed_time or synthetic_graph');
@@ -911,7 +907,7 @@ export function simulate(rawScenario) {
     ...(selection??{mode:scenario.mode,originArea:task.originArea??null,destinationArea:task.destinationArea,reservePct:battery.reservePct,
       fallback,basis:'task_precondition',eligibleAgfIds:[],stages:[]}),
     selectedAgfId:null,selectedArea:null,selectedBatteryPct:null,candidates:[],tieBreak:'none',tieBreakEvidence:null,
-    taskExclusionReason:reason,chargeStartPct:postTaskPolicy?battery.chargeStartPct:null,taskStartPct,
+    taskExclusionReason:reason,chargeStartPct:postTaskPolicy?battery.chargeStartPct:null,
     evaluations:(selection?.evaluations??agfs.map(vehicleEvaluation)).map(e=>e.eligible||!selection?
       {...e,eligible:false,selected:false,exclusionReason:'TASK_PRECONDITION',taskExclusionReason:reason}:{...e,selected:false}).sort(evaluationOrder),
     stages:[...(selection?.stages??[]),{stage:'task_precondition',reason,eligibleAgfIds:[]}]
@@ -939,13 +935,12 @@ export function simulate(rawScenario) {
       }
       const available=(a,evaluation=null)=>{
         const statusAvailable=a.status==='idle'||(postTaskPolicy&&a.status==='dispatch_pending');
-        const batteryAvailable=taskStartPct===null?
-          (!postTaskPolicy||a.batteryPct>battery.chargeStartPct):a.batteryPct>=taskStartPct;
+        const batteryAvailable=!postTaskPolicy||a.batteryPct>battery.chargeStartPct;
         if(evaluation){
           evaluation.evaluationStatus='evaluated';
           if(!statusAvailable)evaluation.exclusionReason='STATUS_NOT_AVAILABLE';
           else if(!batteryAvailable)evaluation.exclusionReason=Number.isFinite(a.batteryPct)?
-            taskStartPct===null?'BATTERY_CHARGE_START':'BATTERY_TASK_START':'BATTERY_INVALID';
+            'BATTERY_CHARGE_START':'BATTERY_INVALID';
         }
         return statusAvailable&&batteryAvailable;
       };
@@ -958,10 +953,10 @@ export function simulate(rawScenario) {
         const originArea=t.originArea??nodeOrigin?.areaId;
         const decision=selectAgfWithReason(availableValues.map(a=>a.status==='dispatch_pending'?{...a,status:'idle'}:a),
           {originArea,destinationArea:t.destinationArea},{mode:scenario.mode,reservePct:battery.reservePct,
-            taskStartPct:taskStartPct??undefined,agfPriorities:scenario.agfPriorities,fallback});
+            agfPriorities:scenario.agfPriorities,fallback});
         const selectorEvaluations=new Map(decision.selection.evaluations.map(e=>[e.agfId,e]));
         return {agf:values.find(a=>a.id===decision.agf?.id)??null,selection:{...decision.selection,
-          chargeStartPct:postTaskPolicy?battery.chargeStartPct:null,taskStartPct,
+          chargeStartPct:postTaskPolicy?battery.chargeStartPct:null,
           evaluations:evaluations.map(e=>({...e,...selectorEvaluations.get(e.agfId),status:e.status})).sort(evaluationOrder),
           stages:[availability,...decision.selection.stages.map(stage=>({...stage,pass}))]}};
       };

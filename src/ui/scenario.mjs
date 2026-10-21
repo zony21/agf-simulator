@@ -23,9 +23,9 @@ export function createDemoScenario(preset='standard',{metricProfile=null}={}) {
     s.evidence.production='theoretical-pallet-discharge-100pct';
     s.agfPriorities=Object.fromEntries(s.agfs.map((agf,index)=>[agf.id,index+1]));
     s.evidence.agfPriorities='user-confirmed-initial-ranking';
-    s.battery.taskStartPct=60;
+    // User-confirmed change to charge completion only. Ordinary dispatch keeps
+    // its existing reserve/charging conditions, without a separate start gate.
     s.battery.chargeTargetPct=60;
-    s.evidence.taskStartPct='user-confirmed-task-start-threshold';
     s.evidence.chargeTargetPct='user-confirmed-charge-recovery-target';
     s.productionModel='empty_pallet_supply';
     s.lineMagazineMap={...CONFIRMED_LINE_MAGAZINE_MAP};

@@ -107,8 +107,8 @@ export function customerConditionRows(run){
     add('agf.'+a.id+'.position','初期配置・バッテリー','初期位置',customerLocationName(a.currentNodeId),'',a.id);
     add('agf.'+a.id+'.battery','初期配置・バッテリー','初期バッテリー',a.batteryPct,'%',a.id);
   }
-  for(const [key,label,unit] of [['taskStartPct','新規タスク開始閾値','%'],['chargeStartPct','充電開始閾値','%'],['chargeTargetPct','充電後の搬送復帰閾値','%'],['chargeMinPerPct','1ポイントの充電時間','分']])
-    if(s.battery?.[key]!==undefined)add('battery.'+key,'バッテリー・充電条件',label,s.battery?.[key],unit,'',key==='taskStartPct'?s.evidence?.taskStartPct:key==='chargeTargetPct'?s.evidence?.chargeTargetPct:undefined);
+  for(const [key,label,unit] of [['chargeStartPct','充電開始閾値','%'],['chargeTargetPct','充電後の搬送復帰閾値','%'],['chargeMinPerPct','1ポイントの充電時間','分']])
+    if(s.battery?.[key]!==undefined)add('battery.'+key,'バッテリー・充電条件',label,s.battery?.[key],unit,'',key==='chargeTargetPct'?s.evidence?.chargeTargetPct:undefined);
   const battery=s.battery??{};
   add('battery.basis','バッテリー・充電条件','消費基準',battery.consumptionModel==='active_time'?`${battery.activeReferenceMin}分の走行・荷役で${battery.activeReferenceConsumptionPct}ポイント`:`1搬送あたり${battery.consumptionPct}ポイント`,'','',s.evidence?.batteryConsumption);
   add('battery.turning','バッテリー・充電条件','旋回中の電池消費',control.turningConsumesBattery,'','',control.turningBatteryEvidence);

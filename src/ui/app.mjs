@@ -21,7 +21,7 @@ import {escapeHtml as esc,clock,states,stateLabel,taskNames,reasons,eventNames,a
 const $=id=>document.getElementById(id);
 const timeFields=[['emptyMin','空走（分）'],['loadedMin','積載走行（分）'],['pickupMin','荷受け（分）'],
   ['dropoffMin','荷下ろし（分）'],['wrapMin','包装（分）'],['labelMin','ラベル（分）'],['exitMin','出口移送（分）'],['chargeTravelMin','充電場所への移動（分）']];
-const batteryFields=[['reservePct','選定残量下限（%）'],['taskStartPct','新規タスク開始残量（%）'],['chargeStartPct','充電要求（%）'],['chargeTargetPct','充電後の搬送復帰残量（%）'],
+const batteryFields=[['reservePct','選定残量下限（%）'],['chargeStartPct','充電要求（%）'],['chargeTargetPct','充電後の搬送復帰残量（%）'],
   ['activeReferenceMin','基準稼働時間（分）'],['activeReferenceConsumptionPct','基準時間での消費（ポイント）'],
   ['consumptionPct','旧方式：1タスク消費（ポイント）'],['chargeMinPerPct','1ポイント充電に要する時間（分）']];
 const numeric=id=>Number($(id).value);
@@ -58,9 +58,8 @@ function populateSettings(scenario) {
   const phased=scenario.motionModel==='synthetic_graph'&&['pickupPositioningMin','pickupForkInsertedMin','dropoffPositioningMin','dropoffForkInsertedMin'].some(key=>Object.hasOwn(scenario.motionControl??{},key));
   for(const id of ['pickupMin','dropoffMin']){$(id).disabled=phased;$(id).title=phased?'停止旋回・荷役姿勢で4相を明示設定します。既存時間の自動分割はしません。':'';}
   for(const id of ['emptyMin','loadedMin','chargeTravelMin']){$(id).disabled=scenario.motionModel==='synthetic_graph';$(id).title=$(id).disabled?'区間走行ではグラフの距離と速度を使用します。':'';}
-  const configuredBatteryFields=batteryFields.filter(([id])=>id!=='taskStartPct'||Object.hasOwn(scenario.battery,id));
   $('battery-fields').innerHTML='<label>消費方式<select id="battery-model"><option value="active_time">走行・荷役の稼働時間</option><option value="per_task">タスク単位（旧シナリオ再現用）</option></select></label>'+
-    configuredBatteryFields.map(([id,label])=>input(id,label,scenario.battery[id],['chargeMinPerPct','activeReferenceMin'].includes(id)?.001:0,.001,id.endsWith('Pct')&&id!=='chargeMinPerPct'?100:'')).join('');
+    batteryFields.map(([id,label])=>input(id,label,scenario.battery[id],['chargeMinPerPct','activeReferenceMin'].includes(id)?.001:0,.001,id.endsWith('Pct')&&id!=='chargeMinPerPct'?100:'')).join('');
   $('battery-model').value=batteryModel(scenario.battery);syncBatteryFields();
   $('agf-fields').innerHTML=scenario.agfs.map((a,i)=>`<div><h3>${a.id}</h3>${input('initial-battery-'+i,'初期残量（%）',a.batteryPct,0,.1,100)}${scenario.initialParking?
     `<label>初期停止位置<select id="initial-position-${i}">${scenario.initialParking.placeIds.map(id=>`<option value="${id}" ${a.currentNodeId===id?'selected':''}>${esc(locationName(id))}</option>`).join('')}</select></label>`:
@@ -84,7 +83,9 @@ function scenarioFromSettings() {
   scenario.lineIntervalsMin=Array.from({length:8},(_,i)=>numeric('line-'+i));
   scenario.lineStartOffsetsMin=Array.from({length:8},(_,i)=>numeric('offset-'+i));
   scenario.times=Object.fromEntries(timeFields.map(([id])=>[id,numeric(id)]));
-  scenario.battery=Object.fromEntries(batteryFields.filter(([id])=>id!=='taskStartPct'||Object.hasOwn(base.battery,id)).map(([id])=>[id,numeric(id)]));
+  scenario.battery=Object.fromEntries(batteryFields.map(([id])=>[id,numeric(id)]));
+  scenario.evidence.chargeTargetPct=scenario.battery.chargeTargetPct===60?
+    'user-confirmed-charge-recovery-target':'scenario-assumption';
   scenario.battery.consumptionModel=$('battery-model').value;
   scenario.evidence.batteryConsumption=scenario.battery.consumptionModel==='active_time'&&
     scenario.battery.activeReferenceMin===360&&scenario.battery.activeReferenceConsumptionPct===70?
@@ -104,7 +105,6 @@ function friendlyError(error) {
   if(/MOTION_CONFIG/.test(message))return '停止旋回・荷役姿勢の設定を確認してください。旋回角速度は正のdeg/s、4相の時間は0以上の分で明示します。未確定値は補完しません。';
   if(/TASK_PRIORITY_CONFIG|taskPriorities/.test(message))return '搬送タスク優先度を確認してください。包装機出口・マガジン5台・系列8本のすべてに1～99の整数を指定します。同じ値は使用できます。';
   if(/AGF_PRIORITY_CONFIG|agfPriorities/.test(message))return 'AGF優先順位を確認してください。AGF1～4へ1～99の整数を指定します。小さい値を優先します。';
-  if(/invalid task start battery settings/.test(message))return '充電後のバッテリー残量は、新規タスク開始閾値以上にしてください。';
   if(/AGF_PRIORITY_CONFIG|agfPriorities/.test(message))return 'AGF1～4の優先順位に1以上の整数を入力してください。数値が小さいAGFを優先します。';
   if(/waiting return target|normal waiting place|shared normal waiting priority/.test(message))return '共通の帰還先は柱前東 → 柱前西です。両方が埋まっている場合は空いている充電場所で待機します。各場所への合成経路が接続されている必要があります。';
   if(/initial parking|initial .*capacity/.test(message))return '初期停止位置が重複しています。充電場所1・2、柱前西・東へ4台を重複なく配置してください。';

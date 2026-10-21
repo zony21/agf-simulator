@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {simulate} from '../src/core/simulate.mjs';
 import {createDemoScenario} from '../src/ui/scenario.mjs';
 import {selectAgfWithReason} from '../src/core/select-agf.mjs';
 import topology from '../examples/synthetic-operational-topology.json' with {type:'json'};
@@ -14,7 +15,8 @@ test('standard Run starts at two charge places and two pillar stops; HP waiting 
     ['PILLAR-WAIT-E','PILLAR-WAIT-W','CHARGE-PLACE1','CHARGE-PLACE2']);
   assert.deepEqual(WAREHOUSE_SERVICE.waitingPlaces.map(place=>place.id),['PILLAR-WAIT-E','PILLAR-WAIT-W']);
   assert.equal(topology.nodes.some(node=>['HP1','HP2'].includes(node.id)),false);
-  assert.deepEqual(scenario.battery.taskStartPct,60);
+  assert.equal(Object.hasOwn(scenario.battery,'taskStartPct'),false,
+    'the charge recovery target is not a separate global task-start threshold');
   assert.equal(scenario.battery.chargeStartPct,40);
   assert.equal(scenario.battery.chargeTargetPct,60);
 });
@@ -36,7 +38,7 @@ test('aligners are a vertical synthetic stack approached from their west side, c
 
 const agf=(id,area,batteryPct)=>({id,area,batteryPct,status:'idle'});
 const select=(agfs,priorities)=>selectAgfWithReason(agfs,{originArea:'PZ',destinationArea:'WH'},
-  {mode:'source_area_agf_priority',reservePct:40,taskStartPct:60,agfPriorities:priorities,fallback:'any'});
+  {mode:'source_area_agf_priority',reservePct:40,agfPriorities:priorities,fallback:'any'});
 
 test('source-area AGF-priority mode compares source area before configured AGF rank',()=>{
   const decision=select([agf('AGF1','WH',95),agf('AGF2','PZ',60),agf('AGF3','PZ',99),agf('AGF4','WH',80)],
@@ -54,9 +56,23 @@ test('source-area AGF-priority mode uses numeric rank before battery among same-
   assert.equal(decision.selection.selectedAgfPriority,1);
 });
 
-test('task start threshold is inclusive at 60 percent and excludes a 59.9 percent AGF',()=>{
+test('59 percent remains eligible when not charging; charge recovery is not a task-start gate',()=>{
   const decision=select([agf('AGF1','PZ',59.9),agf('AGF2','PZ',60),agf('AGF3','PZ',75),agf('AGF4','WH',90)],
     {AGF1:1,AGF2:2,AGF3:3,AGF4:4});
-  assert.equal(decision.agf.id,'AGF2');
-  assert.equal(decision.selection.evaluations.find(item=>item.agfId==='AGF1').exclusionReason,'BATTERY_TASK_START');
+  assert.equal(decision.agf.id,'AGF1');
+  assert.equal(decision.selection.evaluations.find(item=>item.agfId==='AGF1').eligible,true);
+});
+
+test('standard Run assigns an idle 59 percent AGF and does not treat charge recovery as a start gate',()=>{
+  const scenario=createDemoScenario('extended');scenario.durationMin=2;scenario.mode='low_battery_first';
+  scenario.productStreams.forEach(stream=>{stream.enabled=false;});scenario.productionEvents=[];
+  scenario.agfs[0].batteryPct=59;
+  scenario.agfs.slice(1).forEach(agf=>{agf.blocked=true;});
+  scenario.temporaryPallets=[{palletId:'SYN-59-PCT',locationId:'OT1',destinationLocationId:null,
+    sourceLineId:'L1',productType:'normal',loadType:'full'}];
+  scenario.manualRequests=[{timeMs:0,kind:'04',palletId:'SYN-59-PCT',locationId:'OT1',reentryPermission:true}];
+  const run=simulate(scenario),assigned=run.events.find(event=>event.type==='TASK_ASSIGNED');
+  assert.equal(assigned.agfId,'AGF1');
+  assert.equal(assigned.timeMs,0);
+  assert.equal(run.events.some(event=>event.type==='CHARGE_REQUESTED'&&event.agfId==='AGF1'),false);
 });

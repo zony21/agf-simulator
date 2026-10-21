@@ -5,12 +5,10 @@ export function selectAgf(agfs, task, options) {
 
 /** Record the decision from the same candidate set used by the selector.
  * Battery and areas are copied before assignment mutates the live vehicles. */
-export function selectAgfWithReason(agfs, task, {mode,reservePct,taskStartPct,agfPriorities,fallback='wait'}) {
+export function selectAgfWithReason(agfs, task, {mode,reservePct,agfPriorities,fallback='wait'}) {
   const modes=['area_first','low_battery_first','source_area_agf_priority'];
   if(!modes.includes(mode))throw new Error('Unknown mode');
   if(!Number.isFinite(reservePct))throw new Error('reservePct must be specified');
-  if(taskStartPct!==undefined&&(!Number.isFinite(taskStartPct)||taskStartPct<0||taskStartPct>100))
-    throw new Error('taskStartPct must be between 0 and 100');
   if(!task||typeof task.destinationArea!=='string'||!task.destinationArea)throw new Error('destinationArea required');
   if(mode==='source_area_agf_priority'&& (typeof task.originArea!=='string'||!task.originArea))
     throw new Error('originArea required for source-area AGF-priority mode');
@@ -27,7 +25,6 @@ export function selectAgfWithReason(agfs, task, {mode,reservePct,taskStartPct,ag
     if(a.status!=='idle')evaluation.exclusionReason='STATUS_NOT_AVAILABLE';
     else if(a.blocked)evaluation.exclusionReason='BLOCKED';
     else if(!Number.isFinite(a.batteryPct))evaluation.exclusionReason='BATTERY_INVALID';
-    else if(taskStartPct!==undefined&&a.batteryPct<taskStartPct)evaluation.exclusionReason='BATTERY_TASK_START';
     else if(a.batteryPct<=reservePct)evaluation.exclusionReason='BATTERY_RESERVE';
     else evaluation.eligible=evaluation.vehicleEligible=true;
     return evaluation.eligible;
@@ -76,7 +73,7 @@ export function selectAgfWithReason(agfs, task, {mode,reservePct,taskStartPct,ag
     ...(mode==='source_area_agf_priority'?{sourceArea:task.originArea,agfPriorities:{...agfPriorities},
       selectedAgfPriority:rank??null}:{}),selectedArea:agf?.area??null,
     selectedAgfId:agf?.id??null,selectedBatteryPct:agf?.batteryPct??null,reservePct,
-    ...(taskStartPct!==undefined?{taskStartPct}:{}),fallback,basis,
+    fallback,basis,
     eligibleAgfIds:eligible.map(candidate=>candidate.id).sort((a,b)=>String(a).localeCompare(String(b),'en')),
     candidates:candidates.map(candidate=>({agfId:candidate.id,area:candidate.area,batteryPct:candidate.batteryPct,
       ...(mode==='source_area_agf_priority'?{priority:agfPriorities[candidate.id]}:{})})),

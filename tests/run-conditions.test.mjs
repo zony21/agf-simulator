@@ -27,7 +27,7 @@ function fixture(){
     postTaskPolicy:{evidence:'user-confirmed-shared-priority',waitingPriority:['PILLAR-WAIT-E','PILLAR-WAIT-W','CHARGE-PLACE1','CHARGE-PLACE2']},
     chargerIds:['CHARGER1','CHARGER2'],chargePlaceIds:['CHARGE-PLACE1','CHARGE-PLACE2'],
     battery:{consumptionModel:'active_time',activeReferenceMin:360,activeReferenceConsumptionPct:70,
-      taskStartPct:60,reservePct:40,chargeStartPct:40,chargeTargetPct:60,chargeMinPerPct:2.4},
+      reservePct:40,chargeStartPct:40,chargeTargetPct:60,chargeMinPerPct:2.4},
     warehouse:warehouseLocations(),warehousePolicy:{evidence:'synthetic-test-allocation',
       rowAssignments:[{rowId:'WB1-R01',usage:'normal',sourceLineId:'L1'},{rowId:'WB1-R02',usage:'special',sourceLineId:null}],
       rowPriority:{L1:['WB1-R01'],SPECIAL:['WB1-R02']}},
@@ -43,9 +43,10 @@ test('saved selection conditions include charge-priority eligibility only when p
   const run=fixture();
   const eligibility=find(buildRunConditions(run),'AGF','selection','eligibility');
   assert.match(eligibility,/dispatch_pending/);
-  assert.match(eligibility,/batteryPct >= 60/);
+  assert.match(eligibility,/batteryPct > reservePct/);
+  assert.match(eligibility,/batteryPct > chargeStartPct/);
+  assert.doesNotMatch(eligibility,/taskStartPct|60/);
   delete run.scenario.postTaskPolicy;
-  delete run.scenario.battery.taskStartPct;
   const legacyEligibility=find(buildRunConditions(run),'AGF','selection','eligibility');
   assert.doesNotMatch(legacyEligibility,/dispatch_pending|chargeStartPct/);
   assert.match(legacyEligibility,/batteryPct > reservePct/);

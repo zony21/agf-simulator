@@ -41,7 +41,8 @@ test('a task finisher returns to the first free pillar stop through the normal P
   const s=scenario(),r=simulate(s),request=r.events.find(e=>e.type==='WAIT_RETURN_REQUESTED'),arrival=r.events.find(e=>e.type==='WAIT_ARRIVED');
   assert.equal(request.placeId,'PILLAR-WAIT-E');assert.equal(arrival.placeId,'PILLAR-WAIT-E');
   const route=r.events.find(e=>e.type==='ROUTE_PLANNED'&&e.movement==='wait');
-  assert.ok(route.edgeIds.includes('E09')&&route.edgeIds.includes('E20'));
+  assert.ok(route.edgeIds.includes('E09')&&route.edgeIds.includes('WH-E-INNER-L2-LINK'));
+  assert.ok(!route.edgeIds.includes('E20'),'return uses the lane aligned with the southbound aisle');
   assert.equal(r.snapshots[arrival.sequence].waitingPlaces['PILLAR-WAIT-E'],'AGF1');
   assert.ok(!r.events.some(e=>e.type==='WAIT_RETURN_HELD'&&e.reason==='WAITING_SPOTS_FULL'));
 });

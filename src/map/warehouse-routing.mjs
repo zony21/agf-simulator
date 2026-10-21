@@ -99,16 +99,22 @@ export function installWarehouseRouting(input){
   for(const id of ['E08','E08-PART2','E08-PART3','E08-PART2-EXIT-TURN-PART','E09','E09-PART2','E09-PART3'])
     edges.get(id).enabledRouteModes=['normal'];
 
-  // Two separate straight portal lanes; any turns belong to the approaches.
+  // The wide opening extends the two existing main aisles. Its drawing center
+  // is not a third lane to which both vehicles must turn sideways. Lane roles
+  // here follow the already declared aisle flow, not newly inferred SH rules.
   // Opposing simultaneous use remains unconfirmed and is conservatively held.
   for(let lane=1;lane<=2;lane++){
-    const x=862.5+(lane-1)*8,gate=lane===1?'WH-GATE':'WH-E-GATE-L2',inner='WH-E-INNER-L'+lane,
+    const aisle=lane===1?'WH-E-TOP-WALL':'WH-E-TOP',x=nodes.get(aisle).x,
+      gate=lane===1?'WH-GATE':'WH-E-GATE-L2',inner='WH-E-INNER-L'+lane,
       outer='WH-E-OUTER-L'+lane,turn='WH-E-TURN-L'+lane;
     const alignment={metricAlignment:{xNodeId:gate,evidence:'synthetic-relative-layout-alignment-not-site-stop'}};
-    addNode(gate,x,475,'WH','shutter-wait');addNode(inner,x,500,'WH','junction',alignment);
+    addNode(gate,x,475,'WH','shutter-wait',{
+      metricAlignment:{xNodeId:aisle,evidence:'synthetic-relative-layout-alignment-not-site-stop'}});
+    addNode(inner,x,490,'WH','junction',alignment);
     addNode(outer,x,440,'INTER','junction',alignment);addNode(turn,x,390,'INTER','turn',alignment);
-    addEdge('WH-E-INNER-L'+lane+'-UP','WH-E-TOP-WALL',inner,{direction:'forward',resources:['WH-E-PORTAL-MERGE']});
-    addEdge('WH-E-INNER-L'+lane+'-DOWN',inner,'WH-E-TOP',{direction:'forward',resources:['WH-E-PORTAL-MERGE']});
+    // Genuine lane changes remain at WH-E-CROSS, not inside the SH approach.
+    if(lane===1)addEdge('WH-E-INNER-L1-UP',aisle,inner,{direction:'forward',modes:['normal']});
+    else addEdge('WH-E-INNER-L2-DOWN',inner,aisle,{direction:'forward',modes:['normal']});
     addEdge(lane===1?'E20':'WH-E-INNER-L2-LINK',gate,inner,{modes:['normal']});
     for(const outbound of [true,false])addEdge(lane===1?(outbound?'E08':'E09-PART3'):
       'WH-E-PORTAL-L2-'+(outbound?'OUT':'IN'),outbound?gate:outer,outbound?outer:gate,{
@@ -118,10 +124,21 @@ export function installWarehouseRouting(input){
     if(lane===1){
       // E08-TURN1 remains the common outdoor junction, not a second co-located node.
       g.nodes=g.nodes.filter(n=>n.id!==turn);nodes.delete(turn);
+      nodes.get('E08-TURN1').x=x;
       const link=edges.get('WH-E-OUTER-L1-LINK');link.toNodeId='E08-TURN1';
     }else addEdge('WH-E-L2-OUT-MERGE',turn,'E08-TURN1',{modes:['normal'],resources:['OUTDOOR-JUNCTION']});
   }
-  for(const id of ['E20-ENTRY','WH-E-GATE-UP','WH-E-GATE-RETURN'])edges.get(id).enabledRouteModes=[];
+  // Old saved Runs retain their own graph. Remove replaced approach stubs
+  // from new Runs instead of leaving overlapping or zero-length fake roads.
+  const obsoleteApproaches=new Set(['E20-ENTRY','WH-E-GATE-UP','WH-E-GATE-RETURN']);
+  g.edges=g.edges.filter(edge=>!obsoleteApproaches.has(edge.id));
+  // One geometry drives saved paths, heading changes, and metric distances.
+  for(const edge of g.edges){
+    const a=nodes.get(edge.fromNodeId),b=nodes.get(edge.toNodeId);
+    edge.displayPath[0]={x:a.x,y:a.y};edge.displayPath[edge.displayPath.length-1]={x:b.x,y:b.y};
+    if(edge.modelDistanceEvidence==='synthetic-model-40mm-per-drawing-unit-polyline-not-measured')
+      edge.distanceMm=40*Math.hypot(b.x-a.x,b.y-a.y);
+  }
   // Remove obsolete side-step stops from the active gate path, retaining IDs for old saved inputs.
   g.shutters.find(s=>s.id==='SH-WEST').initiallyPassable=true;
   g.shutters.find(s=>s.id==='SH-WEST').permissionSource='synthetic-scenario';
@@ -140,7 +157,8 @@ export function installWarehouseRouting(input){
     detour:{warehouseShutter:'SH-WEST',pzIn:'SH-PZ-EXIT',pzOut:'SH-PZ-ENTRY'},
     westOfWB1:{laneCount:2,individualLaneDirections:'unresolved',connectionEvidence:evidence},
     perimeterPassage:{parallelCapacity:2,opposingSimultaneous:'unresolved',individualLaneDirections:'unresolved',
-      syntheticPolicy:'same-direction-parallel-opposing-exclusive'}};
+      syntheticPolicy:'same-direction-parallel-opposing-exclusive',
+      eastApproachEvidence:'user-confirmed-straight-passage-synthetic-aisle-alignment-not-site-coordinates'}};
   finalizeWarehouseTraffic(g);
   return g;
 }
@@ -162,8 +180,8 @@ export function finalizeWarehouseTraffic(g){
       if(!edge.occupancyResourceIds.includes(edge.mergeConflictResourceId))edge.occupancyResourceIds.push(edge.mergeConflictResourceId);
     }else if(edge.occupancyResourceIds.includes('OUTDOOR-JUNCTION'))edge.mergeConflictResourceId='OUTDOOR-JUNCTION';
     if(edge.id==='E20'||/^WH-[EW]-INNER-L[12]-(LINK|UP|DOWN)$/.test(edge.id)){
-      const resource=edge.id==='E20'?'WH-E-INNER-L1-ADMISSION':
-        /^WH-E-INNER/.test(edge.id)?'WH-E-PORTAL-MERGE':edge.id+'-ADMISSION';
+      const resource=edge.id==='E20'?'WH-E-APPROACH-L1':
+        /^WH-E-INNER/.test(edge.id)?'WH-E-APPROACH-L'+edge.id.match(/-L([12])/)[1]:edge.id+'-ADMISSION';
       edge.mergeConflictResourceId=resource;
       if(!edge.occupancyResourceIds.includes(resource))edge.occupancyResourceIds.push(resource);
     }

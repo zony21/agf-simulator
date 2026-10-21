@@ -17,15 +17,18 @@ test('same-time resource release and waiting-request retries cannot report a tra
 
 test('a real reciprocal stopped-node cycle is still reported after same-time retries settle',()=>{
   const s=createDemoScenario('standard');s.durationMin=1;
+  s.warehouseRouteMode='detour';
   delete s.initialParking;s.productionModel='legacy_external_pallets';
   s.productStreams.forEach(stream=>{stream.enabled=false;});s.lineIntervalsMin.fill(0);
-  s.agfs[0].currentNodeId='WH-GATE';s.agfs[0].headingDeg=90;
-  s.agfs[1].currentNodeId='WH-E-INNER-L1';s.agfs[1].headingDeg=270;
+  // Explicit opposing requests on the same west approach lane. The east
+  // normal approaches now continue the declared one-way main aisles straight.
+  s.agfs[0].currentNodeId='WH-W-GATE';s.agfs[0].headingDeg=90;
+  s.agfs[1].currentNodeId='WH-W-INNER-L1';s.agfs[1].headingDeg=270;
   s.agfs.slice(2).forEach(a=>{a.blocked=true;});
   s.magazines[0].quantity=4;s.magazineUses=[{timeMs:0,magazineId:'M1'}];
   s.productionEvents=[{timeMs:1,lineId:'L1',palletId:'CYCLE-PRODUCT',sourceLineId:'L1',productType:'normal',loadType:'full'}];
   const run=simulate(s),cycles=run.events.filter(e=>e.type==='DEADLOCK_DETECTED');
   assert.ok(cycles.some(e=>e.cycles.some(c=>c.includes('AGF1')&&c.includes('AGF2'))));
   assert.ok(cycles.every(e=>e.recoveryPolicy==='detect-only'));
-  assert.equal(run.final.agfs[0].currentNodeId,'WH-GATE');assert.equal(run.final.agfs[1].currentNodeId,'WH-E-INNER-L1');
+  assert.equal(run.final.agfs[0].currentNodeId,'WH-W-GATE');assert.equal(run.final.agfs[1].currentNodeId,'WH-W-INNER-L1');
 });

@@ -186,15 +186,15 @@ test('synthetic replay paths cross the wall only through fire shutters and never
     }
   }
   const route=(from,to)=>findOperationalPath(graph,from,to,{movement:'empty',taskType:'01'}).steps;
-  const entry=route('WH-GATE','PZ-ENTRY'),exit=route('PZ-EXIT','WH-GATE');
+  const entry=route('WH-GATE','PZ-ENTRY'),exit=route('PZ-EXIT','WH-E-GATE-L2');
   assert.equal(entry.length,5);
   assert.equal(entry[0].fromNodeId,'WH-GATE');assert.equal(entry.at(-1).toNodeId,'PZ-ENTRY');
   assert.ok(entry.every((e,i)=>!i||entry[i-1].toNodeId===e.fromNodeId));
   assert.deepEqual([entry[0].displayPath[0],...entry.map(e=>e.displayPath[1])],
-    [{x:862.5,y:475},{x:862.5,y:440},{x:862.5,y:390},{x:800,y:390},{x:630,y:390},{x:630,y:300}]);
-  assert.equal(exit[0].fromNodeId,'PZ-EXIT');assert.equal(exit.at(-1).toNodeId,'WH-GATE');
+    [{x:845,y:475},{x:845,y:440},{x:845,y:390},{x:800,y:390},{x:630,y:390},{x:630,y:300}]);
+  assert.equal(exit[0].fromNodeId,'PZ-EXIT');assert.equal(exit.at(-1).toNodeId,'WH-E-GATE-L2');
   assert.ok(exit.every((e,i)=>!i||exit[i-1].toNodeId===e.fromNodeId));
   assert.deepEqual([exit[0].displayPath[0],...exit.map(e=>e.displayPath[1])],
-    [{x:800,y:300},{x:800,y:390},{x:862.5,y:390},{x:862.5,y:440},{x:862.5,y:475}]);
+    [{x:800,y:300},{x:800,y:390},{x:845,y:390},{x:880,y:390},{x:880,y:440},{x:880,y:475}]);
   assert.ok([...entry,...exit].every(step=>graph.edges.find(e=>e.id===step.edgeId).lanes.some(l=>l.direction==='both'||l.direction===step.traversal)));
 });

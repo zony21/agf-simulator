@@ -288,8 +288,9 @@ export function initMap({svg,onSelectAgf,onSelectBlock}) {
     if(topology?.warehouseRoutingVersion){
       if(!routeFlowCache.has(topology)){
         const flows=new Map(),gate=detour?'WH-W-GATE':'WH-GATE';
+        const returnGate=!detour&&nodeMap.has('WH-E-GATE-L2')?'WH-E-GATE-L2':gate;
         for(const [from,to,id] of [[gate,detour?'PZ-EXIT':'PZ-ENTRY','NORMAL-ENTRY'],
-          [detour?'PZ-ENTRY':'PZ-EXIT',gate,'NORMAL-RETURN']]){
+          [detour?'PZ-ENTRY':'PZ-EXIT',returnGate,'NORMAL-RETURN']]){
           const route=findOperationalPath(topology,from,to,{movement:'empty',taskType:'01'});
           if(route)flows.set(id,route.steps.flatMap((step,i)=>i?step.displayPath.slice(1):step.displayPath)
             .map((p,i)=>(i?'L':'M')+p.x+' '+p.y).join(' '));
@@ -339,7 +340,7 @@ export function initMap({svg,onSelectAgf,onSelectBlock}) {
       ${equipmentStrip}
       <g data-acceptance="G09"><title>同一走行空間：北 ← ／ 南 → ・設備前で明示的に合流</title><rect data-map-id="PZ-SHARED" data-physical-separation="false" x="55" y="158" width="985" height="69" rx="8" fill="#06b6d4" fill-opacity=".07"/><path data-map-id="PZ-A1" d="M55 173 H1040" class="provisional-path" marker-start="url(#arrow)"/><path data-map-id="PZ-A2" d="M55 211 H1040" class="provisional-path" marker-end="url(#arrow)"/><path data-map-id="PZ-MERGES" d="${[70.5,120,133.5,196.5,259.5,322.5,385.5,448.5,511.5,574.5,pzEntry.x,637.5,pzExit.x,700.5,763.5,826.5,840,844.5,889.5,922.5,952.5,1000.5,1015.5].map(x=>`M${x} 173 V211`).join(' ')}" class="provisional-path" opacity=".45"/>${text(550,197,'北 ← ／ 南 →','path-label','data-pz-note="true"')}</g>
       <g data-acceptance="G03"><rect data-map-id="PZ-IN" aria-label="パレタイズ入口SH" x="${pzEntry.x-20}" y="291" width="40" height="31" class="shutter-gate" data-anchor-x="${pzEntry.x}" data-anchor-y="306.5" data-anchor-face="center"/></g>
-      <g data-acceptance="G04"><title>倉庫東SHと倉庫東主通路群の軸。2台並列可・対向同時通過未確定</title><path d="M${eastAxis} 458 V500" class="alignment-axis"/><rect data-map-id="PZ-S-OUT" aria-label="パレタイズ出口SH" x="${pzExit.x-8}" y="291" width="16" height="31" class="shutter-gate" data-anchor-x="${pzExit.x}" data-anchor-y="306.5" data-anchor-face="center"/><rect data-map-id="WH-E-GATE" aria-label="製品倉庫東SH${detour?'・不使用':'・使用中・2台並列可'}" x="${whEast.x-36}" y="444" width="72" height="28" class="shutter-gate${detour?' inactive':''}" data-anchor-x="${whEast.x}" data-anchor-y="458" data-anchor-face="center"/>${text(whEast.x,438,detour?'東SH（不使用）':'東SH（使用）','shutter-label')}</g>
+      <g data-acceptance="G04"><title>倉庫東SHと倉庫東主通路群の軸。2台並列可・対向同時通過未確定</title><rect data-map-id="PZ-S-OUT" aria-label="パレタイズ出口SH" x="${pzExit.x-8}" y="291" width="16" height="31" class="shutter-gate" data-anchor-x="${pzExit.x}" data-anchor-y="306.5" data-anchor-face="center"/><g data-east-opening-placeholder="true"></g></g>
       <g data-acceptance="G05"></g>
       <g data-acceptance="G06"><path data-map-id="NORMAL-RETURN" d="M${detour?pzEntry.x:pzExit.x} 300 V${detour?410:390} H${detour?whWest.x:whEast.x} V475" class="normal-flow return-flow" marker-end="url(#arrow)"/>${text(whEast.x+18,426,detour?'PZ入口SHから退出 → WH西SH':'出口SH → 倉庫東SH','map-small')}</g>
       <g data-acceptance="G07"><path data-map-id="NORMAL-ENTRY" d="M${detour?whWest.x:whEast.x} 475 V390 H${detour?pzExit.x:pzEntry.x} V300" class="normal-flow entry-flow" marker-end="url(#arrow)"/>${text(250,380,detour?'WH西SH → PZ出口SHから進入':'倉庫東SH → PZ入口SH（HO南側）','map-small')}</g>
@@ -360,8 +361,26 @@ export function initMap({svg,onSelectAgf,onSelectBlock}) {
       <g data-acceptance="G17">${text(whX(870),876,'× AGF進入禁止','forbidden-label')}</g>
       ${text(whX(48),930,layoutProfile?'mmモデル・縮尺と実停止位置は未検証。実距離・確定ETAではありません。':'概念図・実寸ではありません。未承認経路から実距離・確定ETAを生成しません。','map-small')}`;
     const scale=projection.scale;
+    // The SH symbol spans the actual saved lane centers, including a nonlinear
+    // profile's declared aisle alignment. Its margins are schematic, not a
+    // measured opening width. Keep this world geometry out of mapScenery.
+    const eastLaneNodes=['WH-GATE','WH-E-GATE-L2'].map(id=>nodeMap?.get(id));
+    const useLanes=topology?.warehouseRoutingVersion&&eastLaneNodes.every(Boolean);
+    const eastLeft=useLanes?Math.min(...eastLaneNodes.map(n=>n.x))-
+      (sceneryPoint({x:aisleXs[2],y:500}).x-sceneryPoint({x:whEast.x-36,y:500}).x):
+      sceneryPoint({x:whEast.x-36,y:458}).x;
+    const eastRight=useLanes?Math.max(...eastLaneNodes.map(n=>n.x))+
+      (sceneryPoint({x:whEast.x+36,y:500}).x-sceneryPoint({x:aisleXs[3],y:500}).x):
+      sceneryPoint({x:whEast.x+36,y:458}).x;
+    const eastCenter=(eastLeft+eastRight)/2,gateTop=sceneryPoint({x:whEast.x,y:444}).y,
+      gateBottom=sceneryPoint({x:whEast.x,y:472}).y;
+    const gateLabel=mapScenery(text(whEast.x,438,detour?'東SH（不使用）':'東SH（使用）','shutter-label'),
+      p=>({...sceneryPoint(p),x:eastCenter}),scale,!!layoutProfile,null,screenScale(),focus);
+    const eastOpening=`<path d="M${eastCenter} ${sceneryPoint({x:eastAxis,y:458}).y} V${sceneryPoint({x:eastAxis,y:500}).y}" class="alignment-axis" vector-effect="non-scaling-stroke"/>
+      <rect data-map-id="WH-E-GATE" aria-label="製品倉庫東SH${detour?'・不使用':'・使用中・2台並列可'}" x="${eastLeft}" y="${gateTop}" width="${eastRight-eastLeft}" height="${gateBottom-gateTop}" class="shutter-gate${detour?' inactive':''}" vector-effect="non-scaling-stroke"/>${gateLabel}`;
     const mappedScenery=mapScenery(scenery,sceneryPoint,scale,!!layoutProfile,normalPaths,screenScale(),focus)
-      .replace('<g data-temp-place-placeholder="true"></g>',renderTempPlaces());
+      .replace('<g data-temp-place-placeholder="true"></g>',renderTempPlaces())
+      .replace('<g data-east-opening-placeholder="true"></g>',eastOpening);
     svg.innerHTML=`<defs><pattern id="map-grid" width="${24/scale}" height="${24/scale}" patternUnits="userSpaceOnUse"><circle cx="${1/scale}" cy="${1/scale}" r="${.8/scale}" fill="#cbd5e1"/></pattern>
       <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="${6/scale}" markerHeight="${6/scale}" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0e7490"/></marker>
       <pattern id="gap" width="${6/scale}" height="${6/scale}" patternUnits="userSpaceOnUse"><path d="M0 ${6/scale} L${6/scale} 0" stroke="#94a3b8" stroke-width="${1/scale}"/></pattern></defs>

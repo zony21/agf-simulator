@@ -126,7 +126,7 @@ test('PZ horizontal warping is confined above the warehouse and preserves its co
 
 test('metric normal outdoor arrows use exactly the saved E08 and E09 edge geometry',()=>{
   const {html,graph}=nonlinearMap();
-  for(const [from,to,id] of [['WH-GATE','PZ-ENTRY','NORMAL-ENTRY'],['PZ-EXIT','WH-GATE','NORMAL-RETURN']]){
+  for(const [from,to,id] of [['WH-GATE','PZ-ENTRY','NORMAL-ENTRY'],['PZ-EXIT','WH-E-GATE-L2','NORMAL-RETURN']]){
     const route=findOperationalPath(graph,from,to,{movement:'empty',taskType:'01'});
     const points=route.steps.flatMap((step,i)=>i?step.displayPath.slice(1):step.displayPath);
     assert.ok(points.length>2);

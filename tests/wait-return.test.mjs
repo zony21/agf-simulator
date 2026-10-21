@@ -117,7 +117,9 @@ for(const kind of ['01','03','04']){
     assert.ok(done);const a=r.snapshots[done.sequence].agfs[0];
     assert.equal(a.status,'dispatch_pending');assert.equal(a.taskId,null);assert.equal(a.carriedPalletId,null);
     const events=r.events.slice(done.sequence+1),route=events.find(e=>e.type==='ROUTE_PLANNED'&&e.agfId==='AGF1');
-    assert.equal(route.movement,'wait');assert.ok(route.edgeIds.includes('E09')&&route.edgeIds.includes('E20'));
+    assert.equal(route.movement,'wait');
+    assert.ok(route.edgeIds.includes('E09')&&route.edgeIds.includes('WH-E-INNER-L2-LINK'));
+    assert.ok(!route.edgeIds.includes('E20'),'return uses the lane aligned with the southbound aisle');
     const arrived=events.find(e=>e.type==='WAIT_ARRIVED'&&e.agfId==='AGF1');assert.ok(arrived);
     for(const snapshot of r.snapshots.slice(done.sequence,arrived.sequence)){
       assert.notEqual(snapshot.agfs[0].status,'idle');

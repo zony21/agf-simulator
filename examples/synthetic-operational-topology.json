@@ -178,14 +178,18 @@
       "id": "WH-GATE",
       "type": "shutter-wait",
       "areaId": "WH",
-      "x": 862.5,
+      "x": 845,
       "y": 475,
       "approvalState": "synthetic-validated",
       "exclusiveTraffic": true,
       "occupancyResourceIds": [
         "NODE:WH-GATE"
       ],
-      "evidence": "synthetic-relative-route-not-site-geometry"
+      "evidence": "synthetic-relative-route-not-site-geometry",
+      "metricAlignment": {
+        "xNodeId": "WH-E-TOP-WALL",
+        "evidence": "synthetic-relative-layout-alignment-not-site-stop"
+      }
     },
     {
       "id": "WH-DROP",
@@ -2246,7 +2250,7 @@
       "id": "E08-TURN1",
       "type": "turn",
       "areaId": "INTER",
-      "x": 862.5,
+      "x": 845,
       "y": 390,
       "approvalState": "synthetic-validated",
       "evidence": "synthetic-assumption",
@@ -3943,8 +3947,8 @@
     },
     {
       "id": "WH-E-INNER-L1",
-      "x": 862.5,
-      "y": 500,
+      "x": 845,
+      "y": 490,
       "areaId": "WH",
       "type": "junction",
       "approvalState": "synthetic-validated",
@@ -3960,7 +3964,7 @@
     },
     {
       "id": "WH-E-OUTER-L1",
-      "x": 862.5,
+      "x": 845,
       "y": 440,
       "areaId": "INTER",
       "type": "junction",
@@ -3977,7 +3981,7 @@
     },
     {
       "id": "WH-E-GATE-L2",
-      "x": 870.5,
+      "x": 880,
       "y": 475,
       "areaId": "WH",
       "type": "shutter-wait",
@@ -3986,12 +3990,16 @@
       "occupancyResourceIds": [
         "NODE:WH-E-GATE-L2"
       ],
-      "evidence": "synthetic-relative-route-not-site-geometry"
+      "evidence": "synthetic-relative-route-not-site-geometry",
+      "metricAlignment": {
+        "xNodeId": "WH-E-TOP",
+        "evidence": "synthetic-relative-layout-alignment-not-site-stop"
+      }
     },
     {
       "id": "WH-E-INNER-L2",
-      "x": 870.5,
-      "y": 500,
+      "x": 880,
+      "y": 490,
       "areaId": "WH",
       "type": "junction",
       "approvalState": "synthetic-validated",
@@ -4007,7 +4015,7 @@
     },
     {
       "id": "WH-E-OUTER-L2",
-      "x": 870.5,
+      "x": 880,
       "y": 440,
       "areaId": "INTER",
       "type": "junction",
@@ -4024,7 +4032,7 @@
     },
     {
       "id": "WH-E-TURN-L2",
-      "x": 870.5,
+      "x": 880,
       "y": 390,
       "areaId": "INTER",
       "type": "turn",
@@ -5922,11 +5930,11 @@
       ],
       "displayPath": [
         {
-          "x": 862.5,
+          "x": 845,
           "y": 475
         },
         {
-          "x": 862.5,
+          "x": 845,
           "y": 440
         }
       ],
@@ -5947,7 +5955,7 @@
       "id": "E08-PART2",
       "fromNodeId": "E08-TURN1",
       "toNodeId": "E09-TURN1",
-      "distanceMm": 2500,
+      "distanceMm": 1800,
       "speedMmPerSec": {
         "empty": 1200,
         "loaded": 1000,
@@ -5999,7 +6007,7 @@
       "approvalState": "synthetic-validated",
       "displayPath": [
         {
-          "x": 862.5,
+          "x": 845,
           "y": 390
         },
         {
@@ -6011,7 +6019,7 @@
       "noOvertakingForwardDirection": "forward",
       "splitSourceEdgeId": "E08",
       "splitPartIndex": 1,
-      "splitSourceDistanceMm": 12900,
+      "splitSourceDistanceMm": 12200,
       "modelDistanceEvidence": "synthetic-model-40mm-per-drawing-unit-polyline-not-measured",
       "enabledRouteModes": [
         "normal"
@@ -6086,7 +6094,7 @@
       "noOvertakingForwardDirection": "forward",
       "splitSourceEdgeId": "E08",
       "splitPartIndex": 3,
-      "splitSourceDistanceMm": 12900,
+      "splitSourceDistanceMm": 12200,
       "modelDistanceEvidence": "synthetic-model-40mm-per-drawing-unit-polyline-not-measured",
       "enabledRouteModes": [
         "normal"
@@ -6161,7 +6169,7 @@
       "noOvertakingForwardDirection": "forward",
       "splitSourceEdgeId": "E09",
       "splitPartIndex": 0,
-      "splitSourceDistanceMm": 6100,
+      "splitSourceDistanceMm": 5400,
       "modelDistanceEvidence": "synthetic-model-40mm-per-drawing-unit-polyline-not-measured",
       "crossingEvidence": "explicit-synthetic-existing-outdoor-junction-not-site-path",
       "enabledRouteModes": [
@@ -6173,7 +6181,7 @@
       "id": "E09-PART2",
       "fromNodeId": "E09-TURN1",
       "toNodeId": "E08-TURN1",
-      "distanceMm": 2500,
+      "distanceMm": 1800,
       "speedMmPerSec": {
         "empty": 900,
         "loaded": 700,
@@ -6229,7 +6237,7 @@
           "y": 390
         },
         {
-          "x": 862.5,
+          "x": 845,
           "y": 390
         }
       ],
@@ -6237,7 +6245,7 @@
       "noOvertakingForwardDirection": "forward",
       "splitSourceEdgeId": "E09",
       "splitPartIndex": 1,
-      "splitSourceDistanceMm": 6100,
+      "splitSourceDistanceMm": 5400,
       "modelDistanceEvidence": "synthetic-model-40mm-per-drawing-unit-polyline-not-measured",
       "crossingEvidence": "explicit-synthetic-existing-outdoor-junction-not-site-path",
       "mergeConflictResourceId": "OUTDOOR-JUNCTION",
@@ -13560,13 +13568,7 @@
         "simultaneousPassing": "no-alternating"
       },
       "occupancyResourceIds": [
-        "LOGICAL-MERGE:WH-E-CROSS-WH-E-TOP",
-        "SYNTHETIC-CONFLICT:WH-E-CROSS-WH-E-TOP:E20",
-        "SYNTHETIC-CONFLICT:WH-E-CROSS-WH-E-TOP:WH-E-INNER-L1-UP",
-        "SYNTHETIC-CONFLICT:WH-E-CROSS-WH-E-TOP:WH-E-INNER-L1-DOWN",
-        "SYNTHETIC-CONFLICT:WH-E-CROSS-WH-E-TOP:WH-E-INNER-L2-UP",
-        "SYNTHETIC-CONFLICT:WH-E-CROSS-WH-E-TOP:WH-E-INNER-L2-DOWN",
-        "SYNTHETIC-CONFLICT:WH-E-CROSS-WH-E-TOP:WH-E-INNER-L2-LINK"
+        "LOGICAL-MERGE:WH-E-CROSS-WH-E-TOP"
       ],
       "shutterId": null,
       "accessScopes": [
@@ -17147,18 +17149,16 @@
         "simultaneousPassing": "no-alternating"
       },
       "occupancyResourceIds": [
-        "SYNTHETIC-CONFLICT:WH-E-CROSS-WH-E-TOP:E20",
-        "SYNTHETIC-CONFLICT:E20:WH-E-INNER-L2-UP",
-        "WH-E-INNER-L1-ADMISSION"
+        "WH-E-APPROACH-L1"
       ],
       "displayPath": [
         {
-          "x": 862.5,
+          "x": 845,
           "y": 475
         },
         {
-          "x": 862.5,
-          "y": 500
+          "x": 845,
+          "y": 490
         }
       ],
       "shutterId": null,
@@ -17166,199 +17166,7 @@
       "enabledRouteModes": [
         "normal"
       ],
-      "mergeConflictResourceId": "WH-E-INNER-L1-ADMISSION"
-    },
-    {
-      "id": "E20-ENTRY",
-      "fromNodeId": "WH-E-GATE-DOWN-ENTRY",
-      "toNodeId": "WH-E-TOP",
-      "distanceMm": 1500,
-      "speedMmPerSec": {
-        "empty": 800,
-        "loaded": 700,
-        "charge": 800,
-        "wait": 800
-      },
-      "lanes": [
-        {
-          "id": "E20-ENTRY-L1",
-          "direction": "forward"
-        }
-      ],
-      "lanePolicy": {
-        "laneCount": 1,
-        "simultaneousPassing": "no-alternating"
-      },
-      "occupancyResourceIds": [],
-      "shutterId": null,
-      "accessScopes": [
-        {
-          "movement": "empty",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "loaded",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "charge",
-          "taskTypes": [
-            "CHARGE"
-          ]
-        },
-        {
-          "movement": "wait",
-          "taskTypes": [
-            "WAIT"
-          ]
-        }
-      ],
-      "approvalState": "synthetic-validated",
-      "displayPath": [
-        {
-          "x": 880,
-          "y": 475
-        },
-        {
-          "x": 880,
-          "y": 500
-        }
-      ],
-      "modelDistanceEvidence": "explicit-synthetic-equal-segment-allocation-not-display-length",
-      "evidence": "synthetic-gate-down-lane-attachment",
-      "enabledRouteModes": []
-    },
-    {
-      "id": "WH-E-GATE-UP",
-      "fromNodeId": "WH-E-TOP-WALL",
-      "toNodeId": "WH-E-GATE-UP-EXIT",
-      "distanceMm": 1500,
-      "speedMmPerSec": {
-        "empty": 800,
-        "loaded": 700,
-        "charge": 800,
-        "wait": 800
-      },
-      "lanes": [
-        {
-          "id": "WH-E-GATE-UP-L1",
-          "direction": "forward"
-        }
-      ],
-      "lanePolicy": {
-        "laneCount": 1,
-        "simultaneousPassing": "no-alternating"
-      },
-      "occupancyResourceIds": [],
-      "shutterId": null,
-      "accessScopes": [
-        {
-          "movement": "empty",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "loaded",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "charge",
-          "taskTypes": [
-            "CHARGE"
-          ]
-        },
-        {
-          "movement": "wait",
-          "taskTypes": [
-            "WAIT"
-          ]
-        }
-      ],
-      "approvalState": "synthetic-validated",
-      "displayPath": [
-        {
-          "x": 845,
-          "y": 500
-        },
-        {
-          "x": 845,
-          "y": 475
-        }
-      ],
-      "modelDistanceEvidence": "explicit-synthetic-equal-segment-allocation-not-display-length",
-      "evidence": "synthetic-gate-up-lane-attachment",
-      "enabledRouteModes": []
-    },
-    {
-      "id": "WH-E-GATE-RETURN",
-      "fromNodeId": "WH-E-GATE-UP-EXIT",
-      "toNodeId": "WH-GATE",
-      "distanceMm": 1500,
-      "speedMmPerSec": {
-        "empty": 800,
-        "loaded": 700,
-        "charge": 800,
-        "wait": 800
-      },
-      "lanes": [
-        {
-          "id": "WH-E-GATE-RETURN-L1",
-          "direction": "both"
-        }
-      ],
-      "lanePolicy": {
-        "laneCount": 1,
-        "simultaneousPassing": "no-alternating"
-      },
-      "occupancyResourceIds": [],
-      "shutterId": null,
-      "accessScopes": [
-        {
-          "movement": "empty",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "loaded",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "charge",
-          "taskTypes": [
-            "CHARGE"
-          ]
-        },
-        {
-          "movement": "wait",
-          "taskTypes": [
-            "WAIT"
-          ]
-        }
-      ],
-      "approvalState": "synthetic-validated",
-      "displayPath": [
-        {
-          "x": 845,
-          "y": 475
-        },
-        {
-          "x": 862.5,
-          "y": 475
-        }
-      ],
-      "modelDistanceEvidence": "explicit-synthetic-equal-segment-allocation-not-display-length",
-      "evidence": "synthetic-gate-up-lane-attachment",
-      "enabledRouteModes": []
+      "mergeConflictResourceId": "WH-E-APPROACH-L1"
     },
     {
       "id": "WH-W-CROSS-WH-W-TOP",
@@ -23032,7 +22840,7 @@
       "noOvertakingForwardDirection": "forward",
       "splitSourceEdgeId": "E08",
       "splitPartIndex": 2,
-      "splitSourceDistanceMm": 12900,
+      "splitSourceDistanceMm": 12200,
       "modelDistanceEvidence": "synthetic-model-40mm-per-drawing-unit-polyline-not-measured",
       "enabledRouteModes": [
         "normal"
@@ -23093,11 +22901,11 @@
       ],
       "displayPath": [
         {
-          "x": 862.5,
+          "x": 845,
           "y": 440
         },
         {
-          "x": 862.5,
+          "x": 845,
           "y": 475
         }
       ],
@@ -25414,8 +25222,7 @@
         "simultaneousPassing": "no-alternating"
       },
       "occupancyResourceIds": [
-        "WH-E-PORTAL-MERGE",
-        "SYNTHETIC-CONFLICT:WH-E-CROSS-WH-E-TOP:WH-E-INNER-L1-UP"
+        "WH-E-APPROACH-L1"
       ],
       "displayPath": [
         {
@@ -25423,80 +25230,16 @@
           "y": 500
         },
         {
-          "x": 862.5,
-          "y": 500
+          "x": 845,
+          "y": 490
         }
       ],
       "shutterId": null,
       "modelDistanceEvidence": "explicit-synthetic-test-distance-not-measured",
-      "mergeConflictResourceId": "WH-E-PORTAL-MERGE"
-    },
-    {
-      "id": "WH-E-INNER-L1-DOWN",
-      "fromNodeId": "WH-E-INNER-L1",
-      "toNodeId": "WH-E-TOP",
-      "distanceMm": 1000,
-      "speedMmPerSec": {
-        "empty": 1000,
-        "loaded": 750,
-        "charge": 850,
-        "wait": 850
-      },
-      "approvalState": "synthetic-validated",
-      "accessScopes": [
-        {
-          "movement": "empty",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "loaded",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "charge",
-          "taskTypes": [
-            "CHARGE"
-          ]
-        },
-        {
-          "movement": "wait",
-          "taskTypes": [
-            "WAIT"
-          ]
-        }
+      "enabledRouteModes": [
+        "normal"
       ],
-      "lanes": [
-        {
-          "id": "WH-E-INNER-L1-DOWN-L1",
-          "direction": "forward"
-        }
-      ],
-      "lanePolicy": {
-        "laneCount": 1,
-        "simultaneousPassing": "no-alternating"
-      },
-      "occupancyResourceIds": [
-        "WH-E-PORTAL-MERGE",
-        "SYNTHETIC-CONFLICT:WH-E-CROSS-WH-E-TOP:WH-E-INNER-L1-DOWN",
-        "SYNTHETIC-CONFLICT:WH-E-INNER-L1-DOWN:WH-E-INNER-L2-LINK"
-      ],
-      "displayPath": [
-        {
-          "x": 862.5,
-          "y": 500
-        },
-        {
-          "x": 880,
-          "y": 500
-        }
-      ],
-      "shutterId": null,
-      "modelDistanceEvidence": "explicit-synthetic-test-distance-not-measured",
-      "mergeConflictResourceId": "WH-E-PORTAL-MERGE"
+      "mergeConflictResourceId": "WH-E-APPROACH-L1"
     },
     {
       "id": "WH-E-OUTER-L1-LINK",
@@ -25551,11 +25294,11 @@
       ],
       "displayPath": [
         {
-          "x": 862.5,
+          "x": 845,
           "y": 440
         },
         {
-          "x": 862.5,
+          "x": 845,
           "y": 390
         }
       ],
@@ -25565,73 +25308,6 @@
         "normal"
       ],
       "mergeConflictResourceId": "OUTDOOR-JUNCTION"
-    },
-    {
-      "id": "WH-E-INNER-L2-UP",
-      "fromNodeId": "WH-E-TOP-WALL",
-      "toNodeId": "WH-E-INNER-L2",
-      "distanceMm": 1000,
-      "speedMmPerSec": {
-        "empty": 1000,
-        "loaded": 750,
-        "charge": 850,
-        "wait": 850
-      },
-      "approvalState": "synthetic-validated",
-      "accessScopes": [
-        {
-          "movement": "empty",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "loaded",
-          "taskTypes": [
-            "*"
-          ]
-        },
-        {
-          "movement": "charge",
-          "taskTypes": [
-            "CHARGE"
-          ]
-        },
-        {
-          "movement": "wait",
-          "taskTypes": [
-            "WAIT"
-          ]
-        }
-      ],
-      "lanes": [
-        {
-          "id": "WH-E-INNER-L2-UP-L1",
-          "direction": "forward"
-        }
-      ],
-      "lanePolicy": {
-        "laneCount": 1,
-        "simultaneousPassing": "no-alternating"
-      },
-      "occupancyResourceIds": [
-        "WH-E-PORTAL-MERGE",
-        "SYNTHETIC-CONFLICT:WH-E-CROSS-WH-E-TOP:WH-E-INNER-L2-UP",
-        "SYNTHETIC-CONFLICT:E20:WH-E-INNER-L2-UP"
-      ],
-      "displayPath": [
-        {
-          "x": 845,
-          "y": 500
-        },
-        {
-          "x": 870.5,
-          "y": 500
-        }
-      ],
-      "shutterId": null,
-      "modelDistanceEvidence": "explicit-synthetic-test-distance-not-measured",
-      "mergeConflictResourceId": "WH-E-PORTAL-MERGE"
     },
     {
       "id": "WH-E-INNER-L2-DOWN",
@@ -25682,13 +25358,12 @@
         "simultaneousPassing": "no-alternating"
       },
       "occupancyResourceIds": [
-        "WH-E-PORTAL-MERGE",
-        "SYNTHETIC-CONFLICT:WH-E-CROSS-WH-E-TOP:WH-E-INNER-L2-DOWN"
+        "WH-E-APPROACH-L2"
       ],
       "displayPath": [
         {
-          "x": 870.5,
-          "y": 500
+          "x": 880,
+          "y": 490
         },
         {
           "x": 880,
@@ -25697,7 +25372,10 @@
       ],
       "shutterId": null,
       "modelDistanceEvidence": "explicit-synthetic-test-distance-not-measured",
-      "mergeConflictResourceId": "WH-E-PORTAL-MERGE"
+      "enabledRouteModes": [
+        "normal"
+      ],
+      "mergeConflictResourceId": "WH-E-APPROACH-L2"
     },
     {
       "id": "WH-E-INNER-L2-LINK",
@@ -25748,18 +25426,16 @@
         "simultaneousPassing": "no-alternating"
       },
       "occupancyResourceIds": [
-        "SYNTHETIC-CONFLICT:WH-E-CROSS-WH-E-TOP:WH-E-INNER-L2-LINK",
-        "SYNTHETIC-CONFLICT:WH-E-INNER-L1-DOWN:WH-E-INNER-L2-LINK",
-        "WH-E-PORTAL-MERGE"
+        "WH-E-APPROACH-L2"
       ],
       "displayPath": [
         {
-          "x": 870.5,
+          "x": 880,
           "y": 475
         },
         {
-          "x": 870.5,
-          "y": 500
+          "x": 880,
+          "y": 490
         }
       ],
       "shutterId": null,
@@ -25767,7 +25443,7 @@
       "enabledRouteModes": [
         "normal"
       ],
-      "mergeConflictResourceId": "WH-E-PORTAL-MERGE"
+      "mergeConflictResourceId": "WH-E-APPROACH-L2"
     },
     {
       "id": "WH-E-PORTAL-L2-OUT",
@@ -25823,11 +25499,11 @@
       ],
       "displayPath": [
         {
-          "x": 870.5,
+          "x": 880,
           "y": 475
         },
         {
-          "x": 870.5,
+          "x": 880,
           "y": 440
         }
       ],
@@ -25898,11 +25574,11 @@
       ],
       "displayPath": [
         {
-          "x": 870.5,
+          "x": 880,
           "y": 440
         },
         {
-          "x": 870.5,
+          "x": 880,
           "y": 475
         }
       ],
@@ -25972,11 +25648,11 @@
       ],
       "displayPath": [
         {
-          "x": 870.5,
+          "x": 880,
           "y": 440
         },
         {
-          "x": 870.5,
+          "x": 880,
           "y": 390
         }
       ],
@@ -26040,11 +25716,11 @@
       ],
       "displayPath": [
         {
-          "x": 870.5,
+          "x": 880,
           "y": 390
         },
         {
-          "x": 862.5,
+          "x": 845,
           "y": 390
         }
       ],
@@ -26457,7 +26133,7 @@
             "gateNodeId": "WH-GATE",
             "shutterId": "SH-EAST",
             "point": {
-              "x": 862.5,
+              "x": 845,
               "y": 458
             }
           },
@@ -26466,7 +26142,7 @@
             "gateNodeId": "WH-GATE",
             "shutterId": "SH-EAST",
             "point": {
-              "x": 862.5,
+              "x": 845,
               "y": 458
             }
           },
@@ -26493,7 +26169,7 @@
             "gateNodeId": "WH-E-GATE-L2",
             "shutterId": "SH-EAST",
             "point": {
-              "x": 870.5,
+              "x": 880,
               "y": 458
             }
           },
@@ -26502,7 +26178,7 @@
             "gateNodeId": "WH-E-GATE-L2",
             "shutterId": "SH-EAST",
             "point": {
-              "x": 870.5,
+              "x": 880,
               "y": 458
             }
           }
@@ -26558,7 +26234,8 @@
       "parallelCapacity": 2,
       "opposingSimultaneous": "unresolved",
       "individualLaneDirections": "unresolved",
-      "syntheticPolicy": "same-direction-parallel-opposing-exclusive"
+      "syntheticPolicy": "same-direction-parallel-opposing-exclusive",
+      "eastApproachEvidence": "user-confirmed-straight-passage-synthetic-aisle-alignment-not-site-coordinates"
     }
   }
 }

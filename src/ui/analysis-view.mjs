@@ -13,7 +13,7 @@ function renderAnalysisMetrics(run,data=analyzeRun(run)) {
   const graph=run.scenario.motionModel==='synthetic_graph',label=s=>stateLabel(s,graph);
   const graphStatuses=['turning','positioning_for_pickup','picking_fork_inserted','positioning_for_dropoff','dropping_fork_inserted','waiting_motion_configuration','waiting_avoidance','waiting_interference','waiting_wrapper_input','waiting_charge_place'];
   const categories=durationStatuses.filter(s=>(graph||!s.startsWith('handling_')&&!graphStatuses.includes(s))&&(run.scenario.postTaskPolicy||!['moving_to_wait','hp_wait','waiting_hp_instruction','waiting_hp_capacity','waiting_hp_route','waiting_place_capacity'].includes(s)));
-  return `<div class="analysis-metrics">${metric('搬送要求数',data.requested,'件','01〜05の発行済み要求','accent','↗')}${metric('完了タスク',data.completed,'件','実行期間内の完了','success','✓')}${metric('保留タスク',data.held,'件',`未完了 ${data.pending}件 / 02発行前保留 ${data.preRequestHeld}PL`,'warning','◷')}${metric('AGF平均稼働率',data.utilizationPct.toFixed(1),'%','空走・積載・旋回・荷役','accent','▥')}
+  return `<div class="analysis-metrics">${metric('搬送要求数',data.requested,'件','01〜05の発行済み要求','accent','↗')}${metric('完了タスク',data.completed,'件','実行期間内の完了','success','✓')}${metric('保留タスク',data.held,'件',`未完了 ${data.pending}件 / 発行前保留 ${data.preRequestHeld}PL`,'warning','◷')}${metric('AGF平均稼働率',data.utilizationPct.toFixed(1),'%','空走・積載・旋回・荷役','accent','▥')}
     ${graph?metric('停止旋回',minutes(data.turningMs),'分','4台合計・並進移動なし')+metric('荷役姿勢への移行',minutes(data.positioningMs),'分','荷受け／荷下ろしの姿勢移行')+metric('フォーク挿入後の荷役',minutes(data.forkHandlingMs),'分','姿勢移行時間と別集計')+metric('走行・荷役設定待ち',minutes(data.motionConfigurationWaitMs),'分','未確定値を補完せず保留'):''}
     ${metric('待機時間',minutes(data.idleMs),'分','4台合計・倉庫待機を含む')}${metric('交通待ち',minutes(data.trafficWaitMs),'分','区間・交差点・シャッター')}${metric('荷受け許可待ち',minutes(data.pickupWaitMs??0),'分','荷受け前の設備許可待ち')}${metric('充電時間',minutes(data.chargeMs),'分','4台合計・充電中')}${metric('充電待ち時間',minutes(data.chargeWaitMs),'分','4台合計・2口の空き待ち')}${run.scenario.postTaskPolicy?metric('倉庫復帰走行',minutes(data.waitReturnMs),'分','通常空走とは別集計')+metric('うち倉庫待機',minutes(data.hpWaitMs),'分','4か所の待機場所への到着後')+metric('倉庫復帰保留',minutes(data.hpBlockedMs),'分','復帰先の使用待ちなど'):''}</div>
     <section class="panel"><div class="panel-heading"><div><h2>AGF タイムライン</h2><span class="muted">保存済みスナップショットの状態継続時間 · ${run.scenario.durationMin}分間</span></div><span class="badge">全期間</span></div><div class="timeline-axis">${[0,.25,.5,.75,1].map(n=>`<span>${clock(data.durationMs*n)}</span>`).join('')}</div>
@@ -59,7 +59,7 @@ function renderComparisonDetails(runs) {
     `荷受け ${scenario.times.pickupMin}分・荷下ろし ${scenario.times.dropoffMin}分`;
   const turnDescription=scenario.motionModel==='synthetic_graph'?`<br>停止旋回：角度÷角速度 / 角速度 ${control.turnRateDegPerSec==null?'未設定':control.turnRateDegPerSec+' deg/s'}（${control.turnRateEvidence==='synthetic-assumption'?'合成仮定':control.turnRateDegPerSec==null?'未確定':'明示条件'}）`:'';
   const metricRows=[['要求数（件）',d=>d.requested],['完了数（件）',d=>d.completed],['未完了数（件）',d=>d.pending],
-    ['02発行前保留（PL）',d=>d.preRequestHeld],['要求待ち（分）',d=>Number(minutes(d.requestWaitMs))],
+    ['発行前保留（PL）',d=>d.preRequestHeld],['要求待ち（分）',d=>Number(minutes(d.requestWaitMs))],
     ['待機時間（分）',d=>Number(minutes(d.idleMs))],['充電時間（分）',d=>Number(minutes(d.chargeMs))],
     ['交通待ち（分）',d=>Number(minutes(d.trafficWaitMs))],['倉庫復帰（分）',d=>Number(minutes(d.waitReturnMs))],
     ['待機場所待機（分）',d=>Number(minutes(d.hpWaitMs))],['充電待ち（分）',d=>Number(minutes(d.chargeWaitMs))]];

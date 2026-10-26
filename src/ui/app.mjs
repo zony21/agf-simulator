@@ -303,7 +303,7 @@ function reserve(event){event.preventDefault();$('reservation-error').hidden=tru
   addInput('manualRequests',entry);$('reservation-dialog').close();
  }catch(error){$('reservation-error').textContent=friendlyError(error);$('reservation-error').hidden=false;}}
 function compare(){pause();clearError();try{const scenario=scenarioFromSettings();comparison=compareRuns(scenario);
-  $('comparison-body').innerHTML=renderComparison(comparison);showView('comparison');notify('2方式を同一入力で比較しました。比較条件はこの結果に保持しています。');
+  $('comparison-body').innerHTML=renderComparison(comparison);showView('comparison');notify(comparison.length+'方式を同一入力で比較しました。比較条件はこの結果に保持しています。');
  }catch(error){showError(error,{settings:true});}}
 
 populateSettings(base);

@@ -251,6 +251,9 @@ export function createTrafficController(edges,{nodes=[]}={}){
     clearHandlingPhase(agfId){
       handling.delete(agfId);
     },
+    nodeUsers(nodeId){
+      return [...new Set([nodeOccupants.get(nodeId),nodeReservations.get(nodeId)].filter(Boolean))];
+    },
     setNodeOccupant({agfId,nodeId}){
       if(!exclusiveNodes.has(nodeId))return;
       required(!nodeOccupants.has(nodeId)||nodeOccupants.get(nodeId)===agfId,'exclusive node occupied '+nodeId);

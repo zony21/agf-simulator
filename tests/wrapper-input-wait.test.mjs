@@ -107,25 +107,27 @@ test('an unrelated production event preserves a reserved delivery shutter wait a
 function overtakingScenario(){
   const s=wrapperWaitingScenario();s.wrapper.permission=false;s.durationMin=2;
   const g=s.operationalTopology;
-  g.nodes=[['BEHIND',0,0,'home'],['FRONT',100,0,'pickup'],['AHEAD',200,0,'junction'],
+  g.nodes=[['BEHIND',0,0,'home'],['FRONT-APPROACH',99,0,'home'],['FRONT',100,0,'pickup'],['AHEAD',200,0,'junction'],
     ['TARGET',300,0,'pickup'],['N-START',0,-100,'junction'],['N-END',200,-100,'junction'],
     ['WRAP-IN',400,0,'dropoff'],['WRAP-OUT',500,0,'pickup'],['STORE',600,0,'dropoff'],
     ['CHARGE',700,0,'charge'],['PARK3',-100,100,'home'],['PARK4',-200,100,'home']]
     .map(([id,x,y,type])=>({id,x,y,type,exclusiveTraffic:true,areaId:'PZ',approvalState:'synthetic-validated'}));
   const prototype=s.operationalTopology.edges[0];
-  g.edges=[['SOUTH-BEFORE','BEHIND','FRONT'],['SOUTH-AFTER','FRONT','AHEAD'],['SOUTH-TARGET','AHEAD','TARGET'],
+  g.edges=[['PICKUP-APPROACH','FRONT-APPROACH','FRONT'],['SOUTH-BEFORE','BEHIND','FRONT'],['SOUTH-AFTER','FRONT','AHEAD'],['SOUTH-TARGET','AHEAD','TARGET'],
     ['WRAPPER','FRONT','WRAP-IN'],['TARGET-WRAP','TARGET','WRAP-IN'],['CHANGE-IN','BEHIND','N-START'],
     ['NORTH','N-END','N-START'],['CHANGE-OUT','N-END','AHEAD'],['OUT','WRAP-IN','WRAP-OUT'],
     ['STORE','WRAP-OUT','STORE'],['CHARGE-E','STORE','CHARGE']].map(([id,fromNodeId,toNodeId])=>({
       ...structuredClone(prototype),id,fromNodeId,toNodeId,
       lanes:[{id:id+'-LANE',direction:id==='NORTH'?'forward':id.startsWith('SOUTH')?'forward':'both'}],
-      distanceMm:id==='NORTH'?10000:1000}));
+      distanceMm:id==='PICKUP-APPROACH'?1:id==='NORTH'?10000:1000}));
   g.interfaceBindings=g.interfaceBindings.filter(b=>!b.pattern.startsWith('L'));
   g.interfaceBindings.push({pattern:'L1',nodeId:'FRONT'},{pattern:'L2',nodeId:'TARGET'});
   g.overtakingPlans=[{id:'SYN-ONLY-WRAPPER-BYPASS',blockedNodeId:'FRONT',fromNodeId:'BEHIND',rejoinNodeId:'AHEAD',
     edgeIds:['CHANGE-IN','NORTH','CHANGE-OUT'],temporaryReverseEdgeIds:['NORTH'],
     resourceIds:['BYPASS-ENTRY','BYPASS-OPPOSITE','BYPASS-SIDE','BYPASS-REJOIN'],evidence:'synthetic-assumption'}];
-  s.agfs.forEach((a,i)=>{a.currentNodeId=['FRONT','BEHIND','PARK3','PARK4'][i];a.blocked=i>1;a.headingDeg=0;});
+  // The front AGF must receive its task before occupying the pickup location.
+  // A 1 ms synthetic approach preserves the bypass timing being exercised.
+  s.agfs.forEach((a,i)=>{a.currentNodeId=['FRONT-APPROACH','BEHIND','PARK3','PARK4'][i];a.blocked=i>1;a.headingDeg=0;});
   s.productionEvents=s.productionEvents.slice(0,2);s.productionEvents[1].timeMs=5000;
   return s;
 }

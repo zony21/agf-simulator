@@ -48,6 +48,19 @@ export function durationTenths(durations) {
   return values;
 }
 
+/** Unissued pallets are separate from tasks and deduplicated within their next transport kind. */
+export function preRequestHolds(run){
+  const issuedPallets=new Set((run.final.tasks??[]).filter(task=>task.palletId).map(task=>task.kind+'\0'+task.palletId));
+  return (run.final.pallets??[]).flatMap(pallet=>{
+    if(!pallet.waitReason)return [];
+    const kind=pallet.stage==='line'&&['PICKUP_LOCATION_OCCUPIED','PICKUP_LOCATION_RESERVED'].includes(pallet.waitReason)?'01':
+      pallet.stage==='exit_ready'?'02':null;
+    if(!kind||issuedPallets.has(kind+'\0'+pallet.palletId)||kind==='01'&&pallet.transportTaskId)return [];
+    return kind?[{kind,palletId:pallet.palletId,originId:kind==='01'?pallet.sourceLineId??pallet.lineId:'WRAP-OUTPUT',
+      destinationId:kind==='01'?'WRAP-INPUT':pallet.destinationLocationId??null,reason:pallet.waitReason}]:[];
+  });
+}
+
 /** Integrate saved states over simulated time, including the tail after the last event. */
 export function analyzeRun(run) {
   const durationMs=Math.round(run.scenario.durationMin*60000);
@@ -69,11 +82,11 @@ export function analyzeRun(run) {
     row.workingMs=workingStatuses.reduce((sum,status)=>sum+(row.durations[status]??0),0);
     row.utilizationPct=durationMs?100*row.workingMs/durationMs:0;
   }
-  const tasks=run.final.tasks;
+  const tasks=run.final.tasks,unissued=preRequestHolds(run);
   const byKind=['01','02','03','04','05'].map(kind=>{
     const own=tasks.filter(t=>t.kind===kind);
     return {kind,requested:own.length,completed:own.filter(t=>t.status==='completed').length,
-      pending:own.filter(t=>t.status!=='completed').length};
+      pending:own.filter(t=>t.status!=='completed').length,preRequestHeld:unissued.filter(p=>p.kind===kind).length};
   });
   const sum=key=>agfs.reduce((total,agf)=>total+(agf.durations[key]??0),0);
   const productStats=new Map();
@@ -91,7 +104,8 @@ export function analyzeRun(run) {
     completed:tasks.filter(t=>t.status==='completed').length,
     pending:tasks.filter(t=>t.status!=='completed').length,
     held:tasks.filter(t=>t.status!=='completed'&&t.waitReason).length,
-    preRequestHeld:(run.final.pallets??[]).filter(p=>p.stage==='exit_ready'&&p.waitReason).length,
+    preRequestHeld:unissued.length,preRequestHolds:unissued,
+    preRequestHeldByKind:{'01':unissued.filter(p=>p.kind==='01').length,'02':unissued.filter(p=>p.kind==='02').length},
     utilizationPct:agfs.length?agfs.reduce((n,a)=>n+a.utilizationPct,0)/agfs.length:0,
     idleMs:sum('idle')+sum('hp_wait'),hpWaitMs:sum('hp_wait'),waitReturnMs:sum('moving_to_wait'),
     hpBlockedMs:sum('waiting_hp_instruction')+sum('waiting_hp_capacity')+sum('waiting_hp_route')+sum('waiting_place_capacity'),

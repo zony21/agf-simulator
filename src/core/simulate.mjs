@@ -210,6 +210,9 @@ export function simulate(rawScenario) {
   let now = 0, order = 0, nextTask = 0;
   const stats = {created:0, stored:0, completed:0, byKind:{}, chargingStarts:0};
   const pending = [];
+  // User-confirmed line admission: issued tasks own the pickup location until
+  // their AGF physically departs, including loaded wrapper-input waiting.
+  const linePickupReservations=new Map();
   // Warehouse state changes far less often than movement events. Share only frozen
   // versions across snapshots; mutable simulation slots never escape into history.
   const dirtySlots=new Set(slots.keys());
@@ -253,6 +256,7 @@ export function simulate(rawScenario) {
     productionStatus:Object.fromEntries([...productionStatus].map(([k,v])=>[k,clone(v)])),
     temporaryPallets:clone([...temps.values()]),
     warehouse:snapshotWarehouse(),
+    ...(graphMode?{linePickupReservations:Object.fromEntries(linePickupReservations)}:{}),
     ...(scenario.warehouseRouteMode?{warehouseRouteMode:scenario.warehouseRouteMode}:{}),
     tasks:[...tasks.values()].map(saveEntity), pallets:[...pallets.values()].map(saveEntity),
     ...(warehousePolicy?{storagePolicyActive:true}:{}),
@@ -344,6 +348,11 @@ export function simulate(rawScenario) {
     // first task snapshot, without inferring order from a pending-array index.
     Object.assign(t,{requestSequence:history.length,...resolveTaskPriority(t,taskPriorities)});
     tasks.set(t.id,t); pending.push(t.id);
+    if(graphMode&&kind==='01'){
+      const nodeId=resolveInterfaceNode(topology,t.originId);
+      required(!linePickupReservations.has(nodeId),'line pickup already reserved');
+      linePickupReservations.set(nodeId,t.id);p.transportTaskId=t.id;
+    }
     record('TASK_REQUESTED',{taskId:t.id,kind,palletId:t.palletId ?? null,requestSequence:t.requestSequence,
       ...('taskPriority' in t?{prioritySourceId:t.prioritySourceId,taskPriority:t.taskPriority}:{})});
     return t;
@@ -378,7 +387,8 @@ export function simulate(rawScenario) {
       if(!reserved.entered){
         agf.status='waiting_traffic';agf.movement.waitingReason='TURN_RESOURCE';
         record('SEGMENT_WAITING',{agfId:agf.id,taskId:agf.taskId,edgeId:step.edgeId,
-          blockers:reserved.blockers,reason:'TURN_RESOURCE_OCCUPIED'});return true;
+          blockers:reserved.blockers,reason:reserved.reason==='OCCUPIED'?'TURN_RESOURCE_OCCUPIED':reserved.reason,
+          phase:'before-turn'});return true;
       }
     }
     const duration=Math.ceil(Math.abs(angle)/motionControl.turnRateDegPerSec*1000);
@@ -491,7 +501,13 @@ export function simulate(rawScenario) {
       if(!wrapper.permission||a.movement.retryScheduled)continue;
       a.movement.retryScheduled=true;a.departurePlanned=true;
       if(a.movement.steps.length)schedule(now,'SEGMENT_REQUEST',{agfId:a.id});
-      else completeRoute(a);
+      else {
+        // A shared synthetic pickup/drop-off interface has no segment entry
+        // to consume the departure flag. End this wait before handling once.
+        a.movement.wrapperDeparture=false;a.movement.waitingReason=null;t.waitReason=null;
+        record('WRAPPER_INPUT_WAIT_ENDED',{agfId:a.id,taskId:t.id,waitMs:t.wrapperInputWaitMs??0});
+        completeRoute(a);
+      }
     }
   };
   const avoidanceReturnReady=agf=>{
@@ -782,6 +798,34 @@ export function simulate(rawScenario) {
     if (!canReserveSlot(s)) return false;
     s.reserved.push(palletId);dirtySlots.add(s.id); rowBusy.add(s.rowId); return true;
   };
+  const pickupOccupants=nodeId=>[...new Set([
+    ...agfs.filter(a=>(a.currentNodeId===nodeId&&!a.movement?.current)||
+      a.movement?.current?.toNodeId===nodeId).map(a=>a.id),
+    ...traffic.nodeUsers(nodeId)
+  ])].sort();
+  const issue01=()=>{
+    if(!graphMode)return;
+    for(const [lineId,ids] of lines){
+      const palletId=ids.find(id=>!pallets.get(id).transportTaskId);
+      if(!palletId)continue;
+      const p=pallets.get(palletId),nodeId=resolveInterfaceNode(topology,lineId);
+      const reservation=linePickupReservations.get(nodeId);
+      const blockers=pickupOccupants(nodeId);
+      if(reservation||blockers.length){
+        const reason=reservation?'PICKUP_LOCATION_RESERVED':'PICKUP_LOCATION_OCCUPIED';
+        if(p.waitReason!==reason){
+          p.waitReason=reason;
+          record('TASK_01_HELD',{palletId,lineId,originId:lineId,nodeId,reason,blockers,
+            ...(reservation?{reservedTaskId:reservation}:{}),evidence:'user-confirmed-location-admission'});
+        }
+        continue;
+      }
+      p.waitReason=null;
+      const t=request('01',{palletId,originArea:'PZ',destinationArea:'PZ',originId:lineId,destinationId:'WRAP-INPUT'});
+      record('PICKUP_LOCATION_RESERVED',{taskId:t.id,palletId,originId:lineId,nodeId,
+        evidence:'user-confirmed-location-admission'});
+    }
+  };
   const issue02 = () => {
     let changed=false;
     for (const p of pallets.values()) {
@@ -927,6 +971,13 @@ export function simulate(rawScenario) {
     for (const id of orderPendingTasks(pending,tasks,taskPriorities,currentLineBufferCount)) {
       const t=tasks.get(id);
       if (t.status !== 'queued') continue;
+      if(graphMode&&t.kind==='01'){
+        const blockers=pickupOccupants(resolveInterfaceNode(topology,t.originId));
+        if(blockers.length){
+          hold(t,'PICKUP_LOCATION_OCCUPIED',{blockers,
+            dispatchSelection:taskGateSelection(t,'PICKUP_LOCATION_OCCUPIED')});continue;
+        }
+      }
       // An explicit synthetic vehicle-admission limit leaves a vehicle for
       // wrapper outflow under congestion. It is not a facility priority rule or
       // an extra physical input slot. Actual drops still enforce input capacity.
@@ -1346,7 +1397,8 @@ export function simulate(rawScenario) {
           reason:'BUFFER_SPACE_AVAILABLE',...(e.recoveryEvidence?{evidence:e.recoveryEvidence}:{})});
         restartLineClocks(e.lineId);
       }
-      request('01',{palletId:e.palletId,originArea:'PZ',destinationArea:'PZ',
+      if(graphMode)issue01();
+      else request('01',{palletId:e.palletId,originArea:'PZ',destinationArea:'PZ',
         originId:e.lineId,destinationId:'WRAP-INPUT'});
     } else if (e.type === 'MANUAL_REQUEST') {
       const p=pallets.get(e.palletId), temp=temps.get(e.palletId);
@@ -1609,6 +1661,14 @@ export function simulate(rawScenario) {
           record('SEGMENT_ENTERED',{taskId:movement.taskId,agfId:a.id,edgeId:step.edgeId,
             laneId:entered.laneId,fromNodeId:step.fromNodeId,toNodeId:step.toNodeId,
             movement:movement.movement,heading:a.heading,headingDeg:a.headingDeg,modelDurationMs:step.durationMs});
+          const sourceTaskId=linePickupReservations.get(step.fromNodeId),sourceTask=tasks.get(sourceTaskId);
+          // A zero-distance handoff may finish while still occupying its source.
+          // Its later wait/charge/next-task route releases the original lease.
+          if(sourceTask?.agfId===a.id&&sourceTask.pickupAt!=null){
+            linePickupReservations.delete(step.fromNodeId);
+            record('PICKUP_LOCATION_RELEASED',{taskId:sourceTaskId,agfId:a.id,nodeId:step.fromNodeId,
+              evidence:'physical-segment-departure'});
+          }
           schedule(now+step.durationMs,'SEGMENT_EXITED',{agfId:a.id});
           // Resume other waiters only after this AGF has its moving status/current
           // segment. Waking it while still waiting would queue a duplicate entry.
@@ -1671,7 +1731,7 @@ export function simulate(rawScenario) {
     } else throw new Error('unsupported event '+e.type);
     for(let i=pendingInterferences.length-1;i>=0;i--)if(evaluateInterference(pendingInterferences[i]))pendingInterferences.splice(i,1);
     refillAllEmptyAligners();
-    wakeDrops(); wakePickups(); issue02(); issue03(); chargeIdleAgfs(); dispatch(); settleWaiting(); scheduleBlockedRetries();wakeAvoidance();
+    wakeDrops(); wakePickups(); issue01(); issue02(); issue03(); chargeIdleAgfs(); dispatch(); settleWaiting(); scheduleBlockedRetries();wakeAvoidance();
     if(!['SEGMENT_REQUEST','HANDLING_REQUEST'].includes(e.type))wakeWrapperInputs();
   }
   advanceWrapperWait(durationMs);

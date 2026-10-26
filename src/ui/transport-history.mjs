@@ -21,7 +21,7 @@ const businessEvents={
   TASK_ASSIGNED:['AGF割当','AGF割当'],TASK_POSITIONING_STARTED:['荷役','荷役開始'],
   TASK_PICKED:['荷受け','荷受け完了'],PICKUP_COMPLETED:['荷受け','荷受け完了'],
   TASK_DROPPED:['荷下ろし','荷下ろし完了'],TASK_COMPLETED:['搬送完了','搬送完了'],
-  TASK_WAITING:['搬送保留','搬送保留'],TASK_02_HELD:['搬送保留','搬送02 発行保留'],
+  TASK_WAITING:['搬送保留','搬送保留'],TASK_01_HELD:['搬送保留','搬送01 発行保留'],TASK_02_HELD:['搬送保留','搬送02 発行保留'],
   PICKUP_PERMISSION_GRANTED:['荷受け','荷受け許可・再開'],STORE_COMPLETED:['入庫','入庫完了'],
   WRAP_STARTED:['包装','包装開始'],WRAP_COMPLETED:['包装','包装完了'],
   LABEL_COMPLETED:['包装','ラベル完了'],EXIT_READY:['包装','包装機出口・回収可能'],
@@ -185,7 +185,8 @@ export function buildTransportHistoryRows(run,{timeMs=Infinity,agfId='',taskId='
     const pallet=saved?.pallets?.find(pallet=>pallet.palletId===palletId);
     const source=event.lineId??event.sourceLineId??task?.sourceLineId??pallet?.sourceLineId??pallet?.lineId??(/^L[1-8]$/.test(task?.originId??'')?task.originId:null);
     const lineId=/^L[1-8]$/.test(source??'')?source:dash;
-    const kind=eventTaskId&&/^(01|02|03|04|05)$/.test(event.kind??task?.kind??'')?(event.kind??task.kind):dash;
+    const heldKind=({TASK_01_HELD:'01',TASK_02_HELD:'02'})[event.type];
+    const kind=heldKind??(eventTaskId&&/^(01|02|03|04|05)$/.test(event.kind??task?.kind??'')?(event.kind??task.kind):dash);
     let [category,content]=definition;
     if(event.automatic===true&&['ALIGNER_REFILL_OPERATED','ALIGNER_REFILLED'].includes(event.type))
       content=event.type==='ALIGNER_REFILL_OPERATED'?'整列機全機自動装填':'整列機自動装填';

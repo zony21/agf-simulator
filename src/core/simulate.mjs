@@ -1103,6 +1103,9 @@ export function simulate(rawScenario) {
     if(!chargePlaces.size)return;
     for(const id of [...parkingChargeQueue]){
       const a=agfs.find(a=>a.id===id);
+      // A queued AGF may be travelling to a waiting stop. Finish that route
+      // before replanning; replacing it would leave stale segment events.
+      if(a.movement||a.status!=='waiting_charge_place')continue;
       if(![...chargePlaces].some(([place,owner])=>!owner&&!chargePlaceReservations.get(place)))break;
       parkingChargeQueue.splice(parkingChargeQueue.indexOf(id),1);requestCharge(a);
     }
@@ -1117,8 +1120,10 @@ export function simulate(rawScenario) {
   const settleWaiting=()=>{
     if(!postTaskPolicy)return;
     for(const a of [...agfs].sort(byId)){
-      if(!['dispatch_pending','waiting_place_capacity'].includes(a.status))continue;
+      const chargeWaiting=parkingChargeQueue.includes(a.id);
+      if(!['dispatch_pending','waiting_place_capacity','waiting_charge_place'].includes(a.status))continue;
       if(waitingOwner(a.currentNodeId)===a.id){
+        if(chargeWaiting)continue;
         a.status='idle';a.waitTarget=null;
         record('WAIT_ARRIVED',{agfId:a.id,placeId:a.currentNodeId,batteryPct:a.batteryPct,alreadyParked:true});
         continue;
@@ -1127,7 +1132,10 @@ export function simulate(rawScenario) {
       const holdReturn=(status,reason)=>{
         if(a.status!==status){a.status=status;record('WAIT_RETURN_HELD',{agfId:a.id,placeId:target??null,reason});}
       };
-      if(!target){holdReturn('waiting_place_capacity','WAITING_SPOTS_FULL');continue;}
+      if(!target){
+        if(!chargeWaiting)holdReturn('waiting_place_capacity','WAITING_SPOTS_FULL');
+        continue;
+      }
       const path=routeFor(a.currentNodeId,target,'wait','WAIT');
       required(path,'unreachable normal waiting target: '+target);
       releasePlaces(a);reserveWaitingPlace(target,a.id);a.waitTarget=target;
@@ -1637,8 +1645,11 @@ export function simulate(rawScenario) {
       if(chargeTarget)chargePlaceReservations.set(a.waitTarget,null);
       else waitingReservations.set(a.waitTarget,null);
       occupyWaitingPlace(a.waitTarget,a.id);
-      a.status='idle';a.movement=null;
+      // User-confirmed: wait for a charging stop at a normal waiting position,
+      // retaining the charge request and exclusion from ordinary dispatch.
+      a.status=parkingChargeQueue.includes(a.id)?'waiting_charge_place':'idle';a.movement=null;
       record('WAIT_ARRIVED',{agfId:a.id,placeId:a.waitTarget,batteryPct:a.batteryPct});
+      wakeChargePlaces();
     } else if (e.type === 'CHARGE_ARRIVED') {
       const a=agfs.find(a=>a.id===e.agfId);
       required(a?.status==='moving_to_charge','charge arrival without travel');

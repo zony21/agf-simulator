@@ -58,3 +58,55 @@ test('when both pillars are occupied, a task-free AGF waits at a free charge pla
   assert.ok(Object.values(r.final.chargers).every(owner=>owner===null));
   assert.ok(!r.events.some(e=>e.type==='CHARGE_REQUESTED'));
 });
+
+function chargeWaitingScenario(){
+  const s=scenario();
+  // Synthetic energy/time assumptions force a task completion below the charge
+  // threshold while the other two AGFs occupy both charging stops.
+  Object.assign(s.battery,{consumptionModel:'per_task',consumptionPct:2,chargeMinPerPct:20});
+  s.agfs[0].batteryPct=41;
+  for(const [i,place] of [[1,'CHARGE-PLACE1'],[2,'CHARGE-PLACE2']]){
+    Object.assign(s.agfs[i],{currentNodeId:place,area:'WH',batteryPct:39,blocked:false});
+  }
+  return s;
+}
+
+test('a task finisher waiting for charging travels to a reserved pillar instead of staying at drop-off',()=>{
+  const s=chargeWaitingScenario(),r=simulate(s);
+  const done=r.events.find(e=>e.type==='TASK_COMPLETED'&&e.agfId==='AGF1');
+  const waiting=r.events.find(e=>e.type==='CHARGE_WAITING'&&e.agfId==='AGF1');
+  assert.ok(done&&waiting);
+  const route=r.events.find(e=>e.type==='ROUTE_PLANNED'&&e.agfId==='AGF1'&&e.movement==='wait');
+  assert.ok(route,'charging queue must use a real waiting-place route');
+  const arrival=r.events.find(e=>e.type==='WAIT_ARRIVED'&&e.agfId==='AGF1');
+  assert.equal(arrival.placeId,'PILLAR-WAIT-E');
+  assert.ok(arrival.timeMs>waiting.timeMs);
+  const a=r.final.agfs.find(a=>a.id==='AGF1');
+  assert.equal(a.currentNodeId,'PILLAR-WAIT-E');assert.equal(a.status,'waiting_charge_place');
+  assert.equal(a.chargerId,null);assert.equal(a.taskId,null);
+  assert.equal(r.final.waitingPlaces['PILLAR-WAIT-E'],'AGF1');
+  assert.ok(!r.events.some(e=>e.type==='TASK_ASSIGNED'&&e.agfId==='AGF1'&&e.timeMs>done.timeMs));
+  assert.equal(r.events.filter(e=>e.type==='CHARGE_STARTED').length,2);
+  assert.deepEqual(simulate(s).events,r.events);
+});
+
+test('a charge place becoming free during waiting-place travel never replaces an in-flight route',()=>{
+  const s=chargeWaitingScenario(),held=simulate(s);
+  const wait=held.events.find(e=>e.type==='CHARGE_WAITING'&&e.agfId==='AGF1');
+  const arrival=held.events.find(e=>e.type==='WAIT_ARRIVED'&&e.agfId==='AGF1');
+  assert.ok(arrival,'regression requires a charging waiter to travel to its waiting stop');
+  s.battery.chargeMinPerPct=(wait.timeMs+arrival.timeMs)/2/60000/(s.battery.chargeTargetPct-39);
+  const r=simulate(s),arrived=r.events.find(e=>e.type==='WAIT_ARRIVED'&&e.agfId==='AGF1');
+  const freed=r.events.find(e=>e.type==='CHARGE_ENDED');
+  const chargeRoute=r.events.find(e=>e.type==='ROUTE_PLANNED'&&e.agfId==='AGF1'&&e.movement==='charge');
+  assert.ok(freed.timeMs>wait.timeMs&&freed.timeMs<arrived.timeMs);
+  assert.ok(chargeRoute&&chargeRoute.sequence>arrived.sequence);
+  assert.ok(r.events.some(e=>e.type==='CHARGE_STARTED'&&e.agfId==='AGF1'));
+  const departure=r.events.find(e=>e.type==='PARKING_RELEASED'&&e.agfId==='AGF1'&&e.placeId===arrived.placeId);
+  assert.ok(departure&&departure.sequence>arrived.sequence);
+  for(const snap of r.snapshots){
+    assert.ok(Object.values(snap.chargers).filter(Boolean).length<=2);
+    const owners=[...Object.values(snap.waitingPlaces),...Object.values(snap.chargePlaces)].filter(Boolean);
+    assert.equal(new Set(owners).size,owners.length);
+  }
+});

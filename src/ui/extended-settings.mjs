@@ -3,6 +3,7 @@ import {syntheticWarehousePolicy} from '../../examples/synthetic-warehouse-polic
 import {escapeHtml as esc,locationName} from './format.mjs';
 import {CONFIRMED_LINE_MAGAZINE_MAP,alignerRefillPolicyDescription} from './scenario.mjs';
 import {validateTaskPriorities} from '../core/task-priority.mjs';
+import {DEFAULT_WAREHOUSE_SHIPPING,validateWarehouseShipping} from '../core/warehouse-shipping.mjs';
 
 const rowIdsFor=s=>[...WAREHOUSE_BLOCKS,...(s.warehouse?.some(slot=>slot.flexibleAreaId)?[FLEXIBLE_WAREHOUSE_AREA]:[])]
   .flatMap(b=>Array.from({length:b.rows},(_,i)=>`${b.id}-R${String(i+1).padStart(2,'0')}`));
@@ -20,6 +21,10 @@ export function populateExtendedSettings(s){
   populateMotionSettings(s);
   populateTaskPrioritySettings(s);
   if(!s.warehousePolicy)return;
+  let shippingRoot=document.getElementById('warehouse-shipping-settings');
+  if(!shippingRoot){shippingRoot=document.createElement('div');shippingRoot.id='warehouse-shipping-settings';
+    document.getElementById('warehouse-row-fields').closest('.table-scroll').before(shippingRoot);}
+  shippingRoot.innerHTML=renderWarehouseShippingSettings(s);
   document.getElementById('product-stream-fields').innerHTML=s.productStreams.map((stream,i)=>`<tr>
     <td>${esc(stream.sourceLineId)}</td><td>${label(stream.productType,stream.loadType)}</td>
     <td><input type="checkbox" data-stream-enabled="${i}" aria-label="${stream.sourceLineId} ${label(stream.productType,stream.loadType)} ON" ${stream.enabled?'checked':''}></td>
@@ -63,6 +68,10 @@ export function readExtendedSettings(s){
   readMotionSettings(s);
   readTaskPrioritySettings(s);
   if(!s.warehousePolicy)return;
+  s.warehouseShipping=warehouseShippingFromSettings(s.warehouseShipping,{
+    enabled:document.getElementById('warehouse-shipping-enabled').checked,
+    cycleMin:document.getElementById('warehouse-shipping-cycle').value,
+    forkliftCount:document.getElementById('warehouse-shipping-forklifts').value});
   const get=selector=>document.querySelector(selector);
   s.lineIntervalsMin=Array(8).fill(0);
   s.productStreams=s.productStreams.map((stream,i)=>({...stream,
@@ -90,6 +99,26 @@ export function readExtendedSettings(s){
   const unchanged=JSON.stringify(assignments)===JSON.stringify(s.warehousePolicy.rowAssignments)&&JSON.stringify(rowPriority)===JSON.stringify(s.warehousePolicy.rowPriority);
   s.warehousePolicy={evidence:unchanged?s.warehousePolicy.evidence:'explicit-scenario-setting',rowAssignments:assignments,rowPriority};
   s.postTaskPolicy={evidence:'user-confirmed-shared-priority',waitingPriority:[...NORMAL_WAITING_PRIORITY]};
+}
+
+export function renderWarehouseShippingSettings(s){
+  const c={...DEFAULT_WAREHOUSE_SHIPPING,enabled:false,...s.warehouseShipping};
+  return `<h3>満載行の有人フォーク出荷</h3><p class="notice">保管行が段積み条件を含めて満載になると出荷します。同じ列の上下最大2PLを一緒に運び、全往復が終わるまで、その行は入庫・予約できません。</p>
+    <div class="fields"><label><input id="warehouse-shipping-enabled" type="checkbox" ${c.enabled?'checked':''}> 満載行を自動出荷</label>
+    <label>有人フォーク1往復（分）<input id="warehouse-shipping-cycle" type="number" min="0.001" step="0.001" value="${esc(c.cycleMin)}"></label>
+    <label>有人フォーク台数（台）<input id="warehouse-shipping-forklifts" type="number" min="1" step="1" value="${esc(c.forkliftCount)}"></label></div>
+    <p class="muted">初期値は暫定仮定：1台・1往復2分（荷受け・運搬・荷下ろし・戻りを含む）。34PLなら17往復・約34分。実測時間や有人フォークの実走行経路ではありません。結果は出荷済みPL数を系列別に集計します。</p>`;
+}
+export function warehouseShippingFromSettings(previous,values){
+  const config={...DEFAULT_WAREHOUSE_SHIPPING,...previous,enabled:values.enabled,
+    cycleMin:values.cycleMin===''?null:Number(values.cycleMin),forkliftCount:values.forkliftCount===''?null:Number(values.forkliftCount)};
+  try{validateWarehouseShipping(config,{warehousePolicy:true});}catch(error){
+    error.settingsFieldSelectors=[config.cycleMin==null||!Number.isFinite(config.cycleMin)||config.cycleMin<=0?'#warehouse-shipping-cycle':null,
+      !Number.isInteger(config.forkliftCount)||config.forkliftCount<1?'#warehouse-shipping-forklifts':null].filter(Boolean);throw error;
+  }
+  if(previous&&config.cycleMin!==previous.cycleMin)config.timeEvidence='explicit-scenario-assumption';
+  if(previous&&config.forkliftCount!==previous.forkliftCount)config.resourceEvidence='explicit-scenario-assumption';
+  return config;
 }
 
 const motionFields=[['turnRateDegPerSec','旋回角速度（deg/s）',.001],

@@ -95,7 +95,7 @@ export function analyzeRun(run) {
     if(!activePallets.has(p.palletId)||!p.productType)continue;
     const key=[p.sourceLineId,p.productType,p.loadType].join('/');
     if(!productStats.has(key))productStats.set(key,{sourceLineId:p.sourceLineId,productType:p.productType,loadType:p.loadType,requested:0,stored:0,pending:0});
-    const row=productStats.get(key);row.requested++;row[p.stage==='stored'?'stored':'pending']++;
+    const row=productStats.get(key);row.requested++;row[['stored','shipped'].includes(p.stage)?'stored':'pending']++;
   }
   return {durationMs,agfs,byKind,requested:tasks.length,
     products:[...productStats.values()].sort((a,b)=>[a.sourceLineId,a.productType,a.loadType].join().localeCompare([b.sourceLineId,b.productType,b.loadType].join(),'en')),

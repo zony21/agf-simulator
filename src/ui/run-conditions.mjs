@@ -5,7 +5,7 @@ import {warehouseRouteName} from '../map/warehouse-routing.mjs';
 const lineNames=['GWI','GWII','GWIII','GWIV','GWV','GWVI','GWVII','GWVIII'];
 const variants=[['normal','full','普通満載'],['normal','partial','普通端数'],['special','full','特注満載'],['special','partial','特注端数']];
 const categories={RUN:'Run情報・根拠区分',EQUIPMENT:'設備の初期状態',AGF:'AGF選定・初期配置・待機',TASK_PRIORITY:'搬送タスク優先度',TASK_DISPATCH:'搬送タスク割当ルール',
-  PRODUCTION:'8系列の生産条件',WRAPPER:'包装機',TIMING:'時間設定',GRAPH:'走行モデル',GRAPH_EDGE:'区間距離・接続',
+  PRODUCTION:'8系列の生産条件',WRAPPER:'包装機',SHIPPING:'有人フォーク出荷',TIMING:'時間設定',GRAPH:'走行モデル',GRAPH_EDGE:'区間距離・接続',
   GRAPH_SPEED:'区間ごとの速度',GRAPH_NODE:'個別停止点・荷役姿勢占有',AVOIDANCE_PLAN:'明示された合成退避経路',
   CHARGING:'充電器・充電場所',BATTERY:'バッテリー・充電条件',MAGAZINE:'空パレットマガジン',
   ALIGNER:'整列機の初期状態・装填ルール',WAREHOUSE:'倉庫の系列割当',MOTION_CONTROL:'停止旋回・荷役姿勢',
@@ -74,6 +74,9 @@ export function buildRunConditions(run,{runId=run.runId??null,executedAt=run.exe
   add('EQUIPMENT','temporaryPallets','initialCount',s.temporaryPallets?.length??0,evidence('inventory'));
   add('EQUIPMENT','warehouse','initialPalletCount',(s.warehouse??[]).reduce((n,slot)=>n+(slot.palletIds?.length??0),0),evidence('inventory'));
   add('EQUIPMENT','manualRequests','initialCount',s.manualRequests?.filter(e=>e.timeMs===0).length??0,evidence('inventory'));
+  if(s.warehouseShipping)for(const [key,value] of Object.entries(s.warehouseShipping))
+    add('SHIPPING','warehouseShipping',key,value,key==='cycleMin'?s.warehouseShipping.timeEvidence:
+      key==='forkliftCount'?s.warehouseShipping.resourceEvidence:s.warehouseShipping.policyEvidence);
   add('AGF','mode','',s.mode,'saved-run','選定方式');
   if(s.warehouseRouteMode){
     add('GRAPH','warehouseRouteMode','',s.warehouseRouteMode,'user-confirmed','倉庫走行モード：'+warehouseRouteName(s.warehouseRouteMode));

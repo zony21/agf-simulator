@@ -1,6 +1,7 @@
 import {escapeHtml as esc,minutes,reasons} from './format.mjs';
 import {analyzeRun,preRequestHolds} from './replay-model.mjs';
 import {renderCustomerConditions,customerConditionDifferences,selectionLabel,customerLocationName} from './customer-conditions.mjs';
+import {warehouseShippingSummary,renderWarehouseShippingResults} from './warehouse-shipping-view.mjs';
 
 const transports=[['01','パレタイザ → 包装機'],['02','包装機 → 製品倉庫'],['03','整列機 → マガジン'],
   ['04','仮置き場 → 包装機'],['05','仮置き場 → 製品倉庫']];
@@ -40,6 +41,7 @@ export function customerPendingReason(task,agf){
   if(task.status==='waiting_wrapper_input'||String(reason).startsWith('WRAPPER_INPUT'))return '包装機入口待ち';
   if(['PICKUP_LOCATION_OCCUPIED','PICKUP_LOCATION_RESERVED'].includes(reason))return reasons[reason];
   if(reason==='PRIORITY_HEAD_BLOCKED')return reasons[reason];
+  if(reason==='WAREHOUSE_SHIPPING')return reasons[reason];
   if(/UNREACHABLE|UNRESOLVED|NO_ASSIGNED_STORAGE/.test(reason))return '経路・搬送条件の確認待ち';
   if(!task.agfId||task.status==='queued')return 'AGF割当待ち';
   if(task.status==='wait_drop'||task.status==='wait_pickup'||/PERMISSION|LOCATION|MAGAZINE|ALIGNER/.test(reason))return '設備待ち';
@@ -74,6 +76,7 @@ export function customerRunSummary(run,analysis=analyzeRun(run)){
     origin:customerLocationName(task.originId),destination:customerLocationName(task.destinationId),agfId:task.agfId??'未割当',
     reason:customerPendingReason(task,(run.final.agfs??[]).find(agf=>agf.taskId===task.id))}));
   return {completed:completed.size,pending:pendingTasks.length,byKind,agfs,pendingTasks,
+    warehouseShipping:warehouseShippingSummary(run),
     preRequestHeld:unissued.length,preRequestHolds:unissued,
     wrapperInputWaitMs:analysis.wrapperInputWaitMs??0,durationMin:run.scenario.durationMin};
 }
@@ -82,7 +85,7 @@ const card=(label,value,unit='件',tone='')=>`<div class="metric ${tone}"><div c
 
 export function renderCustomerResults(run,analysis){
   const data=customerRunSummary(run,analysis);
-  return `${renderCustomerConditions(run)}
+  return `${renderCustomerConditions(run)}${renderWarehouseShippingResults(run)}
     <section class="panel section customer-summary"><div class="panel-heading"><h2>結果サマリー</h2><span class="muted">正式に完了した搬送を集計</span></div><div class="analysis-metrics">
     ${card('シミュレーション時間',data.durationMin,'分')+card('総搬送完了',data.completed,'件','success')+card('未完了搬送',data.pending,'件','warning')+card('発行前保留',data.preRequestHeld,'PL','warning')+data.byKind.map(row=>card('搬送'+row.kind+' 完了',row.completed)).join('')}</div></section>
     <section class="panel section"><div class="panel-heading"><h2>搬送実績</h2><span class="muted">発行済み要求と発行前保留を区別</span></div>${table(['搬送','内容','要求','完了','未完了','発行前保留（PL）'],data.byKind.map(row=>['搬送'+row.kind,row.content,row.requested,row.completed,row.pending,row.preRequestHeld]))}</section>
@@ -98,5 +101,5 @@ export function renderCustomerComparison(runs){
   const data=runs.map(run=>customerRunSummary(run)),differences=customerConditionDifferences(runs);
   const headers=runs.map(run=>selectionLabel(run.scenario.mode));
   return `<section class="panel"><div class="panel-heading"><h2>条件の違い</h2><span class="muted">各結果に保存された実行条件を比較</span></div>${differences.length?table(['対象','条件',...headers],differences.map(row=>[row.target||'共通',row.label,...row.values.map(value=>value+(row.unit?' '+row.unit:''))])):'<p class="notice">保存された条件は同じです。</p>'}</section>
-    <div class="comparison-grid">${runs.map((run,i)=>`<section class="panel strategy-panel"><h2>${selectionLabel(run.scenario.mode)}</h2><div class="strategy-kpis">${card('搬送完了',data[i].completed,'件','success')+card('未完了搬送',data[i].pending,'件','warning')+card('発行前保留',data[i].preRequestHeld,'PL','warning')}</div>${table(['搬送','完了','未完了','発行前保留（PL）'],data[i].byKind.map(row=>['搬送'+row.kind,row.completed,row.pending,row.preRequestHeld]))}</section>`).join('')}</div>`;
+    <div class="comparison-grid">${runs.map((run,i)=>`<section class="panel strategy-panel"><h2>${selectionLabel(run.scenario.mode)}</h2><div class="strategy-kpis">${card('搬送完了',data[i].completed,'件','success')+card('未完了搬送',data[i].pending,'件','warning')+card('発行前保留',data[i].preRequestHeld,'PL','warning')}</div>${table(['搬送','完了','未完了','発行前保留（PL）'],data[i].byKind.map(row=>['搬送'+row.kind,row.completed,row.pending,row.preRequestHeld]))}${renderWarehouseShippingResults(run)}</section>`).join('')}</div>`;
 }

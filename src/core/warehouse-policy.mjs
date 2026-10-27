@@ -58,9 +58,9 @@ export function chooseWarehouseLocation({pallet,policy,slots,pallets,rowBusy}){
   if(!assigned.length)return {location:null,reason:'NO_ASSIGNED_STORAGE'};
   const priority=assigned.length===1?[assigned[0].rowId]:policy.rowPriority?.[owner];
   if(!priority)return {location:null,reason:'ROW_PRIORITY_UNRESOLVED'};
-  let busy=false,permission=false;
+  let busy=false,permission=false,shipping=false;
   for(const rowId of priority){
-    if(rowBusy.has(rowId)){busy=true;continue;}
+    if(rowBusy.has(rowId)){busy=true;if([...slots.values()].some(s=>s.rowId===rowId&&s.shippingJobId))shipping=true;continue;}
     const row=[...slots.values()].filter(s=>s.rowId===rowId&&s.storageEnabled!==false);
     const cols=[...new Set(row.map(s=>s.column))].sort((a,b)=>row[0].blockId.startsWith('WB')?a-b:b-a);
     for(const column of cols){
@@ -72,7 +72,7 @@ export function chooseWarehouseLocation({pallet,policy,slots,pallets,rowBusy}){
       return {location:candidate,reason:null};
     }
   }
-  return {location:null,reason:busy?'SAME_ROW_ACTIVE':permission?'LOCATION_PERMISSION':'ASSIGNED_STORAGE_FULL'};
+  return {location:null,reason:shipping?'WAREHOUSE_SHIPPING':busy?'SAME_ROW_ACTIVE':permission?'LOCATION_PERMISSION':'ASSIGNED_STORAGE_FULL'};
 }
 
 export function validateStoredPallets(slots,pallets,policy,lineIds){
@@ -100,7 +100,7 @@ export function warehouseAvailability(slots,pallets,policy=null){
     if(assignedRows&&!assignedRows.has(s.rowId))continue;
     const upper=[...slots.values()].find(u=>u.rowId===s.rowId&&u.column===s.column&&u.tier===2);
     const lowerFull=canUseUpper(s,pallets),lowerPartial=s.palletIds.length&&!lowerFull;
-    const available=slot=>slot&&slot.storageEnabled!==false&&slot.permission!==false&&!slot.palletIds.length&&!slot.reserved.length;
+    const available=slot=>slot&&slot.storageEnabled!==false&&slot.permission!==false&&!slot.shippingJobId&&!slot.palletIds.length&&!slot.reserved.length;
     if(lowerPartial)blockedUpper++;
     if(available(s)){immediatelyPlaceable++;additionalIfFull+=1+(available(upper)?1:0);additionalIfPartial++;}
     else if(lowerFull&&available(upper)){immediatelyPlaceable++;additionalIfFull++;additionalIfPartial++;}

@@ -9,6 +9,7 @@ import {generateProductionEvents} from './production-streams.mjs';
 import {validateTaskPriorities,resolveTaskPriority,orderPendingTasks} from './task-priority.mjs';
 import {NORMAL_WAITING_PLACES,NORMAL_WAITING_PRIORITY} from '../map/warehouse-layout.mjs';
 import {prepareWarehouseRouting} from '../map/warehouse-routing.mjs';
+import {validateWarehouseShipping,createWarehouseShipping} from './warehouse-shipping.mjs';
 
 const minute = value => Math.round(value * 60_000);
 const required = (test, message) => { if (!test) throw new Error(message); };
@@ -205,12 +206,13 @@ export function simulate(rawScenario) {
     for(const p of temps.values())validateProduct(p,lineIds);
     validateStoredPallets(slots,pallets,warehousePolicy,lineIds);
   }
+  validateWarehouseShipping(scenario.warehouseShipping,{warehousePolicy});
   const tasks = new Map(), queue = [], history = [], snapshots = [], rowBusy = new Set();
   const wrapper = {input:[], output:[], processing:null, readyToRelease:false,permission:scenario.wrapper.permission!==false,
     ...(conveyorCapacity!==null?{conveyor:[]}:{})};
   const wrapperInboundReservations=new Set();
   const wrapperInputReservations=new Set();
-  let now = 0, order = 0, nextTask = 0;
+  let now = 0, order = 0, nextTask = 0,warehouseShipping=null;
   const stats = {created:0, stored:0, completed:0, byKind:{}, chargingStarts:0};
   const pending = [];
   // User-confirmed line admission: issued tasks own the pickup location until
@@ -259,6 +261,7 @@ export function simulate(rawScenario) {
     productionStatus:Object.fromEntries([...productionStatus].map(([k,v])=>[k,clone(v)])),
     temporaryPallets:clone([...temps.values()]),
     warehouse:snapshotWarehouse(),
+    ...(warehouseShipping?{warehouseShipping:warehouseShipping.snapshot()}:{}),
     ...(graphMode?{linePickupReservations:Object.fromEntries(linePickupReservations)}:{}),
     ...(scenario.warehouseRouteMode?{warehouseRouteMode:scenario.warehouseRouteMode}:{}),
     tasks:[...tasks.values()].map(saveEntity), pallets:[...pallets.values()].map(saveEntity),
@@ -294,6 +297,8 @@ export function simulate(rawScenario) {
       record('TASK_WAITING',{taskId:task.id,kind:task.kind,palletId:task.palletId ?? null,reason,...fields});
     }
   };
+  warehouseShipping=createWarehouseShipping({config:scenario.warehouseShipping,policy:warehousePolicy,
+    slots,pallets,rowBusy,now:()=>now,record,schedule,dirtySlots});
   const heading=(fromNodeId,toNodeId)=>{
     const from=graphNodes.get(fromNodeId),to=graphNodes.get(toNodeId);
     return directionHeading(from,to);
@@ -1301,6 +1306,7 @@ export function simulate(rawScenario) {
     mapStatus:graphMode?'synthetic-operational':'conceptual-only',
     timingStatus:graphMode?'synthetic-graph-assumption':'scenario-assumption'});
   refillAllEmptyAligners();
+  warehouseShipping?.refresh();
   chargeIdleAgfs();
   const deadlockChecks=new Set();
   const operatorPhase=e=>e.type==='TRAFFIC_DEADLOCK_CHECK'?3:e.type==='ALIGNER_REFILL_OPERATED'?2:e.type==='SEGMENT_REQUEST'?1:0;
@@ -1747,10 +1753,11 @@ export function simulate(rawScenario) {
       record('CHARGE_ENDED',{agfId:a.id,chargerId:e.chargerId,batteryPct:a.batteryPct});
       record('CHARGER_RELEASED',{agfId:a.id,chargerId:e.chargerId});
       if (chargeQueue.length) startCharge(chargeQueue.shift());
-    } else throw new Error('unsupported event '+e.type);
+    } else if(e.type==='WAREHOUSE_SHIPMENT_TRIP')warehouseShipping.handle(e);
+    else throw new Error('unsupported event '+e.type);
     for(let i=pendingInterferences.length-1;i>=0;i--)if(evaluateInterference(pendingInterferences[i]))pendingInterferences.splice(i,1);
     refillAllEmptyAligners();
-    wakeDrops(); wakePickups(); issue01(); issue02(); issue03(); chargeIdleAgfs(); dispatch(); settleWaiting(); scheduleBlockedRetries();wakeAvoidance();
+    wakeDrops(); wakePickups();warehouseShipping?.refresh(); issue01(); issue02(); issue03(); chargeIdleAgfs(); dispatch(); settleWaiting(); scheduleBlockedRetries();wakeAvoidance();
     if(!['SEGMENT_REQUEST','HANDLING_REQUEST'].includes(e.type))wakeWrapperInputs();
   }
   advanceWrapperWait(durationMs);

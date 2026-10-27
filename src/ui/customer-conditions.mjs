@@ -7,6 +7,10 @@ export const selectionLabel=mode=>({area_first:'搬送先エリア優先',low_ba
 export const evidenceLabel=evidence=>({
   'provisional-derived':'暫定値・カタログから導出（停止旋回の実測値ではありません）',
   'provisional-simulation':'暫定シミュレーション値',
+  'provisional-round-trip-assumption':'有人フォーク1往復の暫定仮定・実測値ではありません',
+  'provisional-one-manned-forklift':'有人フォーク台数の暫定仮定',
+  'user-confirmed-full-row-two-tier-shipment':'ユーザー確認済み・満載行を最大上下2PLで出荷',
+  'explicit-scenario-assumption':'この実行で指定した仮定',
   'synthetic-assumption':'合成モデルの仮定','synthetic':'合成条件',
   'private-dxf-proportions-provisional':'非公開図面の相対寸法に基づく暫定モデル・実測距離未確認',
   'unresolved':'未確定','unconfigured':'未設定','user-confirmed':'確認済み',
@@ -57,6 +61,14 @@ export function customerConditionRows(run){
     add('warehouse.portalCapacity','交通条件','WH外周SH通過','2台並列可・対向同時通過は未確定（合成モデルは対向待機）');
   }
   add('warehouse.initialStock','基本条件','初期製品在庫',(s.warehouse??[]).reduce((n,slot)=>n+(slot.palletIds?.length??0),0),'PL');
+  if(s.warehouseShipping){
+    const c=s.warehouseShipping;
+    add('shipping.enabled','有人フォーク出荷','満載行の自動出荷',c.enabled,'','','user-confirmed-full-row-two-tier-shipment');
+    add('shipping.cycleMin','有人フォーク出荷','荷受け・運搬・荷下ろし・戻りの1往復',c.cycleMin,'分','',c.timeEvidence);
+    add('shipping.forkliftCount','有人フォーク出荷','有人フォーク台数',c.forkliftCount,'台','',c.resourceEvidence);
+    add('shipping.loadCapacityPL','有人フォーク出荷','同じ列の上下をまとめて運ぶ上限',c.loadCapacityPL,'PL','','user-confirmed-full-row-two-tier-shipment');
+    add('shipping.lock','有人フォーク出荷','出荷中の入庫','行全体の出荷完了まで予約・入庫不可','','','user-confirmed-full-row-two-tier-shipment');
+  }
   add('mode','基本条件','AGF選定方式',selectionLabel(s.mode));
   add('agfPriority.applied','AGF選定条件','AGF個別順位を選定に適用',s.mode==='source_area_agf_priority');
   for(const agf of s.agfs??[])if(s.agfPriorities?.[agf.id]!==undefined)

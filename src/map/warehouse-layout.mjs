@@ -76,6 +76,7 @@ export function slotStatus(slot) {
   if(slot.permission===false)return 'unavailable';
   if(slot.palletIds?.length)return 'occupied';
   if(slot.reserved?.length)return 'reserved';
+  if(slot.shippingJobId)return 'unavailable';
   return 'empty';
 }
 

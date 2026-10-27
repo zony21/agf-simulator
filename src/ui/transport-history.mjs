@@ -23,6 +23,8 @@ const businessEvents={
   TASK_DROPPED:['荷下ろし','荷下ろし完了'],TASK_COMPLETED:['搬送完了','搬送完了'],
   TASK_WAITING:['搬送保留','搬送保留'],TASK_01_HELD:['搬送保留','搬送01 発行保留'],TASK_02_HELD:['搬送保留','搬送02 発行保留'],
   PICKUP_PERMISSION_GRANTED:['荷受け','荷受け許可・再開'],STORE_COMPLETED:['入庫','入庫完了'],
+  WAREHOUSE_SHIPMENT_QUEUED:['出荷','有人フォーク出荷待ち'],WAREHOUSE_SHIPMENT_STARTED:['出荷','有人フォーク出荷開始'],
+  WAREHOUSE_SHIPMENT_PICKED:['出荷','有人フォーク運び出し完了'],WAREHOUSE_SHIPMENT_COMPLETED:['出荷','行の出荷完了・入庫再開'],
   WRAP_STARTED:['包装','包装開始'],WRAP_COMPLETED:['包装','包装完了'],
   LABEL_COMPLETED:['包装','ラベル完了'],EXIT_READY:['包装','包装機出口・回収可能'],
   WRAP_OUTPUT_BLOCKED:['搬送保留','包装機出口待ち'],WRAPPER_EXIT_WAITING:['搬送保留','包装機出口待ち'],
@@ -113,6 +115,7 @@ const reasonText=(event)=>{
 function eventLocation(event,task,agf,lineId,topology,scenario){
   const type=event.type;
   const name=id=>transportHistoryLocation(id,topology,scenario);
+  if(type.startsWith('WAREHOUSE_SHIPMENT_'))return '製品倉庫 '+event.rowId;
   if(productionTypes.has(type))return name(lineId);
   if(type==='SHUTTER_STATE_CHANGED'||type==='SHUTTER_WAITING')return 'シャッター';
   if(type==='ALIGNER_REFILL_OPERATED'&&event.operationType==='all')return '整列機 全機';
@@ -131,6 +134,10 @@ function eventLocation(event,task,agf,lineId,topology,scenario){
 }
 function details(event,{task,agf,scenario,chargeStarts}){
   const type=event.type,change=quantityChange(event);
+  if(type.startsWith('WAREHOUSE_SHIPMENT_'))return [event.shipmentId,
+    event.forkliftId?`有人フォーク ${event.forkliftId}`:'有人フォーク待ち',`${event.quantity}PL`,
+    event.sourceLineCounts?Object.entries(event.sourceLineCounts).map(([id,n])=>`${id} ${n}PL`).join(' / '):null,
+    `1往復${event.cycleMin}分（仮定）`].filter(Boolean).join(' / ');
   if(type==='TASK_ASSIGNED')return dash;
   if(type==='TASK_WAITING'&&event.reason==='PRIORITY_HEAD_BLOCKED'){
     return [event.blockingTaskId?`先頭タスク ${event.blockingTaskId}`:null,
@@ -186,7 +193,7 @@ export function buildTransportHistoryRows(run,{timeMs=Infinity,agfId='',taskId='
       event.type==='TASK_WAITING'&&hasEvaluations(event.dispatchSelection)?
       event.dispatchSelection.selectedAgfId:event.agfId??(event.type==='TASK_REQUESTED'?null:task?.agfId);
     const agf=saved?.agfs?.find(agf=>agf.id===assigned);
-    const palletId=event.palletId??event.plannedPalletId??task?.palletId??null;
+    const palletId=event.palletId??event.plannedPalletId??task?.palletId??(event.type==='WAREHOUSE_SHIPMENT_PICKED'?event.palletIds?.join(' / '):null);
     const pallet=saved?.pallets?.find(pallet=>pallet.palletId===palletId);
     const source=event.lineId??event.sourceLineId??task?.sourceLineId??pallet?.sourceLineId??pallet?.lineId??(/^L[1-8]$/.test(task?.originId??'')?task.originId:null);
     const lineId=/^L[1-8]$/.test(source??'')?source:dash;

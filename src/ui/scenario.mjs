@@ -4,6 +4,7 @@ import {defaultProductStreams,THEORETICAL_LINE_INTERVALS_MIN} from '../core/prod
 import {syntheticWarehousePolicy} from '../../examples/synthetic-warehouse-policy.mjs';
 import {convertTopologyToMetric} from '../map/metric-layout.mjs';
 import {DEFAULT_TASK_PRIORITIES} from '../core/task-priority.mjs';
+import {DEFAULT_WAREHOUSE_SHIPPING} from '../core/warehouse-shipping.mjs';
 
 // User-confirmed fixed supply correspondence. This does not define CAD positions.
 export const CONFIRMED_LINE_MAGAZINE_MAP=Object.freeze({
@@ -37,6 +38,7 @@ export function createDemoScenario(preset='standard',{metricProfile=null}={}) {
     // User requested this existing example as the editable initial allocation.
     // It does not approve physical CAD coordinates or route geometry.
     s.warehousePolicy={...syntheticWarehousePolicy(),evidence:'user-requested-example-default'};
+    s.warehouseShipping={...DEFAULT_WAREHOUSE_SHIPPING};
     s.warehouseRouteMode='normal';
     s.evidence.warehouseRouteMode='user-confirmed-run-start-route-mode';
     s.warehouse.push(...flexibleWarehouseLocations());

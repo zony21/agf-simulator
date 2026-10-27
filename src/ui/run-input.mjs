@@ -15,6 +15,9 @@ export function createInitialPreview(scenario){
   input.durationMin=1/60000;
   input.productionModel='legacy_external_pallets';
   delete input.warehousePolicy;
+  // Display-only initialization has no validated row allocation and must never
+  // run shipment work. Preserve the original saved conditions on the preview.
+  delete input.warehouseShipping;
   input.lineIntervalsMin=Array(8).fill(0);
   delete input.productStreams;
   for(const list of ['productionEvents','manualRequests','magazineUses','alignerReadyEvents','alignerRefillEvents','permissionEvents','shutterEvents'])input[list]=[];

@@ -268,7 +268,8 @@ export function initMap({svg,onSelectAgf,onSelectBlock}) {
       let cells='';
       for(let r=1;r<=block.rows;r++){
         const rowId=block.id+'-R'+String(r).padStart(2,'0'),owner=warehouseRowStyle(snapshot.warehouseAllocation,rowId);
-        const rowLabel=rowId+' · '+owner.label;
+        const shipping=blockSlots.some(s=>s.rowId===rowId&&snapshot.warehouse[s.id]?.shippingJobId);
+        const rowLabel=rowId+' · '+owner.label+(shipping?' · 有人フォーク出荷中・入庫不可':'');
         // Allocation markers sit in the existing rack margin. Cell and rack geometry stays unchanged.
         cells+=`<rect data-warehouse-row="${rowId}" data-owner="${owner.owner}" x="${x+10}" y="${y+40+(r-1)*bh}" width="3" height="${bh-2}" fill="${owner.color}"><title>${esc(rowLabel)}</title></rect>`;
         for(let c=1;c<=block.columns;c++) {
@@ -428,11 +429,13 @@ export function renderWarehouseBlock(blockId,tier,snapshot) {
     if(block.emptyColumns.includes(column))return '<div class="slot-gap" title="空列：配置対象外・通行可否未確定">／</div>';
     const slot=own.find(s=>s.row===row&&s.column===column&&s.tier===tier),state=displayedSlotStatus(snapshot.warehouse[slot.id],snapshot);
     const owner=warehouseRowStyle(snapshot.warehouseAllocation,slot.rowId);
-    return `<button class="slot slot-${state} warehouse-owner-slot" data-slot="${slot.id}" data-owner="${owner.owner}" style="--owner-color:${owner.color}" aria-label="${slot.id} ${owner.label} ${statusNames[state]}" title="${slot.id} · ${owner.label} · ${statusNames[state]}"><span>${row}-${column}</span><b>${state==='occupied'?'●':state==='reserved'?'◷':state==='unavailable'?'×':'·'}</b></button>`;
+    const shipping=snapshot.warehouse[slot.id]?.shippingJobId?' · 有人フォーク出荷中・入庫不可':'';
+    return `<button class="slot slot-${state} warehouse-owner-slot" data-slot="${slot.id}" data-owner="${owner.owner}" style="--owner-color:${owner.color}" aria-label="${slot.id} ${owner.label} ${statusNames[state]}${shipping}" title="${slot.id} · ${owner.label} · ${statusNames[state]}${shipping}"><span>${row}-${column}</span><b>${state==='occupied'?'●':state==='reserved'?'◷':state==='unavailable'?'×':'·'}</b></button>`;
   };
   const rowHeader=row=>{
     const rowId=block.id+'-R'+String(row).padStart(2,'0'),owner=warehouseRowStyle(snapshot.warehouseAllocation,rowId);
-    return `<span class="row-number warehouse-owner-row" data-warehouse-row="${rowId}" data-owner="${owner.owner}" style="--owner-color:${owner.color}">${row}行<small>↔ 1車線</small><small class="warehouse-owner-label">${esc(owner.label)}</small></span>`;
+    const shipping=own.some(s=>s.rowId===rowId&&snapshot.warehouse[s.id]?.shippingJobId);
+    return `<span class="row-number warehouse-owner-row" data-warehouse-row="${rowId}" data-owner="${owner.owner}" style="--owner-color:${owner.color}">${row}行<small>${shipping?'出荷中・入庫不可':'↔ 1車線'}</small><small class="warehouse-owner-label">${esc(owner.label)}</small></span>`;
   };
   return `<div class="block-summary"><div><span class="eyebrow">WAREHOUSE / ${block.id}</span><h2>${block.label} · ${block.id}</h2><p>${block.rows}行 × ${block.columns}列 × ${block.tiers}段 ${block.tiers===1?'（26平面位置・上段未確定）':''}${block.emptyColumns.length?'（第10列は配置対象外）':''}</p></div><strong>${own.length}<small>保管位置</small></strong></div>
     ${block.tiers===1?`<p class="notice">${snapshot.warehouseRouteMode==='detour'?'迂回モード：1車線通路として使用中。保管・搬入予約は禁止です。':'通常モード：製品置場です。使用には明示的な系列／特注行割当が必要です。'} 運転途中でのモード切替は行いません。</p>`:''}
@@ -446,5 +449,5 @@ export function renderWarehouseBlock(blockId,tier,snapshot) {
 
 export function describeSlot(id,snapshot) {
   const slot=snapshot.warehouse[id];
-  return `${locationName(id)} ｜ ${statusNames[displayedSlotStatus(slot,snapshot)]} ｜ パレット：${slot?.palletIds?.map(palletId=>palletId+' ('+productLabel(snapshot.pallets.find(p=>p.palletId===palletId))+')').join(', ')||'なし'} ｜ 予約：${slot?.reserved?.join(', ')||'なし'}`;
+  return `${locationName(id)} ｜ ${statusNames[displayedSlotStatus(slot,snapshot)]}${slot?.shippingJobId?' ｜ 有人フォーク出荷中・入庫不可':''} ｜ パレット：${slot?.palletIds?.map(palletId=>palletId+' ('+productLabel(snapshot.pallets.find(p=>p.palletId===palletId))+')').join(', ')||'なし'} ｜ 予約：${slot?.reserved?.join(', ')||'なし'}`;
 }

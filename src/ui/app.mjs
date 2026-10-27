@@ -11,7 +11,7 @@ import {renderAnalysis,renderComparison,metric} from './analysis-view.mjs';
 import {initCadPanel} from './cad-panel.mjs';
 import {populateExtendedSettings,readExtendedSettings,loadSyntheticSettingsExample,organizeSettings} from './extended-settings.mjs';
 import {eventCsv,conditionCsv,conditionCsvFilename} from './export.mjs';
-import {customerConditionsCsv,transportResultsCsv,agfResultsCsv,transportHistoryCsv,customerCsvFilename} from './customer-export.mjs';
+import {customerConditionsCsv,transportResultsCsv,agfResultsCsv,shippingResultsCsv,transportHistoryCsv,customerCsvFilename} from './customer-export.mjs';
 import {TRANSPORT_HISTORY_COLUMNS,buildTransportHistoryRows,renderTransportHistoryRows} from './transport-history.mjs';
 import {appendRunInput,createInitialPreview} from './run-input.mjs';
 import {warehouseOwnerLegend} from './warehouse-colors.mjs';
@@ -154,7 +154,7 @@ function adoptRun(next,at=0) {
   syncRunControls();
   setTime(timeMs,true);
 }
-function syncRunControls(){for(const id of ['play','pause','stop','seek','next-event','csv','conditions-csv','customer-conditions-csv','transport-results-csv','agf-results-csv','transport-history-csv','manual04','manual05'])$(id).disabled=!result;}
+function syncRunControls(){for(const id of ['play','pause','stop','seek','next-event','csv','conditions-csv','customer-conditions-csv','transport-results-csv','agf-results-csv','shipping-results-csv','transport-history-csv','manual04','manual05'])$(id).disabled=!result;}
 function showInitialPreview(){
   pause();result=null;analysis=null;comparison=null;runId='';timeMs=0;currentIndex=0;
   transportHistory=[];historyPage=null;
@@ -343,6 +343,7 @@ $('conditions-csv').addEventListener('click',()=>{if(result)downloadCsv(conditio
 $('customer-conditions-csv').addEventListener('click',()=>{if(result)downloadCsv(customerConditionsCsv(result),customerCsvFilename(result,'conditions'));});
 $('transport-results-csv').addEventListener('click',()=>{if(result)downloadCsv(transportResultsCsv(result),customerCsvFilename(result,'transport'));});
 $('agf-results-csv').addEventListener('click',()=>{if(result)downloadCsv(agfResultsCsv(result),customerCsvFilename(result,'agf'));});
+$('shipping-results-csv').addEventListener('click',()=>{if(result)downloadCsv(shippingResultsCsv(result),customerCsvFilename(result,'shipping'));});
 $('transport-history-csv').addEventListener('click',()=>{if(result)downloadCsv(transportHistoryCsv(result),customerCsvFilename(result,'history'));});
 initCadPanel({showError:error=>{$('cad-error').textContent=friendlyError(error);$('cad-error').hidden=false;},clearError:()=>{$('cad-error').hidden=true;}});
 for(const id of ['open-cad','open-cad-map'])$(id).addEventListener('click',()=>{pause();$('cad-dialog').showModal();});

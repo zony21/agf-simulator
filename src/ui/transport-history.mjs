@@ -132,6 +132,11 @@ function eventLocation(event,task,agf,lineId,topology,scenario){
 function details(event,{task,agf,scenario,chargeStarts}){
   const type=event.type,change=quantityChange(event);
   if(type==='TASK_ASSIGNED')return dash;
+  if(type==='TASK_WAITING'&&event.reason==='PRIORITY_HEAD_BLOCKED'){
+    return [event.blockingTaskId?`先頭タスク ${event.blockingTaskId}`:null,
+      event.blockingTaskKind?`搬送${event.blockingTaskKind}`:null,
+      hasNumber(event.blockingTaskPriority)?`優先度${event.blockingTaskPriority}`:null].filter(Boolean).join(' / ')||dash;
+  }
   if(event.automatic===true&&['ALIGNER_REFILL_OPERATED','ALIGNER_REFILLED'].includes(type)){
     const quantity=change?.replace(' PL',' 枚')??'全5台を各10枚へ';
     const timing=event.timingEvidence==='provisional-same-timestamp-event'?

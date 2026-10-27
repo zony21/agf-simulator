@@ -27,6 +27,38 @@ function fixture(){
 }
 const priorityRows=run=>customerConditionRows(run).filter(row=>row.category==='搬送タスク優先度');
 
+test('saved dispatch policy distinguishes strict head waiting from older runs without changing the 14 equipment priorities',()=>{
+  const older=fixture(),strict=fixture();strict.scenario.taskDispatchPolicy='strict_priority_head';
+  const row=customerConditionRows(strict).find(row=>row.key==='taskDispatchPolicy');
+  assert.match(row.value,/先頭タスクが実行できない場合.*後続タスク.*割当保留/);
+  assert.match(row.value,/同優先度の搬送01.*バッファ在荷数/);
+  assert.equal(priorityRows(strict).length,14);
+  const old=customerConditionRows(older).find(row=>row.key==='taskDispatchPolicy');
+  assert.equal(old.value,'割当待機ルールの保存記録なし');
+  assert.ok(!customerConditionsCsv(older).includes('先頭タスクが実行できない場合'));
+  const developer=buildRunConditions(strict).find(row=>row.category==='TASK_DISPATCH');
+  assert.equal(developer.value,'strict_priority_head');
+  assert.ok(conditionCsv(strict).includes('TASK_DISPATCH,dispatch,policy,strict_priority_head'));
+});
+
+test('priority barrier rows show the blocking task without pretending later tasks evaluated any AGF',async()=>{
+  const {buildTransportHistoryRows}=await import('../src/ui/transport-history.mjs');
+  const {customerPendingReason}=await import('../src/ui/customer-results.mjs');
+  const run=fixture(),event={type:'TASK_WAITING',timeMs:1,sequence:1,taskId:'SYN-LOW',kind:'01',
+    reason:'PRIORITY_HEAD_BLOCKED',blockingTaskId:'SYN-HIGH',blockingTaskKind:'02',blockingTaskPriority:10};
+  run.final.tasks=[{id:'SYN-LOW',kind:'01',originId:'L1',destinationId:'WRAP-INPUT',requestedAt:0,
+    assignedAt:null,status:'queued',waitReason:event.reason}];
+  run.events.splice(1,0,event);run.snapshots=run.events.map(()=>structuredClone(run.final));
+  const row=buildTransportHistoryRows(run).find(row=>row.taskId==='SYN-LOW');
+  assert.match(row.detail,/先頭タスク.*割当保留/);assert.match(row.detail,/SYN-HIGH/);assert.match(row.detail,/優先度10/);
+  assert.doesNotMatch(row.detail,/PRIORITY_HEAD_BLOCKED/);
+  assert.deepEqual(row.agfStates,Array(4).fill('－'));
+  assert.equal(customerPendingReason(run.final.tasks[0]),'先頭タスクが実行できないため割当保留');
+  const csv=eventCsv(run,'SYN'),columns=csv.slice(1).split('\r\n')[0].split(',');
+  for(const field of ['blockingTaskId','blockingTaskKind','blockingTaskPriority'])assert.ok(columns.includes(field));
+  assert.ok(csv.includes('SYN-HIGH'));
+});
+
 test('customer conditions and BOM CSV expose all 14 saved task priorities without editable charging priority',()=>{
   const run=fixture(),rows=priorityRows(run),csv=customerConditionsCsv(run);
   assert.equal(rows.length,14);

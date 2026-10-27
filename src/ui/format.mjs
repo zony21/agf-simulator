@@ -61,6 +61,7 @@ Object.assign(reasons,{TURN_RATE_UNRESOLVED:'旋回角速度が未設定・停�
   AVOIDANCE_TIE_UNRESOLVED:'回避側の同率判断が未確定',AVOIDANCE_ROUTE_UNRESOLVED:'明示された退避経路なし',
   NO_AVOIDANCE_CANDIDATE:'移動可能かつ明示退避経路のあるAGFなし',HANDLING_POSITIONING:'設備前の姿勢移行完了待ち',
   PICKUP_LOCATION_RESERVED:'荷受けロケーションの使用予約解放待ち',PICKUP_LOCATION_OCCUPIED:'荷受けロケーションのAGF退出待ち',
+  PRIORITY_HEAD_BLOCKED:'先頭タスクが実行できないため割当保留',
   TURN_RESOURCE_OCCUPIED:'旋回位置の占有解放待ち',STOP_AT_EXPLICIT_NODE_BEFORE_AVOIDANCE:'明示停止位置で退避待ち',
   NO_OVERTAKING:'同方向の前方AGF待ち・追越禁止',POSITIONING_BLOCKED:'設備前の姿勢移行完了待ち'});
 Object.assign(eventNames,{TURN_STARTED:'停止旋回開始',TURN_COMPLETED:'停止旋回完了',MOTION_CONFIGURATION_WAITING:'走行・荷役設定待ち',

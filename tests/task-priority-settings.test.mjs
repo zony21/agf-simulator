@@ -36,6 +36,7 @@ test('priority settings expose exactly fourteen required integer inputs without 
   for(const [path,value] of Object.entries(fields))assert.ok(inputs.some(input=>input.includes(`data-task-priority="${path}"`)&&input.includes(`value="${value}"`)),path);
   assert.match(html,/数値が小さいほど優先/);assert.match(html,/包装機出口/);assert.match(html,/パレットマガジン/);assert.match(html,/系列/);
   assert.match(html,/同優先度の搬送01同士.*現在の系列バッファ在荷数/);
+  assert.match(html,/先頭タスクが実行できない場合.*後続タスク.*割当.*保留/);
   assert.doesNotMatch(html,/data-task-priority="[^\"]*(?:charge|CHARGER)/i);
   assert.equal(settings.renderTaskPrioritySettings(createLegacyScenario()),'');
 });

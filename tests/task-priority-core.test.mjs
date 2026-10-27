@@ -133,18 +133,52 @@ test('equal-priority queued lines honor older request and same-time event sequen
   }
 });
 
-test('an unavailable high-priority 02 stays queued while a lower-priority 03 is assigned',()=>{
+test('an unavailable high-priority 02 holds later tasks until it becomes executable',()=>{
   const run=simulate(taskPriorityScenario({fallback:'wait',magazineUses:[{timeMs:30_000,magazineId:'M1'},
     {timeMs:135_000,magazineId:'M4'}]}));
   const outflow=run.events.find(e=>e.type==='TASK_REQUESTED'&&e.kind==='02');
   assert.ok(outflow);assert.equal(outflow.taskPriority,10);
-  const lower=assignments(run).find(e=>e.taskPriority===20);assert.ok(lower);
+  const lower=run.final.tasks.find(t=>t.taskPriority===20);assert.ok(lower);
   const hold=run.events.find(e=>e.type==='TASK_WAITING'&&e.taskId===outflow.taskId);
-  assert.ok(hold);assert.ok(hold.sequence<lower.sequence);
-  const atLowerAssignment=run.snapshots[lower.sequence].tasks.find(t=>t.id===outflow.taskId);
-  assert.equal(atLowerAssignment.status,'queued');assert.equal(atLowerAssignment.waitReason,'NO_ELIGIBLE_AGF');
+  assert.ok(hold);
+  assert.ok(!assignments(run).some(e=>e.taskId===lower.id));
+  assert.equal(lower.status,'queued');assert.equal(lower.waitReason,'PRIORITY_HEAD_BLOCKED');
+  assert.equal(lower.priorityBlockingTaskId,outflow.taskId);
   assert.equal(run.final.tasks.find(t=>t.id===outflow.taskId).status,'queued');
   assert.ok(!assignments(run).some(e=>e.taskId===outflow.taskId));
+  assert.equal(run.scenario.taskDispatchPolicy,'strict_priority_head');
+});
+
+test('idle AGFs do not take a later task while the priority head waits for equipment permission',()=>{
+  const s=taskPriorityScenario({productionEvents:[produced(1,'L1','SYN-STRICT-LOWER')],
+    agfs:[1,2,3,4].map(n=>({id:'AGF'+n,area:'PZ',batteryPct:39})),
+    magazineUses:[{timeMs:0,magazineId:'M4'}],
+    permissionEvents:[{timeMs:1,target:'aligner',targetId:'AL1',permitted:false},
+      {timeMs:300000,target:'aligner',targetId:'AL1',permitted:true}]});
+  // Issue the 03 while all AGFs are charging, then revoke its pickup permit.
+  // They finish charging before the permit returns and must remain idle.
+  s.battery.chargeMinPerPct=.01;
+  const r=simulate(s),requested=r.events.find(e=>e.type==='TASK_REQUESTED'&&e.kind==='03');
+  const allocated=assignments(r);
+  assert.ok(!allocated.some(e=>e.timeMs<300000));
+  assert.equal(allocated[0].taskId,requested.taskId);assert.equal(allocated[0].timeMs,300000);
+  assert.equal(allocated[1].palletId,'SYN-STRICT-LOWER');
+  assert.ok(allocated[1].sequence>allocated[0].sequence);
+  const held=r.events.find(e=>e.type==='TASK_WAITING'&&e.reason==='PRIORITY_HEAD_BLOCKED');
+  assert.equal(held.blockingTaskId,requested.taskId);
+  assert.ok(r.snapshots.some((snap,i)=>r.events[i].timeMs<300000&&
+    snap.agfs.every(a=>a.status==='idle')&&snap.tasks.some(t=>t.id===requested.taskId&&t.status==='queued')));
+  assert.deepEqual(simulate(s).events,r.events);
+});
+
+test('unconfigured legacy FIFO retains the previous executable-task fallback',()=>{
+  const s=taskPriorityScenario({taskPriorities:undefined,fallback:'wait',magazineUses:[
+    {timeMs:30000,magazineId:'M1'},{timeMs:135000,magazineId:'M4'}]});
+  const r=simulate(s),high=r.events.find(e=>e.type==='TASK_REQUESTED'&&e.kind==='02');
+  assert.ok(high);
+  assert.ok(assignments(r).some(e=>e.kind==='03'&&e.timeMs>high.timeMs));
+  assert.ok(!assignments(r).some(e=>e.taskId===high.taskId));
+  assert.equal(r.scenario.taskDispatchPolicy,undefined);
 });
 
 test('each assignment in one dispatch reevaluates AGFs after the preceding task changes their status',()=>{
@@ -350,19 +384,21 @@ test('multiple assigned but not picked pallets count once each in the physical b
   assert.equal(run.snapshots[second.sequence].lines.L1.length,2);
 });
 
-test('an unreachable fuller line stays queued while dispatch assigns a reachable less full line',()=>{
+test('an unreachable fuller priority-head line also holds the reachable less full line',()=>{
   const scenario=createDemoScenario('physical');scenario.durationMin=.1;scenario.lineIntervalsMin=Array(8).fill(0);
   scenario.temporaryPallets=[];scenario.taskPriorities=defaults();
   scenario.productionEvents=[produced(0,'L1','SYN-BLOCKED-1'),produced(1,'L1','SYN-BLOCKED-2'),
     produced(2,'L2','SYN-REACHABLE')].map(e=>({...e,destinationLocationId:scenario.generatedDestinationIds[0]}));
   const target=scenario.operationalTopology.interfaceBindings.find(b=>b.pattern==='L1').nodeId;
   scenario.operationalTopology.edges=scenario.operationalTopology.edges.filter(e=>e.fromNodeId!==target&&e.toNodeId!==target);
-  const run=simulate(scenario),assigned=assignments(run).find(e=>e.palletId==='SYN-REACHABLE');
-  assert.ok(assigned);assert.equal(assigned.sourceLineBufferCount,1);
-  assert.equal(run.snapshots[assigned.sequence].lines.L1.length,2);
-  assert.equal(assignments(run).filter(e=>e.kind==='01').length,1);
+  const run=simulate(scenario),later=run.final.tasks.find(t=>t.palletId==='SYN-REACHABLE');
+  assert.ok(later);assert.equal(later.status,'queued');
+  assert.equal(later.waitReason,'PRIORITY_HEAD_BLOCKED');
+  assert.equal(run.final.lines.L1.length,2);
+  assert.equal(assignments(run).filter(e=>e.kind==='01').length,0);
   for(const task of run.final.tasks.filter(t=>t.sourceLineId==='L1')){
     assert.equal(task.status,'queued');assert.equal(task.waitReason,'UNREACHABLE_ROUTE');
-    assert.ok(run.events.some(e=>e.type==='TASK_WAITING'&&e.taskId===task.id&&e.sequence<assigned.sequence));
+    assert.equal(later.priorityBlockingTaskId,task.id);
+    assert.ok(run.events.some(e=>e.type==='TASK_WAITING'&&e.taskId===task.id&&e.reason==='UNREACHABLE_ROUTE'));
   }
 });

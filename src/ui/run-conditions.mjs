@@ -4,7 +4,7 @@ import {warehouseRouteName} from '../map/warehouse-routing.mjs';
 
 const lineNames=['GWI','GWII','GWIII','GWIV','GWV','GWVI','GWVII','GWVIII'];
 const variants=[['normal','full','普通満載'],['normal','partial','普通端数'],['special','full','特注満載'],['special','partial','特注端数']];
-const categories={RUN:'Run情報・根拠区分',EQUIPMENT:'設備の初期状態',AGF:'AGF選定・初期配置・待機',TASK_PRIORITY:'搬送タスク優先度',
+const categories={RUN:'Run情報・根拠区分',EQUIPMENT:'設備の初期状態',AGF:'AGF選定・初期配置・待機',TASK_PRIORITY:'搬送タスク優先度',TASK_DISPATCH:'搬送タスク割当ルール',
   PRODUCTION:'8系列の生産条件',WRAPPER:'包装機',TIMING:'時間設定',GRAPH:'走行モデル',GRAPH_EDGE:'区間距離・接続',
   GRAPH_SPEED:'区間ごとの速度',GRAPH_NODE:'個別停止点・荷役姿勢占有',AVOIDANCE_PLAN:'明示された合成退避経路',
   CHARGING:'充電器・充電場所',BATTERY:'バッテリー・充電条件',MAGAZINE:'空パレットマガジン',
@@ -98,6 +98,8 @@ export function buildRunConditions(run,{runId=run.runId??null,executedAt=run.exe
     for(let i=1;i<=5;i++)add('TASK_PRIORITY','M'+i,'priority',s.taskPriorities?.magazines?.['M'+i],source,'優先度');
     for(let i=1;i<=8;i++)add('TASK_PRIORITY','L'+i,'priority',s.taskPriorities?.lines?.['L'+i],source,'優先度');
   }
+  if(s.taskPriorities!==undefined||s.taskDispatchPolicy!==undefined)
+    add('TASK_DISPATCH','dispatch','policy',s.taskDispatchPolicy??'unrecorded','saved-run','優先タスクの実行待ち');
   const waiting=s.postTaskPolicy?.waitingPriority;
   if(waiting?.length)waiting.forEach((id,i)=>add('AGF','waitingPriority',String(i+1),id,s.postTaskPolicy.evidence,'共通待機順位 '+(i+1)));
   else add('AGF','waitingPriority','',null,'unconfigured','通常待機場所の優先順位');
@@ -206,6 +208,8 @@ const displayValue=(value,row)=>{
   if(/^L[1-8]$/.test(String(value)))return lineNames[Number(value.slice(1))-1]+' ('+value+')';
   if(value==='SPECIAL')return 'SPECIAL（特注）';
   if(value==='legacy_fifo')return '旧シナリオ互換（要求順・legacy FIFO）';
+  if(row.category==='TASK_DISPATCH'&&value==='strict_priority_head')return '先頭タスクが実行できない場合は後続タスクも割当保留';
+  if(row.category==='TASK_DISPATCH'&&value==='unrecorded')return '割当待機ルールの保存記録なし';
   if(value==='immediate_retry')return '補充直後に再試行（immediate_retry）';
   if(value==='next_takt')return '次タクトから再開（next_takt）';
   if(value==='all_empty_auto')return '全5台が0枚になった時に全機10枚へ自動装填（all_empty_auto）';

@@ -35,6 +35,9 @@ export function simulate(rawScenario) {
   const scenario = prepareWarehouseRouting(clone(rawScenario));
   const taskPriorities=scenario.taskPriorities;
   validateTaskPriorities(taskPriorities);
+  // User-confirmed: a blocked priority head must never be bypassed. Persist
+  // the rule in the Run so old saved results are not relabeled retroactively.
+  if(taskPriorities!==undefined)scenario.taskDispatchPolicy='strict_priority_head';
   const durationMs = minute(scenario.durationMin);
   required(Number.isInteger(durationMs) && durationMs > 0, 'durationMin must be positive');
   const times = scenario.times ?? {};
@@ -283,8 +286,10 @@ export function simulate(rawScenario) {
       ...(motionEvent?{movementGeneration:moving?.movementGeneration}:{})});
   };
   const hold = (task, reason, fields={}) => {
-    if (task.waitReason !== reason) {
+    if (task.waitReason !== reason || (fields.blockingTaskId&&task.priorityBlockingTaskId!==fields.blockingTaskId)) {
       task.waitReason=reason;
+      if(fields.blockingTaskId)task.priorityBlockingTaskId=fields.blockingTaskId;
+      else if(task.priorityBlockingTaskId)task.priorityBlockingTaskId=null;
       if(['02','05'].includes(task.kind))task.storageResult='held';
       record('TASK_WAITING',{taskId:task.id,kind:task.kind,palletId:task.palletId ?? null,reason,...fields});
     }
@@ -968,14 +973,27 @@ export function simulate(rawScenario) {
   });
   const currentLineBufferCount = lineId => lines.get(lineId).length;
   const dispatch = () => {
-    for (const id of orderPendingTasks(pending,tasks,taskPriorities,currentLineBufferCount)) {
+    const ordered=orderPendingTasks(pending,tasks,taskPriorities,currentLineBufferCount);
+    const deferHead=(head,reason,fields={})=>{
+      hold(head,reason,fields);
+      if(scenario.taskDispatchPolicy!=='strict_priority_head')return false;
+      for(const id of ordered){
+        const later=tasks.get(id);
+        if(later===head||later.status!=='queued')continue;
+        hold(later,'PRIORITY_HEAD_BLOCKED',{blockingTaskId:head.id,blockingTaskKind:head.kind,
+          blockingTaskPriority:head.taskPriority??null,
+          dispatchSelection:taskGateSelection(later,'PRIORITY_HEAD_BLOCKED')});
+      }
+      return true;
+    };
+    for (const id of ordered) {
       const t=tasks.get(id);
       if (t.status !== 'queued') continue;
       if(graphMode&&t.kind==='01'){
         const blockers=pickupOccupants(resolveInterfaceNode(topology,t.originId));
         if(blockers.length){
-          hold(t,'PICKUP_LOCATION_OCCUPIED',{blockers,
-            dispatchSelection:taskGateSelection(t,'PICKUP_LOCATION_OCCUPIED')});continue;
+          if(deferHead(t,'PICKUP_LOCATION_OCCUPIED',{blockers,
+            dispatchSelection:taskGateSelection(t,'PICKUP_LOCATION_OCCUPIED')}))break;continue;
         }
       }
       // An explicit synthetic vehicle-admission limit leaves a vehicle for
@@ -983,11 +1001,11 @@ export function simulate(rawScenario) {
       // an extra physical input slot. Actual drops still enforce input capacity.
       if(graphMode&&['01','04'].includes(t.kind)&&
         wrapperInboundReservations.size>=scenario.wrapper.inboundAgfLimit){
-        hold(t,'WRAPPER_INBOUND_LIMIT',{dispatchSelection:taskGateSelection(t,'WRAPPER_INBOUND_LIMIT')});continue;
+        if(deferHead(t,'WRAPPER_INBOUND_LIMIT',{dispatchSelection:taskGateSelection(t,'WRAPPER_INBOUND_LIMIT')}))break;continue;
       }
       if(warehousePolicy&&t.kind==='05'&&!t.destinationId){
         const p=pallets.get(t.palletId),choice=chooseWarehouseLocation({pallet:p,policy:warehousePolicy,slots,pallets,rowBusy});
-        if(!choice.location){hold(t,choice.reason,{dispatchSelection:taskGateSelection(t,choice.reason)});continue;}
+        if(!choice.location){if(deferHead(t,choice.reason,{dispatchSelection:taskGateSelection(t,choice.reason)}))break;continue;}
         required(reserveSlot(choice.location.id,p.palletId),'05 automatic destination reservation failed');
         t.destinationId=choice.location.id;p.destinationLocationId=choice.location.id;
         Object.assign(t,{storageLocationId:choice.location.id,blockId:choice.location.blockId,row:choice.location.row,
@@ -1022,12 +1040,12 @@ export function simulate(rawScenario) {
           stages:[availability,...decision.selection.stages.map(stage=>({...stage,pass}))]}};
       };
       const {agf:a,selection:initialSelection}=choose(agfs,'initial');
-      if (!a) {hold(t,'NO_ELIGIBLE_AGF',{dispatchSelection:initialSelection}); continue;}
+      if (!a) {if(deferHead(t,'NO_ELIGIBLE_AGF',{dispatchSelection:initialSelection}))break;continue;}
       if (t.kind === '03') {
         const source=aligners.get(t.alignerId);
         required(source?.quantity===10&&source.reservedTaskId===t.id,'03 source must remain loaded and reserved');
-        if(source.permission===false||source.blocked){hold(t,'ALIGNER_PERMISSION',
-          {dispatchSelection:taskGateSelection(t,'ALIGNER_PERMISSION',initialSelection)});continue;}
+        if(source.permission===false||source.blocked){if(deferHead(t,'ALIGNER_PERMISSION',
+          {dispatchSelection:taskGateSelection(t,'ALIGNER_PERMISSION',initialSelection)}))break;continue;}
       }
       let selected=a,routePair=null,dispatchSelection=initialSelection;
       if(graphMode){
@@ -1056,10 +1074,11 @@ export function simulate(rawScenario) {
             selected:e.agfId===selected?.id})).sort(evaluationOrder),
           stages:[...initialSelection.stages,routeStage,...decision.selection.stages]};
         routePair=candidates.find(item=>item.candidate===selected)??null;
-        if(!selected||!routePair){hold(t,'UNREACHABLE_ROUTE',{dispatchSelection});continue;}
+        if(!selected||!routePair){if(deferHead(t,'UNREACHABLE_ROUTE',{dispatchSelection}))break;continue;}
       }
       if(postTaskPolicy)releasePlaces(selected);
       t.status='moving_empty'; t.assignedAt=now; t.agfId=selected.id; t.waitReason=null;
+      if(t.priorityBlockingTaskId)t.priorityBlockingTaskId=null;
       t.emptyRoute=graphMode?saveRoute(routePair.empty):null;t.loadedRoute=graphMode?saveRoute(routePair.loaded):null;
       selected.status='moving_empty'; selected.taskId=t.id;
       if(graphMode&&['01','04'].includes(t.kind))wrapperInboundReservations.add(t.id);

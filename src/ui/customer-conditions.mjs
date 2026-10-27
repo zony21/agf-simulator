@@ -69,6 +69,11 @@ export function customerConditionRows(run){
     for(let i=1;i<=5;i++)add('taskPriorities.magazines.M'+i,'搬送タスク優先度','優先度',s.taskPriorities?.magazines?.['M'+i],'','M'+i,source);
     for(let i=1;i<=8;i++)add('taskPriorities.lines.L'+i,'搬送タスク優先度','優先度',s.taskPriorities?.lines?.['L'+i],'','L'+i,source);
   }
+  if(s.taskPriorities!==undefined||s.taskDispatchPolicy!==undefined){
+    add('taskDispatchPolicy','搬送タスク割当ルール','優先タスクの実行待ち',s.taskDispatchPolicy==='strict_priority_head'?
+      '先頭タスクが実行できない場合は後続タスクも割当保留。同優先度の搬送01同士は現在の系列バッファ在荷数が多い順、同数は要求時刻・処理順。その他の同優先度は要求時刻・処理順。':
+      '割当待機ルールの保存記録なし','','','saved-run');
+  }
   const graph=s.motionModel==='synthetic_graph';
   if(graph&&s.operationalTopology?.metricLayoutProfile){
     const profile=s.operationalTopology.metricLayoutProfile;

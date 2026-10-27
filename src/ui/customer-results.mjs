@@ -39,6 +39,7 @@ export function customerPendingReason(task,agf){
   if(['waiting_charge','waiting_charge_place','charging'].includes(status))return '充電待ち';
   if(task.status==='waiting_wrapper_input'||String(reason).startsWith('WRAPPER_INPUT'))return '包装機入口待ち';
   if(['PICKUP_LOCATION_OCCUPIED','PICKUP_LOCATION_RESERVED'].includes(reason))return reasons[reason];
+  if(reason==='PRIORITY_HEAD_BLOCKED')return reasons[reason];
   if(/UNREACHABLE|UNRESOLVED|NO_ASSIGNED_STORAGE/.test(reason))return '経路・搬送条件の確認待ち';
   if(!task.agfId||task.status==='queued')return 'AGF割当待ち';
   if(task.status==='wait_drop'||task.status==='wait_pickup'||/PERMISSION|LOCATION|MAGAZINE|ALIGNER/.test(reason))return '設備待ち';

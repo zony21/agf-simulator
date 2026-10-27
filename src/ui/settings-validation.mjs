@@ -1,3 +1,5 @@
+import {warehouseRowPosition,warehouseRowFromId} from '../map/warehouse-row-order.mjs';
+
 /** UI error navigation only. Core validators remain authoritative. */
 export const nativeInvalidFields=root=>[...root.querySelectorAll('input,select,textarea')]
   .filter(field=>!field.disabled&&field.willValidate&&field.validity?.valid===false);
@@ -66,8 +68,9 @@ export function settingsErrorControls(root,error,description=describeSettingsErr
     if(description.kind==='priority')return assigned.flatMap(field=>all(`[data-row-priority="${field.dataset.rowOwner}"]`));
     // Include the gap which disconnects two rows assigned to the same series.
     const bounds=new Map();
-    for(const field of assigned){const [block,row]=field.dataset.rowOwner.split('-R'),n=Number(row),b=bounds.get(block)??[n,n];bounds.set(block,[Math.min(b[0],n),Math.max(b[1],n)]);}
-    return fields.filter(field=>{const [block,row]=field.dataset.rowOwner.split('-R'),b=bounds.get(block);return b&&Number(row)>=b[0]&&Number(row)<=b[1];});
+    const position=field=>warehouseRowPosition(warehouseRowFromId(field.dataset.rowOwner));
+    for(const field of assigned){const {group,index}=position(field),b=bounds.get(group)??[index,index];bounds.set(group,[Math.min(b[0],index),Math.max(b[1],index)]);}
+    return fields.filter(field=>{const {group,index}=position(field),b=bounds.get(group);return b&&index>=b[0]&&index<=b[1];});
   }
   return description.section?all(description.section+' input,'+description.section+' select'):[];
 }

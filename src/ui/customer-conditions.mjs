@@ -1,5 +1,6 @@
 import {escapeHtml as esc,locationName} from './format.mjs';
 import {warehouseRouteName} from '../map/warehouse-routing.mjs';
+import {orderedWarehouseRowIds} from '../map/warehouse-row-order.mjs';
 
 export const LINE_LABELS=['GWI','GWII','GWIII','GWIV','GWV','GWVI','GWVII','GWVIII'];
 export const selectionLabel=mode=>({area_first:'搬送先エリア優先',low_battery_first:'バッテリー残量優先',
@@ -22,6 +23,7 @@ export const evidenceLabel=evidence=>({
   'explicit-scenario-setting':'この実行の明示条件',
   'simulation-default-task-priorities':'シミュレーション初期設定（変更可能）',
   'user-requested-example-default':'ユーザー指定の初期行割当・既存例と同じ値',
+  'user-confirmed-min-two-row-default':'ユーザー指定の初期行割当・各系列2行以上',
   'user-confirmed-fixed-magazine-mapping':'ユーザー確認済み・固定対応',
   'user-confirmed-task-start-threshold':'ユーザー確認済み・新規タスク開始60%',
   'user-confirmed-charge-recovery-target':'ユーザー確認済み・充電後60%で搬送復帰',
@@ -61,6 +63,16 @@ export function customerConditionRows(run){
     add('warehouse.portalCapacity','交通条件','WH外周SH通過','2台並列可・対向同時通過は未確定（合成モデルは対向待機）');
   }
   add('warehouse.initialStock','基本条件','初期製品在庫',(s.warehouse??[]).reduce((n,slot)=>n+(slot.palletIds?.length??0),0),'PL');
+  if(s.warehousePolicy){
+    const assignments=new Map(s.warehousePolicy.rowAssignments.map(a=>[a.rowId,a]));
+    for(const rowId of orderedWarehouseRowIds(s.warehouse??[])){
+      const a=assignments.get(rowId),owner=a?.usage==='special'?'SPECIAL':a?.usage==='normal'?a.sourceLineId:'UNASSIGNED';
+      const label=owner==='SPECIAL'?'特注':owner==='UNASSIGNED'?'未割当':`${LINE_LABELS[Number(owner.slice(1))-1]} (${owner})`;
+      add('warehouse.row.'+rowId+'.owner','倉庫条件','行の用途',label,'',rowId,s.warehousePolicy.evidence);
+      const index=s.warehousePolicy.rowPriority?.[owner]?.indexOf(rowId);
+      add('warehouse.row.'+rowId+'.priority','倉庫条件','同用途内の入庫順位',index>=0?index+1:null,'',rowId,s.warehousePolicy.evidence);
+    }
+  }
   if(s.warehouseShipping){
     const c=s.warehouseShipping;
     add('shipping.enabled','有人フォーク出荷','満載行の自動出荷',c.enabled,'','','user-confirmed-full-row-two-tier-shipment');

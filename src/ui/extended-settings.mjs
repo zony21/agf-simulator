@@ -1,12 +1,13 @@
-import {WAREHOUSE_BLOCKS,FLEXIBLE_WAREHOUSE_AREA,NORMAL_WAITING_PRIORITY} from '../map/warehouse-layout.mjs';
-import {syntheticWarehousePolicy} from '../../examples/synthetic-warehouse-policy.mjs';
+import {NORMAL_WAITING_PRIORITY} from '../map/warehouse-layout.mjs';
+import {defaultWarehousePolicy} from '../../examples/synthetic-warehouse-policy.mjs';
+import {orderedWarehouseRowIds} from '../map/warehouse-row-order.mjs';
 import {escapeHtml as esc,locationName} from './format.mjs';
 import {CONFIRMED_LINE_MAGAZINE_MAP,alignerRefillPolicyDescription} from './scenario.mjs';
 import {validateTaskPriorities} from '../core/task-priority.mjs';
 import {DEFAULT_WAREHOUSE_SHIPPING,validateWarehouseShipping} from '../core/warehouse-shipping.mjs';
 
-const rowIdsFor=s=>[...WAREHOUSE_BLOCKS,...(s.warehouse?.some(slot=>slot.flexibleAreaId)?[FLEXIBLE_WAREHOUSE_AREA]:[])]
-  .flatMap(b=>Array.from({length:b.rows},(_,i)=>`${b.id}-R${String(i+1).padStart(2,'0')}`));
+export const warehouseSettingsRowIds=s=>orderedWarehouseRowIds(s.warehouse??[]);
+const rowIdsFor=warehouseSettingsRowIds;
 const label=(type,load)=>(type==='normal'?'普通銘柄':'特注銘柄')+'・'+(load==='full'?'満載':'端数');
 export function populateExtendedSettings(s){
   const root=document.getElementById('extended-settings');root.hidden=!s.warehousePolicy;
@@ -180,7 +181,7 @@ export function loadSyntheticSettingsExample(s){
     enabled:document.querySelector(`[data-stream-enabled="${i}"]`).checked,
     intervalMin:Number(document.querySelector(`[data-stream-interval="${i}"]`).value),
     startOffsetMin:Number(document.querySelector(`[data-stream-offset="${i}"]`).value)}));
-  s.warehousePolicy=syntheticWarehousePolicy();
+  s.warehousePolicy=defaultWarehousePolicy();
   populateExtendedSettings(s);
 }
 

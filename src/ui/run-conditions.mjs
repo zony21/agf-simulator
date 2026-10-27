@@ -1,6 +1,7 @@
 import {escapeHtml as esc} from './format.mjs';
 import {warehouseRowOwner} from '../core/warehouse-policy.mjs';
 import {warehouseRouteName} from '../map/warehouse-routing.mjs';
+import {orderedWarehouseRowIds} from '../map/warehouse-row-order.mjs';
 
 const lineNames=['GWI','GWII','GWIII','GWIV','GWV','GWVI','GWVII','GWVIII'];
 const variants=[['normal','full','普通満載'],['normal','partial','普通端数'],['special','full','特注満載'],['special','partial','特注端数']];
@@ -191,7 +192,8 @@ export function buildRunConditions(run,{runId=run.runId??null,executedAt=run.exe
     add('WAREHOUSE','flexibleArea','upperTierStatus','unresolved','unresolved','可変領域の上段');
   }
   add('WAREHOUSE','capacity','assignedPL',s.warehousePolicy?(s.warehouse??[]).filter(slot=>slot.storageEnabled!==false&&ownerOf(assignments.get(slot.rowId))!=='UNASSIGNED').reduce((n,slot)=>n+(slot.capacity??1),0):null,s.warehousePolicy?.evidence??'unconfigured');
-  for(const [rowId,row] of [...warehouseRows].sort(([a],[b])=>a.localeCompare(b,'en'))){
+  for(const rowId of orderedWarehouseRowIds(s.warehouse??[])){
+    const row=warehouseRows.get(rowId);
     const owner=ownerOf(assignments.get(rowId)),priority=s.warehousePolicy?.rowPriority?.[owner]?.indexOf(rowId);
     for(const [key,value] of Object.entries({...row,owner,rowPriority:priority===undefined||priority<0?null:priority+1}))add('WAREHOUSE',rowId,key,value,s.warehousePolicy?.evidence??'unconfigured');
   }

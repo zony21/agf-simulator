@@ -1,3 +1,5 @@
+import {warehouseRowPosition} from '../map/warehouse-row-order.mjs';
+
 const requireSetting=(ok,message)=>{if(!ok)throw new Error('WAREHOUSE_CONFIG: '+message);};
 export const PRODUCT_TYPES=['normal','special'];
 export const LOAD_TYPES=['full','partial'];
@@ -36,10 +38,12 @@ export function validateWarehousePolicy(policy,slots,{lineIds,specialEnabled=fal
   for(const id of lineIds)requireSetting(owners.has(id),`${id}に最低1行を割り当ててください。`);
   requireSetting(!specialEnabled||owners.has('SPECIAL'),'特注搬出を有効にするには特注用の行が必要です。');
   for(const [owner,assigned] of owners){
-    requireSetting(new Set(assigned.map(a=>a.blockId)).size===1,
+    const positions=assigned.map(warehouseRowPosition);
+    requireSetting(new Set(positions.map(p=>p.group)).size===1,
       `${owner}のブロック跨ぎの連続条件は未確定です。`);
-    const indices=assigned.map(a=>a.row).sort((a,b)=>a-b);
-    requireSetting(indices.at(-1)-indices[0]+1===indices.length,`${owner}の領域が分断されています。`);
+    const indices=positions.map(p=>p.index).sort((a,b)=>a-b);
+    requireSetting(new Set(indices).size===indices.length&&indices.at(-1)-indices[0]+1===indices.length,
+      `${owner}の領域が分断されています。ブロック跨ぎはWB1 → 可変置き場 → WB2の連続行だけに設定できます。`);
     const priority=policy.rowPriority?.[owner];
     if(priority!==undefined)requireSetting(Array.isArray(priority)&&priority.length===assigned.length&&
       new Set(priority).size===priority.length&&priority.every(id=>assigned.some(a=>a.rowId===id)),

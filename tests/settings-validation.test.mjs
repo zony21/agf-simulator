@@ -43,6 +43,14 @@ test('disconnected warehouse allocation reveals both assigned rows and the inter
   assert.deepEqual(settingsErrorControls(root(fields),error),fields.slice(0,3));
 });
 
+test('a disconnected bridge allocation also highlights the missing flexible row between blocks',()=>{
+  const fields=[field('L1',{rowOwner:'WB1-R06'}),field('L2',{rowOwner:'WB1-R07'}),
+    field('',{rowOwner:'WB1-WB2-FLEX-R01'}),field('L2',{rowOwner:'WB1-WB2-FLEX-R02'}),
+    field('L2',{rowOwner:'WB2-R01'}),field('L3',{rowOwner:'WB2-R02'})];
+  const error=new Error('WAREHOUSE_CONFIG: L2の領域が分断されています。');
+  assert.deepEqual(settingsErrorControls(root(fields),error),fields.slice(1,5));
+});
+
 test('a missing series allocation navigates to editable unassigned rows',()=>{
   const policy=syntheticWarehousePolicy();policy.rowAssignments=policy.rowAssignments.filter(a=>a.sourceLineId!=='L8');
   const fields=[field('L7',{rowOwner:'EB1-R03'}),field('',{rowOwner:'EB2-R01'}),field('SPECIAL',{rowOwner:'EB2-R02'})];

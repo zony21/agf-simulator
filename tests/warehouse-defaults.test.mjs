@@ -1,15 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createDemoScenario} from '../src/ui/scenario.mjs';
-import {syntheticWarehousePolicy} from '../examples/synthetic-warehouse-policy.mjs';
+import {defaultWarehousePolicy} from '../examples/synthetic-warehouse-policy.mjs';
 import {validateWarehousePolicy} from '../src/core/warehouse-policy.mjs';
 import {createInitialPreview} from '../src/ui/run-input.mjs';
 
 for(const preset of ['standard','extended'])test(`${preset} starts with the user-requested example row allocation and no product inventory`,()=>{
-  const scenario=createDemoScenario(preset),example=syntheticWarehousePolicy();
+  const scenario=createDemoScenario(preset),example=defaultWarehousePolicy();
   assert.deepEqual(scenario.warehousePolicy.rowAssignments,example.rowAssignments);
   assert.deepEqual(scenario.warehousePolicy.rowPriority,example.rowPriority);
-  assert.equal(scenario.warehousePolicy.evidence,'user-requested-example-default');
+  assert.equal(scenario.warehousePolicy.evidence,'user-confirmed-min-two-row-default');
   assert.doesNotThrow(()=>validateWarehousePolicy(scenario.warehousePolicy,scenario.warehouse,
     {lineIds:Array.from({length:8},(_,i)=>'L'+(i+1)),specialEnabled:true}));
   assert.equal(scenario.warehouse.filter(slot=>!slot.flexibleAreaId).length,802);
@@ -26,7 +26,7 @@ for(const preset of ['standard','extended'])test(`${preset} starts with the user
 test('editing a default row allocation cannot mutate the example or the next scenario',()=>{
   const edited=createDemoScenario();edited.warehousePolicy.rowAssignments.pop();
   edited.warehousePolicy.rowPriority.L1.reverse();
-  const fresh=createDemoScenario(),example=syntheticWarehousePolicy();
+  const fresh=createDemoScenario(),example=defaultWarehousePolicy();
   assert.deepEqual(fresh.warehousePolicy.rowAssignments,example.rowAssignments);
   assert.deepEqual(fresh.warehousePolicy.rowPriority,example.rowPriority);
 });

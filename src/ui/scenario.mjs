@@ -1,7 +1,7 @@
 import {warehouseLocations,flexibleWarehouseLocations,NORMAL_WAITING_PRIORITY} from '../map/warehouse-layout.mjs';
 import syntheticTopology from '../../examples/synthetic-operational-topology.json' with {type:'json'};
 import {defaultProductStreams,THEORETICAL_LINE_INTERVALS_MIN} from '../core/production-streams.mjs';
-import {syntheticWarehousePolicy} from '../../examples/synthetic-warehouse-policy.mjs';
+import {defaultWarehousePolicy} from '../../examples/synthetic-warehouse-policy.mjs';
 import {convertTopologyToMetric} from '../map/metric-layout.mjs';
 import {DEFAULT_TASK_PRIORITIES} from '../core/task-priority.mjs';
 import {DEFAULT_WAREHOUSE_SHIPPING} from '../core/warehouse-shipping.mjs';
@@ -35,9 +35,9 @@ export function createDemoScenario(preset='standard',{metricProfile=null}={}) {
     s.evidence.lineMagazineMap='user-confirmed-fixed-magazine-mapping';
     s.evidence.magazineEmptyRecoveryPolicy='unresolved';
     s.evidence.inventory='user-confirmed-neutral-start';
-    // User requested this existing example as the editable initial allocation.
+    // User requested at least two rows per line in the editable initial allocation.
     // It does not approve physical CAD coordinates or route geometry.
-    s.warehousePolicy={...syntheticWarehousePolicy(),evidence:'user-requested-example-default'};
+    s.warehousePolicy=defaultWarehousePolicy();
     s.warehouseShipping={...DEFAULT_WAREHOUSE_SHIPPING};
     s.warehouseRouteMode='normal';
     s.evidence.warehouseRouteMode='user-confirmed-run-start-route-mode';

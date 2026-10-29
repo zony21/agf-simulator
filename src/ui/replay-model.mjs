@@ -21,7 +21,9 @@ export function effectiveStatus(agf,snapshot) {
   if(agf.status==='waiting_charge_place')return 'waiting_charge';
   if(agf.status==='waiting_traffic'&&agf.movement?.waitingReason==='CHARGE_PLACE')return 'waiting_charge';
   if(agf.status==='idle'&&(snapshot.waitingPlaces?.[agf.currentNodeId]===agf.id||snapshot.chargePlaces?.[agf.currentNodeId]===agf.id))return 'hp_wait';
-  if(snapshot.tasks.find(task=>task.id===agf.taskId)?.status==='wait_drop')return 'wait_drop';
+  // Task IDs are unique and active tasks are usually at the end of the saved
+  // insertion-ordered list. Avoid scanning the completed history on every event.
+  if(snapshot.tasks.findLast(task=>task.id===agf.taskId)?.status==='wait_drop')return 'wait_drop';
   const movement=agf.movement;
   if(['moving_empty','moving_loaded'].includes(agf.status)&&movement&&!movement.current&&movement.stepIndex===movement.steps.length){
     if(agf.status==='moving_empty')return 'handling_pickup';

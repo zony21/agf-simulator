@@ -10,6 +10,9 @@ import {validateTaskPriorities,resolveTaskPriority,orderPendingTasks} from './ta
 import {NORMAL_WAITING_PLACES,NORMAL_WAITING_PRIORITY} from '../map/warehouse-layout.mjs';
 import {prepareWarehouseRouting} from '../map/warehouse-routing.mjs';
 import {validateWarehouseShipping,createWarehouseShipping} from './warehouse-shipping.mjs';
+import {prepareVehicleTravel,vehicleFrontHeading,forkHeading} from './vehicle-travel.mjs';
+import {createSnapshotEntities} from './snapshot-entities.mjs';
+import {createSnapshotState,createSnapshotSections} from './snapshot-state.mjs';
 
 const minute = value => Math.round(value * 60_000);
 const required = (test, message) => { if (!test) throw new Error(message); };
@@ -32,8 +35,8 @@ const saveRoute=path=>{
  * scenario-provided model values, NOT measured route/ETA results. No physical routing
  * or PLC/WCS/RCS commands are performed.
  */
-export function simulate(rawScenario) {
-  const scenario = prepareWarehouseRouting(clone(rawScenario));
+export function simulate(rawScenario,{onProgress}={}) {
+  const scenario = prepareVehicleTravel(prepareWarehouseRouting(clone(rawScenario)));
   const taskPriorities=scenario.taskPriorities;
   validateTaskPriorities(taskPriorities);
   // User-confirmed: a blocked priority head must never be bypassed. Persist
@@ -77,15 +80,23 @@ export function simulate(rawScenario) {
   const topology=graphMode?splitSyntheticDisplayTurns(scenario.operationalTopology):null;
   if(graphMode)scenario.operationalTopology=topology;
   if(graphMode)validateOperationalTopology(topology);
+  // This Run owns its cloned, fixed topology. Resolve each interface once;
+  // live shutter/traffic state is evaluated separately and is never cached here.
+  const interfaceNodes=new Map();
+  const resolveNode=interfaceId=>{
+    if(!interfaceNodes.has(interfaceId))interfaceNodes.set(interfaceId,resolveInterfaceNode(topology,interfaceId));
+    return interfaceNodes.get(interfaceId);
+  };
   const graphNodes=graphMode?new Map(topology.nodes.map(node=>[node.id,node])):null;
   const graphEdges=graphMode?new Map(topology.edges.map(edge=>[edge.id,edge])):null;
   const traffic=graphMode?createTrafficController(topology.edges.filter(edge=>operationalEdgeEnabled(topology,edge)),{nodes:topology.nodes}):null;
   const gates=graphMode?new Map(topology.shutters.map(gate=>[gate.id,{passable:gate.initiallyPassable}])):null;
   const lines = new Map(Array.from({length:8}, (_,i) => ['L' + (i+1), []]));
-  const agfs = (scenario.agfs ?? []).map(a => ({...a, status:a.status ?? 'idle', taskId:null,
+  const agfStates=createSnapshotState((scenario.agfs ?? []).map(a => ({...a, status:a.status ?? 'idle', taskId:null,
     carriedPalletId:null,chargerId:null,...(graphMode?{movement:null,heading:a.heading??null,
       headingDeg:a.headingDeg??HEADING_DEGREES[a.heading]??null,turn:null,
-      turningConsumesBattery:motionControl?.turningConsumesBattery??null}: {})}));
+      turningConsumesBattery:motionControl?.turningConsumesBattery??null}: {})})));
+  const agfs=agfStates.value;
   required(agfs.length === 4 && new Set(agfs.map(a => a.id)).size === 4, 'four unique AGFs required');
   if(scenario.wrapper.inboundAgfLimit!==undefined)required(Number.isInteger(scenario.wrapper.inboundAgfLimit)&&
     scenario.wrapper.inboundAgfLimit>=1&&scenario.wrapper.inboundAgfLimit<=agfs.length,'invalid wrapper inbound AGF limit');
@@ -110,7 +121,7 @@ export function simulate(rawScenario) {
   const parkingChargeQueue=[];
   if(chargePlaces.size){
     required(postTaskPolicy&&chargePlaces.size===2&&scenario.chargePlaceIds.length===2&&
-      [...chargePlaces.keys()].every(id=>graphNodes.get(id)?.type==='charge'&&resolveInterfaceNode(topology,id)===id),
+      [...chargePlaces.keys()].every(id=>graphNodes.get(id)?.type==='charge'&&resolveNode(id)===id),
       'two explicit synthetic charging stops required');
   }
   if(scenario.initialParking){
@@ -139,7 +150,7 @@ export function simulate(rawScenario) {
     for(const target of waitingPriority){
       const expectedType=waitingPlaces.has(target)?'wait':'charge';
       required((waitingPlaces.has(target)||chargePlaces.has(target))&&graphNodes.get(target)?.type===expectedType&&
-        resolveInterfaceNode(topology,target)===target,
+        resolveNode(target)===target,
         'normal waiting target needs an explicit synthetic stop');
       const starts=topology.nodes.filter(n=>['home','pickup','dropoff','charge','wait'].includes(n.type)&&
         (n.enabledRouteModes===undefined||n.enabledRouteModes.includes(topology.warehouseRouteMode??'normal')));
@@ -193,7 +204,14 @@ export function simulate(rawScenario) {
   const temps = new Map((scenario.temporaryPallets ?? []).map(p => [p.palletId,{...p,reservedTaskId:null}]));
   required(temps.size === (scenario.temporaryPallets ?? []).length, 'duplicate temporary pallet');
   for (const p of temps.values()) required(['OT1','OT2','OT3'].includes(p.locationId), 'unknown temporary location');
-  const pallets = new Map([...temps.values()].map(p => [p.palletId,{...p,stage:'temporary'}]));
+  const saveEntity=value=>{
+    const {emptyRoute,loadedRoute,...state}=value,saved=clone(state);
+    if('emptyRoute' in value)saved.emptyRoute=emptyRoute;
+    if('loadedRoute' in value)saved.loadedRoute=loadedRoute;
+    return Object.freeze(saved);
+  };
+  const palletStates=createSnapshotEntities([...temps.values()].map(p=>[p.palletId,{...p,stage:'temporary'}]),{save:saveEntity});
+  const pallets=palletStates.entities;
   const warehousePolicy=scenario.warehousePolicy??null,lineIds=[...lines.keys()];
   for(const p of scenario.initialPallets??[]){
     required(p.palletId&&!pallets.has(p.palletId),'duplicate initial pallet');
@@ -207,7 +225,8 @@ export function simulate(rawScenario) {
     validateStoredPallets(slots,pallets,warehousePolicy,lineIds);
   }
   validateWarehouseShipping(scenario.warehouseShipping,{warehousePolicy});
-  const tasks = new Map(), queue = [], history = [], snapshots = [], rowBusy = new Set();
+  const taskStates=createSnapshotEntities([],{save:saveEntity});
+  const tasks = taskStates.entities, queue = [], history = [], snapshots = [], rowBusy = new Set();
   const wrapper = {input:[], output:[], processing:null, readyToRelease:false,permission:scenario.wrapper.permission!==false,
     ...(conveyorCapacity!==null?{conveyor:[]}:{})};
   const wrapperInboundReservations=new Set();
@@ -221,20 +240,6 @@ export function simulate(rawScenario) {
   // Warehouse state changes far less often than movement events. Share only frozen
   // versions across snapshots; mutable simulation slots never escape into history.
   const dirtySlots=new Set(slots.keys());
-  const savedEntities=new WeakMap();
-  // Task/pallet transitions change flat fields; nested routes are frozen above.
-  // Reuse the saved version while every field is identical. A later transition
-  // creates a new version, so older replay states never observe live mutations.
-  const saveEntity=value=>{
-    const keys=Object.keys(value),previous=savedEntities.get(value);
-    if(previous&&keys.length===previous.keys.length&&keys.every((key,i)=>key===previous.keys[i]&&
-      Object.is(value[key],previous.values[i])))return previous.snapshot;
-    const {emptyRoute,loadedRoute,...state}=value,saved=clone(state);
-    if('emptyRoute' in value)saved.emptyRoute=emptyRoute;
-    if('loadedRoute' in value)saved.loadedRoute=loadedRoute;
-    Object.freeze(saved);
-    savedEntities.set(value,{keys,values:keys.map(key=>value[key]),snapshot:saved});return saved;
-  };
   let savedWarehouse=null;
   const snapshotWarehouse=()=>{
     if(dirtySlots.size){
@@ -247,12 +252,9 @@ export function simulate(rawScenario) {
     }
     return savedWarehouse;
   };
-  const snapshot = () => ({
-    agfs:agfs.map(a=>{
-      if(!a.movement)return clone(a);
-      const saved=clone({...a,movement:{...a.movement,steps:[]}});
-      saved.movement.steps=a.movement.steps;return saved;
-    }), lines:Object.fromEntries([...lines].map(([k,v]) => [k,[...v]])),
+  const saveSections=createSnapshotSections();
+  const snapshot = () => saveSections({
+    agfs:agfStates.snapshot(), lines:Object.fromEntries([...lines].map(([k,v]) => [k,[...v]])),
     wrapper:{...clone(wrapper),...(graphMode?{reservedInboundTaskIds:[...wrapperInboundReservations],
       reservedInputTaskIds:[...wrapperInputReservations]}:{})},
     chargers:Object.fromEntries(chargers),
@@ -264,7 +266,7 @@ export function simulate(rawScenario) {
     ...(warehouseShipping?{warehouseShipping:warehouseShipping.snapshot()}:{}),
     ...(graphMode?{linePickupReservations:Object.fromEntries(linePickupReservations)}:{}),
     ...(scenario.warehouseRouteMode?{warehouseRouteMode:scenario.warehouseRouteMode}:{}),
-    tasks:[...tasks.values()].map(saveEntity), pallets:[...pallets.values()].map(saveEntity),
+    tasks:taskStates.snapshot(), pallets:palletStates.snapshot(),
     ...(warehousePolicy?{storagePolicyActive:true}:{}),
     ...(postTaskPolicy?{waitingPlaces:Object.fromEntries(waitingPlaces),
       waitingReservations:Object.fromEntries(waitingReservations)}:{}),
@@ -310,7 +312,7 @@ export function simulate(rawScenario) {
   const routeFor=(startNodeId,interfaceId,movement,taskType)=>{
     const key=JSON.stringify([startNodeId,interfaceId,movement,taskType]);
     if(routeCache.has(key))return routeCache.get(key);
-    const endNodeId=resolveInterfaceNode(topology,interfaceId);
+    const endNodeId=resolveNode(interfaceId);
     const path=endNodeId?findOperationalPath(topology,startNodeId,endNodeId,{movement,taskType}):null;
     const saved=path?saveRoute(path):null;routeCache.set(key,saved);return saved;
   };
@@ -359,13 +361,13 @@ export function simulate(rawScenario) {
     Object.assign(t,{requestSequence:history.length,...resolveTaskPriority(t,taskPriorities)});
     tasks.set(t.id,t); pending.push(t.id);
     if(graphMode&&kind==='01'){
-      const nodeId=resolveInterfaceNode(topology,t.originId);
+      const nodeId=resolveNode(t.originId);
       required(!linePickupReservations.has(nodeId),'line pickup already reserved');
       linePickupReservations.set(nodeId,t.id);p.transportTaskId=t.id;
     }
     record('TASK_REQUESTED',{taskId:t.id,kind,palletId:t.palletId ?? null,requestSequence:t.requestSequence,
       ...('taskPriority' in t?{prioritySourceId:t.prioritySourceId,taskPriority:t.taskPriority}:{})});
-    return t;
+    return tasks.get(t.id);
   };
   const holdMotion=(agf,reason,fields={})=>{
     agf.status='waiting_motion_configuration';
@@ -375,7 +377,7 @@ export function simulate(rawScenario) {
     }
   };
   const beginTurn=(agf,step,afterType='SEGMENT_REQUEST')=>{
-    const target=heading(step.fromNodeId,step.toNodeId);
+    const target=vehicleFrontHeading(heading(step.fromNodeId,step.toNodeId),step.vehicleTravelDirection);
     if(agf.headingDeg==null){
       // No preceding direction exists at startup. This initializes only the
       // synthetic display heading, with explicit evidence rather than site pose.
@@ -415,7 +417,7 @@ export function simulate(rawScenario) {
     schedule(now+duration,'TURN_COMPLETED',{agfId:agf.id,startedAt:now});return true;
   };
   const beginHandling=(agf,operation,legacyDelayMs)=>{
-    const expected=resolveInterfaceNode(topology,operation==='pickup'?tasks.get(agf.taskId).originId:tasks.get(agf.taskId).destinationId);
+    const expected=resolveNode(operation==='pickup'?tasks.get(agf.taskId).originId:tasks.get(agf.taskId).destinationId);
     required(agf.currentNodeId===expected,'handling before individual interface arrival');
     const phases=handlingDurations(motionControl,operation);
     if(phases.kind==='unresolved'){holdMotion(agf,'HANDLING_PHASES_UNRESOLVED',{operation});return;}
@@ -818,7 +820,7 @@ export function simulate(rawScenario) {
     for(const [lineId,ids] of lines){
       const palletId=ids.find(id=>!pallets.get(id).transportTaskId);
       if(!palletId)continue;
-      const p=pallets.get(palletId),nodeId=resolveInterfaceNode(topology,lineId);
+      const p=pallets.get(palletId),nodeId=resolveNode(lineId);
       const reservation=linePickupReservations.get(nodeId);
       const blockers=pickupOccupants(nodeId);
       if(reservation||blockers.length){
@@ -995,7 +997,7 @@ export function simulate(rawScenario) {
       const t=tasks.get(id);
       if (t.status !== 'queued') continue;
       if(graphMode&&t.kind==='01'){
-        const blockers=pickupOccupants(resolveInterfaceNode(topology,t.originId));
+        const blockers=pickupOccupants(resolveNode(t.originId));
         if(blockers.length){
           if(deferHead(t,'PICKUP_LOCATION_OCCUPIED',{blockers,
             dispatchSelection:taskGateSelection(t,'PICKUP_LOCATION_OCCUPIED')}))break;continue;
@@ -1033,7 +1035,7 @@ export function simulate(rawScenario) {
         const availableValues=values.filter(a=>available(a,byEvaluation.get(a.id)));
         const availability={stage:'availability',pass,eligibleAgfIds:availableValues.map(a=>a.id).sort(),
           excluded:evaluations.filter(e=>e.exclusionReason).map(e=>({agfId:e.agfId,exclusionReason:e.exclusionReason})).sort(evaluationOrder)};
-        const nodeOrigin=graphMode?graphNodes.get(resolveInterfaceNode(topology,t.originId)):null;
+        const nodeOrigin=graphMode?graphNodes.get(resolveNode(t.originId)):null;
         const originArea=t.originArea??nodeOrigin?.areaId;
         const decision=selectAgfWithReason(availableValues.map(a=>a.status==='dispatch_pending'?{...a,status:'idle'}:a),
           {originArea,destinationArea:t.destinationArea},{mode:scenario.mode,reservePct:battery.reservePct,
@@ -1059,7 +1061,7 @@ export function simulate(rawScenario) {
         for(const candidate of agfs){
           if(!available(candidate)||candidate.batteryPct<=battery.reservePct)continue;
           const empty=routeFor(candidate.currentNodeId,t.originId,'empty',t.kind);
-          const originNodeId=resolveInterfaceNode(topology,t.originId);
+          const originNodeId=resolveNode(t.originId);
           const loaded=originNodeId?routeFor(originNodeId,t.destinationId,'loaded',t.kind):null;
           const evaluation=routeEvaluations.get(candidate.id);
           evaluation.pickupRouteReachable=!!empty;evaluation.loadedRouteReachable=!!loaded;
@@ -1318,6 +1320,8 @@ export function simulate(rawScenario) {
       if(task)task.wrapperInputWaitMs=(task.wrapperInputWaitMs??0)+elapsed;
     }
   };
+  let nextProgressMs=0;
+  onProgress?.({timeMs:0,durationMs,eventCount:history.length});
   while(queue.length) {
     // A displayed-time operator input follows endogenous events already visible
     // at that instant, including dynamically scheduled pickup/drop events. This
@@ -1336,6 +1340,10 @@ export function simulate(rawScenario) {
     advanceWrapperWait(e.timeMs);
     batteryLedger?.advance(now,e.timeMs,tasks);
     now=e.timeMs;
+    if(onProgress&&now>=nextProgressMs){
+      onProgress({timeMs:now,durationMs,eventCount:history.length});
+      nextProgressMs=now+Math.max(1,Math.ceil(durationMs/100));
+    }
     if(e.type==='TRAFFIC_DEADLOCK_CHECK'){
       deadlockChecks.delete(now);
       // Release wakes same-time waiters. Diagnose only after those requests
@@ -1500,7 +1508,7 @@ export function simulate(rawScenario) {
       let linePickup=null;
       required(t?.status==='moving_empty' && a?.taskId===t.id && ['moving_empty','picking_fork_inserted'].includes(a.status),
         'pickup without assignment');
-      if(graphMode)required(a.currentNodeId===resolveInterfaceNode(topology,t.originId),
+      if(graphMode)required(a.currentNodeId===resolveNode(t.originId),
         'pickup before individual interface arrival');
       if (t.kind==='01') {
         const lineId=pallets.get(t.palletId).lineId,l=lines.get(lineId),quantityBefore=l.length;
@@ -1538,7 +1546,7 @@ export function simulate(rawScenario) {
     } else if (e.type === 'DROPOFF') {
       const t=tasks.get(e.taskId),a=agfs.find(a=>a.id===t?.agfId);
       required(t?.status==='moving_loaded' && a?.taskId===t.id,'drop without pickup');
-      if(graphMode)required(a.currentNodeId===resolveInterfaceNode(topology,t.destinationId),
+      if(graphMode)required(a.currentNodeId===resolveNode(t.destinationId),
         'dropoff before individual interface arrival');
       completeDrop(t,a);
     } else if (e.type === 'WRAP_FINISHED') {
@@ -1678,13 +1686,23 @@ export function simulate(rawScenario) {
           movement.waitingReason=null;
           movement.current={edgeId:step.edgeId,laneId:entered.laneId,fromNodeId:step.fromNodeId,
             toNodeId:step.toNodeId,enteredAt:now,exitAt:now+step.durationMs,
+            ...(step.vehicleTravelDirection?{vehicleTravelDirection:step.vehicleTravelDirection,
+              vehicleSpeedMmPerSec:step.vehicleSpeedMmPerSec,vehicleSpeedEvidence:step.vehicleSpeedEvidence,
+              vehicleDirectionEvidence:step.vehicleDirectionEvidence,
+              ...(step.serviceNodeId?{serviceNodeId:step.serviceNodeId,serviceMotionPhase:step.serviceMotionPhase}:{})}:{}),
             futureResourceIds:entered.futureResourceIds??[],
             ...(step.displayPath?{displayPath:clone(step.displayPath)}:{})};
           a.status=movement.movement==='empty'?'moving_empty':movement.movement==='loaded'?'moving_loaded':
             movement.movement==='wait'?'moving_to_wait':'moving_to_charge';
-          a.headingDeg=heading(step.fromNodeId,step.toNodeId);a.heading=cardinalHeading(a.headingDeg);
+          const travelHeadingDeg=heading(step.fromNodeId,step.toNodeId);
+          a.headingDeg=vehicleFrontHeading(travelHeadingDeg,step.vehicleTravelDirection);a.heading=cardinalHeading(a.headingDeg);
           record('SEGMENT_ENTERED',{taskId:movement.taskId,agfId:a.id,edgeId:step.edgeId,
             laneId:entered.laneId,fromNodeId:step.fromNodeId,toNodeId:step.toNodeId,
+            ...(step.vehicleTravelDirection?{vehicleTravelDirection:step.vehicleTravelDirection,
+              vehicleSpeedMmPerSec:step.vehicleSpeedMmPerSec,vehicleSpeedEvidence:step.vehicleSpeedEvidence,
+              vehicleDirectionEvidence:step.vehicleDirectionEvidence,
+              ...(step.serviceNodeId?{serviceNodeId:step.serviceNodeId,serviceMotionPhase:step.serviceMotionPhase}:{}),
+              travelHeadingDeg,forkHeadingDeg:forkHeading(a.headingDeg)}:{}),
             movement:movement.movement,heading:a.heading,headingDeg:a.headingDeg,modelDurationMs:step.durationMs});
           const sourceTaskId=linePickupReservations.get(step.fromNodeId),sourceTask=tasks.get(sourceTaskId);
           // A zero-distance handoff may finish while still occupying its source.
@@ -1767,7 +1785,11 @@ export function simulate(rawScenario) {
     record('RUN_ENDED',{batteryModel:'active_time'});
   }
   // Final state remains an independent, editable result for existing consumers.
-  return {scenario,events:history,snapshots,final:{...snapshot(),agfs:clone(agfs),tasks:clone([...tasks.values()]),pallets:clone([...pallets.values()]),
+  // The terminal review frame is editable too; detach it from shared replay
+  // versions so review-side edits cannot affect earlier frames or events.
+  snapshots[snapshots.length-1]={...snapshots.at(-1),agfs:clone(snapshots.at(-1).agfs)};
+  onProgress?.({timeMs:durationMs,durationMs,eventCount:history.length});
+  return {scenario,events:history,snapshots,final:{...snapshot(),agfs:clone(agfStates.snapshot()),tasks:[...tasks.values()].map(t=>clone({...t})),pallets:[...pallets.values()].map(p=>clone({...p})),
     warehouse:clone(snapshotWarehouse())},metrics:{
     ...stats,pendingTasks:[...tasks.values()].filter(t=>t.status!=='completed').length,
     elapsedMin:scenario.durationMin,scenarioTiming:graphMode?'synthetic-graph-assumption':'assumption-not-measured',

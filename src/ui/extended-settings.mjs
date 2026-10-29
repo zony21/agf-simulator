@@ -5,6 +5,7 @@ import {escapeHtml as esc,locationName} from './format.mjs';
 import {CONFIRMED_LINE_MAGAZINE_MAP,alignerRefillPolicyDescription} from './scenario.mjs';
 import {validateTaskPriorities} from '../core/task-priority.mjs';
 import {DEFAULT_WAREHOUSE_SHIPPING,validateWarehouseShipping} from '../core/warehouse-shipping.mjs';
+import {renderVehicleTravelSettings,vehicleTravelProfileFromSettings} from './vehicle-travel-settings.mjs';
 
 export const warehouseSettingsRowIds=s=>orderedWarehouseRowIds(s.warehouse??[]);
 const rowIdsFor=warehouseSettingsRowIds;
@@ -132,7 +133,7 @@ export function renderMotionSettings(s){
   return `<p class="notice">方向変更は停止 → 旋回 → 再発進。初期の旋回角速度12.1 deg/sは、カタログ旋回半径1.424m・積載旋回速度0.3m/sから求めた等価角速度の暫定値です。停止旋回の実測値ではありません。荷役4相も暫定シミュレーション値で、実機検証後に変更できます。空欄の値は補完せず保留します。</p>
     <div class="fields">${motionFields.map(([key,label,min])=>`<label>${label}<input type="number" min="${min}" step="0.001" data-motion-setting="${key}" aria-label="${label}" placeholder="未確定" value="${control[key]??''}"></label>`).join('')}
     <label>旋回の電池消費<select data-motion-setting="turningConsumesBattery" aria-label="旋回の電池消費"><option value="" ${control.turningConsumesBattery==null?'selected':''}>未確定 · 時間分類のみ</option><option value="true" ${control.turningConsumesBattery===true?'selected':''}>稼働消費へ含める · 明示条件</option><option value="false" ${control.turningConsumesBattery===false?'selected':''}>消費対象外 · 明示条件</option></select></label></div>
-    <p class="muted">旋回角速度：${rateEvidence}。荷役相：${phaseEvidence}。角度÷角速度で停止旋回時間を計算します。既存時間の自動分割はしません。</p>`;
+    <p class="muted">旋回角速度：${rateEvidence}。荷役相：${phaseEvidence}。角度÷角速度で停止旋回時間を計算します。既存時間の自動分割はしません。</p>${renderVehicleTravelSettings(s)}`;
 }
 /** Convert explicitly entered values; empty controls never become zero assumptions. */
 export function motionControlFromSettings(previous={},values){
@@ -171,6 +172,11 @@ function readMotionSettings(s){
   if(s.motionModel!=='synthetic_graph')return;
   const values=Object.fromEntries([...document.querySelectorAll('[data-motion-setting]')].map(input=>[input.dataset.motionSetting,input.value]));
   s.motionControl=motionControlFromSettings(s.motionControl,values);
+  if(s.vehicleTravelProfile){
+    const travelValues=Object.fromEntries([...document.querySelectorAll('[data-vehicle-speed],[data-vehicle-direction]')]
+      .map(input=>[input.dataset.vehicleSpeed??input.dataset.vehicleDirection,input.value]));
+    s.vehicleTravelProfile=vehicleTravelProfileFromSettings(s.vehicleTravelProfile,travelValues);
+  }
 }
 export function loadSyntheticSettingsExample(s){
   readSupplySettings(s);

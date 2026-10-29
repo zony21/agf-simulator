@@ -22,6 +22,7 @@
     </nav><div class="sidebar-bottom"><span class="badge sample">◇ 合成シナリオ</span><p>設備制御なし<br>ローカル分析用</p><button id="open-cad">▧ CAD・経路レビュー</button><small>図面は端末内で読み込み</small></div></aside>
     <main>
       <div id="error" role="alert" hidden></div><div id="notification" role="status" hidden></div>
+      <div id="simulation-job" class="notice simulation-job" hidden><div role="status" aria-live="polite"><strong id="simulation-progress-label">計算を準備中</strong><progress id="simulation-progress" max="100" value="0" aria-label="シミュレーション計算の進捗"></progress><span class="muted">計算中も画面を切り替えられます。中止・失敗時は以前の結果を保持します。</span></div><button id="cancel-simulation" type="button">計算を中止</button></div>
       <div class="run-strip"><span><i class="status-dot"></i><b id="run-state">実行結果を準備中</b> <span id="run-context"></span></span><span id="dirty-state" class="badge" hidden>設定変更あり · 再実行で反映</span><span class="strip-note">概念配置 / 合成グラフ時間は仮定値</span></div>
 
       <section id="view-monitor" class="view" aria-labelledby="monitor-title">

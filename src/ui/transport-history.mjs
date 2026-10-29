@@ -187,14 +187,14 @@ export function buildTransportHistoryRows(run,{timeMs=Infinity,agfId='',taskId='
   for(const {event,index} of ordered){
     if(event.timeMs>timeMs)break;
     const definition=businessEvents[event.type];if(!definition)continue;
-    const saved=run.snapshots?.[index],task=saved?.tasks?.find(task=>task.id===event.taskId)??finalTasks.get(event.taskId);
+    const saved=run.snapshots?.[index],task=saved?.tasks?.findLast(task=>task.id===event.taskId)??finalTasks.get(event.taskId);
     const preTask=productionTypes.has(event.type),eventTaskId=preTask?null:event.taskId;
     const assigned=preTask?null:event.type==='TASK_ASSIGNED'?event.agfId??event.dispatchSelection?.selectedAgfId??null:
       event.type==='TASK_WAITING'&&hasEvaluations(event.dispatchSelection)?
       event.dispatchSelection.selectedAgfId:event.agfId??(event.type==='TASK_REQUESTED'?null:task?.agfId);
     const agf=saved?.agfs?.find(agf=>agf.id===assigned);
     const palletId=event.palletId??event.plannedPalletId??task?.palletId??(event.type==='WAREHOUSE_SHIPMENT_PICKED'?event.palletIds?.join(' / '):null);
-    const pallet=saved?.pallets?.find(pallet=>pallet.palletId===palletId);
+    const pallet=saved?.pallets?.findLast(pallet=>pallet.palletId===palletId);
     const source=event.lineId??event.sourceLineId??task?.sourceLineId??pallet?.sourceLineId??pallet?.lineId??(/^L[1-8]$/.test(task?.originId??'')?task.originId:null);
     const lineId=/^L[1-8]$/.test(source??'')?source:dash;
     const heldKind=({TASK_01_HELD:'01',TASK_02_HELD:'02'})[event.type];

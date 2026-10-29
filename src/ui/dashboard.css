@@ -64,3 +64,4 @@ dialog{background:#1e293b;border:1px solid #4b627c;border-radius:14px;color:#f8f
 .transport-history td.agf-state{white-space:normal;min-width:160px;line-height:1.6}
 .transport-history td:nth-child(12),.transport-history td:nth-child(13),.transport-history td:nth-child(14){white-space:normal;min-width:150px;line-height:1.6}
 .history-actions{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:14px}.history-actions .actions{flex-wrap:wrap}
+.simulation-job{display:flex;align-items:center;gap:16px;margin:16px 0}.simulation-job>div{display:grid;gap:7px;flex:1;min-width:0}.simulation-job progress{width:100%;height:12px;accent-color:#06b6d4}.simulation-job button{flex-shrink:0}

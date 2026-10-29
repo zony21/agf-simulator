@@ -1,23 +1,23 @@
-import {simulate} from '../core/simulate.mjs';
+import {createSimulationRunner} from './simulation-runner.mjs';
 import {projectBatteryPct,batteryModel} from '../core/battery-model.mjs';
 import {projectAgfPosition} from '../core/motion-projection.mjs';
 import {createDemoScenario,initialAgfFromSettings,alignerRefillPolicyDescription} from './scenario.mjs';
 import {syntheticMetricLayout} from '../../examples/synthetic-metric-layout.mjs';
 import {loadLocalMetricProfile} from './metric-profile.mjs';
-import {snapshotIndexAt,replayFrameTime,analyzeRun,compareRuns,effectiveStatus,workingStatuses} from './replay-model.mjs';
+import {snapshotIndexAt,replayFrameTime,effectiveStatus,workingStatuses} from './replay-model.mjs';
 import {installPlaybackShortcut} from './playback-shortcuts.mjs';
 import {initMap,renderWarehouseBlock,describeSlot} from './map-view.mjs';
-import {renderAnalysis,renderComparison,metric} from './analysis-view.mjs';
+import {metric} from './analysis-view.mjs';
 import {initCadPanel} from './cad-panel.mjs';
 import {populateExtendedSettings,readExtendedSettings,loadSyntheticSettingsExample,organizeSettings} from './extended-settings.mjs';
 import {eventCsv,conditionCsv,conditionCsvFilename} from './export.mjs';
 import {customerConditionsCsv,transportResultsCsv,agfResultsCsv,shippingResultsCsv,transportHistoryCsv,customerCsvFilename} from './customer-export.mjs';
-import {TRANSPORT_HISTORY_COLUMNS,buildTransportHistoryRows,renderTransportHistoryRows} from './transport-history.mjs';
-import {appendRunInput,createInitialPreview} from './run-input.mjs';
+import {TRANSPORT_HISTORY_COLUMNS,renderTransportHistoryRows} from './transport-history.mjs';
+import {scenarioWithRunInput,createInitialPreview} from './run-input.mjs';
 import {warehouseOwnerLegend} from './warehouse-colors.mjs';
 import {nativeInvalidFields,applySettingsError,clearSettingsErrors} from './settings-validation.mjs';
 import {WAREHOUSE_BLOCKS,FLEXIBLE_WAREHOUSE_AREA} from '../map/warehouse-layout.mjs';
-import {escapeHtml as esc,clock,states,stateLabel,taskNames,reasons,eventNames,areaName,locationName,badge,productLabel,headingLabel,turnDescription} from './format.mjs';
+import {escapeHtml as esc,clock,states,stateLabel,taskNames,reasons,eventNames,areaName,locationName,badge,productLabel,vehicleHeadingLabel,turnDescription} from './format.mjs';
 
 const $=id=>document.getElementById(id);
 const timeFields=[['emptyMin','空走（分）'],['loadedMin','積載走行（分）'],['pickupMin','荷受け（分）'],
@@ -36,6 +36,9 @@ let base=createScenario(),result=null,preview=null,analysis=null,comparison=null
 let timeMs=0,currentIndex=-1,batterySecond=-1,selectedAgf='AGF1',activeView='monitor',dirty=false,frame=null,anchor=null;
 let selectedBlock='WB1',reservationKind='05';
 let transportHistory=[],historyPage=null;
+let analysisDetailsHtml='';
+const simulationRunner=createSimulationRunner();
+const calculationControls=new Map();
 const map=initMap({svg:$('map'),onSelectAgf:selectAgf,onSelectBlock:openWarehouse});
 document.querySelector('.map-legend').insertAdjacentHTML('afterend',warehouseOwnerLegend());
 organizeSettings();
@@ -141,15 +144,16 @@ function showView(view) {
   history.replaceState(null,'','#'+view);
   window.scrollTo({top:0,left:0});
 }
-function adoptRun(next,at=0) {
-  pause();result=next;base=structuredClone(next.scenario);analysis=analyzeRun(next);
-  transportHistory=buildTransportHistoryRows(next);historyPage=null;
-  runId='LOCAL-'+String(++runNumber).padStart(3,'0');next.runId=runId;next.executedAt=new Date().toISOString();
+function adoptRun(prepared,at=0) {
+  const next=prepared.run;
+  pause();result=next;base=structuredClone(next.scenario);analysis=prepared.analysis;
+  transportHistory=prepared.transportHistory;historyPage=null;analysisDetailsHtml=prepared.analysisDetailsHtml;
+  runNumber++;runId=next.runId;
   timeMs=Math.min(at,next.scenario.durationMin*60000);currentIndex=-1;
   markDirty(false);$('seek').max=String(analysis.durationMs);$('end-clock').textContent=clock(analysis.durationMs);
   const modeLabel={area_first:'搬送先エリア優先',low_battery_first:'バッテリー残量優先',source_area_agf_priority:'荷受け元エリア・AGF順位'}[next.scenario.mode]??'選定方式未設定';
   $('run-state').textContent='計算済み';$('run-context').textContent=`${runId} · ${next.scenario.durationMin}分 · ${modeLabel}`;
-  $('analysis-run').textContent=runId+' / 全期間の結果';$('analysis-body').innerHTML=renderAnalysis(next,analysis);
+  $('analysis-run').textContent=runId+' / 全期間の結果';$('analysis-body').innerHTML=prepared.analysisHtml;
   comparison=null;$('comparison-body').innerHTML='<div class="empty-state"><span>⇄</span><h2>同一条件で選定方式を比較</h2><p>「比較実行」で現在の設定を計算します。</p></div>';
   syncRunControls();
   setTime(timeMs,true);
@@ -157,7 +161,7 @@ function adoptRun(next,at=0) {
 function syncRunControls(){for(const id of ['play','pause','stop','seek','next-event','csv','conditions-csv','customer-conditions-csv','transport-results-csv','agf-results-csv','shipping-results-csv','transport-history-csv','manual04','manual05'])$(id).disabled=!result;}
 function showInitialPreview(){
   pause();result=null;analysis=null;comparison=null;runId='';timeMs=0;currentIndex=0;
-  transportHistory=[];historyPage=null;
+  transportHistory=[];historyPage=null;analysisDetailsHtml='';
   preview=createInitialPreview(base);$('clock').textContent=clock(0);$('seek').value='0';
   $('end-clock').textContent=clock(base.durationMin*60000);
   $('run-state').textContent='未実行 · 初期状態';$('run-context').textContent=base.lineMagazineMapPolicy==='fixed'?
@@ -166,7 +170,30 @@ function showInitialPreview(){
   $('analysis-run').textContent='未実行';$('analysis-body').innerHTML='<p class="notice">実行後に保存済みRunの結果と条件を表示します。</p>';
   syncRunControls();renderSnapshot();
 }
-function execute(){clearError();try{const candidate=simulate(scenarioFromSettings());adoptRun(candidate);notify('設定を反映して計算しました。再生・シークで各時刻の状態を確認できます。');return true;}catch(error){showError(error,{settings:true});return false;}}
+function calculationState(busy){
+  $('simulation-job').hidden=!busy;$('settings-form').inert=busy;
+  if(busy){
+    for(const element of document.querySelectorAll('#run,#run-settings,#compare,#compare-page,#reset,#scenario-select,#mode,#load-storage-example,#manual04,#manual05,[data-refill-aligner],[data-refill-all],#reservation-form button[type="submit"]')){
+      calculationControls.set(element,element.disabled);element.disabled=true;
+    }
+    $('simulation-progress').value=0;$('simulation-progress-label').textContent='計算を準備中';
+    $('simulation-job').scrollIntoView({block:'start'});
+  }else{for(const [element,disabled] of calculationControls)element.disabled=disabled;calculationControls.clear();syncRunControls();}
+}
+async function calculate(scenario,kind='run'){
+  if(simulationRunner.busy)throw new Error('現在計算中です。完了を待つか中止してください。');
+  pause();calculationState(true);
+  try{return await simulationRunner.run(scenario,{kind,runId:'LOCAL-'+String(runNumber+1).padStart(3,'0'),executedAt:new Date().toISOString(),
+    onProgress:p=>{
+      if(p.phase==='results'){$('simulation-progress').removeAttribute('value');$('simulation-progress-label').textContent='結果・履歴を整理中';return;}
+      const pct=Math.min(100,Math.floor(100*((p.runIndex??0)+p.timeMs/p.durationMs)/(p.runCount??1)));
+      $('simulation-progress').value=pct;
+      $('simulation-progress-label').textContent=`計算中 ${pct}%${p.runCount>1?` · ${p.runIndex+1}/${p.runCount}方式`:''} · ${clock(p.timeMs)} / ${clock(p.durationMs)}`;
+    }});
+  }finally{calculationState(false);}
+}
+function calculationError(error,options={}){if(error.name==='AbortError')notify('計算を中止しました。以前の結果を保持しています。');else showError(error,options);}
+async function execute(){clearError();try{const candidate=await calculate(scenarioFromSettings());adoptRun(candidate);notify('設定を反映して計算しました。再生・シークで各時刻の状態を確認できます。');return true;}catch(error){calculationError(error,{settings:true});return false;}}
 function pause(){if(frame!==null)cancelAnimationFrame(frame);frame=null;anchor=null;$('play').setAttribute('aria-pressed','false');}
 function play(){if(!result||frame!==null)return;if(timeMs>=analysis.durationMs)setTime(0);
   anchor={sim:timeMs,wall:null,speed:numeric('speed')};$('play').setAttribute('aria-pressed','true');
@@ -200,7 +227,7 @@ function renderBattery(){for(const a of snapshot().agfs){
 }}
 function renderHeadings(agfs){for(const a of agfs){
   document.querySelectorAll(`[data-heading-text="${a.id}"]`).forEach(el=>{
-    const label=headingLabel(a.heading,a.headingDeg);if(el.textContent!==label)el.textContent=label;
+    const label=vehicleHeadingLabel(a);if(el.textContent!==label)el.textContent=label;
   });
   document.querySelectorAll(`[data-turn-detail="${a.id}"]`).forEach(el=>{
     const label=turnDescription(a,timeMs);if(el.textContent!==label)el.textContent=label;
@@ -224,13 +251,13 @@ function renderSnapshot(){const run=result??preview;if(!run)return;const snap=sn
       <div class="agf-card-head"><span class="agf-id"><span class="vehicle-number">${i+1}</span>${esc(a.id)}</span>${badge(status,stateLabel(a.status==='waiting_charge_place'?a.status:status,run.scenario.motionModel==='synthetic_graph'))}</div>
       <div class="battery-line"><span>電池</span><span class="battery-track"><i data-battery-bar="${a.id}" class="${a.batteryPct<run.scenario.battery.chargeStartPct?'low':''}" style="width:${a.batteryPct}%"></i></span><b data-battery-text="${a.id}">${a.batteryPct.toFixed(1)}%</b></div>
       <dl class="agf-details"><dt>タスク</dt><dd>${task?esc(task.id)+' / '+task.kind:'—'}</dd><dt>搬送元 → 先</dt><dd>${task?esc(locationName(task.originId))+' → '+esc(locationName(task.destinationId)):'—'}</dd>
-      <dt>積載</dt><dd>${esc(a.carriedPalletId??'なし')}</dd><dt>現在位置</dt><dd>${esc(a.currentNodeId?locationName(a.currentNodeId):areaName(a.area)+'（概念エリア）')}</dd><dt>方向</dt><dd data-heading-text="${esc(a.id)}">${esc(headingLabel(a.heading,a.headingDeg))}</dd>
+      <dt>積載</dt><dd>${esc(a.carriedPalletId??'なし')}</dd><dt>現在位置</dt><dd>${esc(a.currentNodeId?locationName(a.currentNodeId):areaName(a.area)+'（概念エリア）')}</dd><dt>方向</dt><dd data-heading-text="${esc(a.id)}">${esc(vehicleHeadingLabel(a))}</dd>
       ${a.status==='turning'?`<dt>停止旋回</dt><dd data-turn-detail="${esc(a.id)}">${esc(turnDescription(a,timeMs))}</dd>`:''}
       ${a.status==='waiting_motion_configuration'?`<dt>保留理由</dt><dd>${esc(reasons[task?.waitReason??a.movement?.waitingReason]??task?.waitReason??a.movement?.waitingReason??'未確定の走行・荷役設定を確認してください')}</dd>`:''}</dl></button>`;
   }).join('');
   const selected=snap.agfs.find(a=>a.id===selectedAgf),task=snap.tasks.find(t=>t.id===selected?.taskId);
   const movement=selected?.movement,current=movement?.current;
-  $('route-detail').innerHTML=`<b>${esc(selectedAgf)}</b> ${task?`${esc(task.id)} · ${task.kind} ｜ ${esc(locationName(task.originId))} → ${esc(locationName(task.destinationId))}<br>`:'｜ 実行中タスクなし · '}<span class="muted">${current?`合成区間 ${esc(current.edgeId)} / ${esc(current.fromNodeId)} → ${esc(current.toNodeId)} / <span data-heading-text="${esc(selectedAgf)}">${esc(headingLabel(selected.heading,selected.headingDeg))}</span>`:'実CAD経路・確定ETAは未承認'}</span>${selected?.status==='turning'?`<br><span data-turn-detail="${esc(selectedAgf)}">${esc(turnDescription(selected,timeMs))}</span>`:''}`;
+  $('route-detail').innerHTML=`<b>${esc(selectedAgf)}</b> ${task?`${esc(task.id)} · ${task.kind} ｜ ${esc(locationName(task.originId))} → ${esc(locationName(task.destinationId))}<br>`:'｜ 実行中タスクなし · '}<span class="muted">${current?`合成区間 ${esc(current.edgeId)} / ${esc(current.fromNodeId)} → ${esc(current.toNodeId)} / <span data-heading-text="${esc(selectedAgf)}">${esc(vehicleHeadingLabel(selected))}</span>`:'実CAD経路・確定ETAは未承認'}</span>${selected?.status==='turning'?`<br><span data-turn-detail="${esc(selectedAgf)}">${esc(turnDescription(selected,timeMs))}</span>`:''}`;
   $('charger-list').innerHTML=Object.entries(snap.chargers).map(([id,agf],i)=>`<div class="charger-row"><span>ϟ 充電器 ${i+1}</span><b>${agf?esc(agf)+' · 充電中':'○ 空き'}</b></div>`).join('');
   const chip=(label,ready=false)=>`<span class="equipment-chip${ready?' ready':''}">${esc(label)}</span>`;
   $('equipment-list').innerHTML=[
@@ -243,7 +270,7 @@ function renderSnapshot(){const run=result??preview;if(!run)return;const snap=sn
     ['マガジン',Object.values(snap.magazines).map(m=>chip(m.id+' '+m.quantity+'枚'+(m.pending?' 03搬送中':m.refillNeeded?' 補充必要':''),m.refillNeeded)).join('')],
     ['整列機・倉庫',Object.values(snap.aligners).map(a=>chip(a.id+' '+(a.quantity??(a.ready?10:0))+'枚'+(a.reservedTaskId?' 予約済':'') ,a.ready)).join('')+`<p>倉庫内 ${Object.values(snap.warehouse).reduce((n,s)=>n+s.palletIds.length,0)} PL · Runの合成在庫</p>`]
   ].map(([title,content])=>`<div class="equipment-group"><h3>${title}</h3><div class="equipment-chips">${content}</div></div>`).join('');
-  renderLog();renderTasks();if($('warehouse-dialog').open)renderWarehouse();
+  renderLog();if(activeView==='tasks')renderTasks();if($('warehouse-dialog').open)renderWarehouse();
 }
 function renderLog(){
   if(!result){$('log-count').textContent='未実行';$('log').innerHTML=`<tr><td colspan="${TRANSPORT_HISTORY_COLUMNS.length}" class="empty-cell">初期状態のプレビューです。設定を反映して実行すると搬送履歴を表示します。</td></tr>`;
@@ -291,20 +318,20 @@ function openReservation(kind){clearError();try{requireSavedSettings();pause();r
  }catch(error){showError(error);}}
 function syncTemporary(){const temp=snapshot().temporaryPallets.find(p=>p.palletId===$('temp-pallet').value);
   if(temp){$('temp-location').value=temp.locationId;$('manual-slot').value=temp.destinationLocationId;}}
-function addInput(listName,entry) {requireSavedSettings();const next=appendRunInput(result,listName,entry);
-  adoptRun(next,timeMs);notify('手動入力を追加して再計算しました。表示時刻を維持しています。');}
-function reserve(event){event.preventDefault();$('reservation-error').hidden=true;try{
+async function addInput(listName,entry) {requireSavedSettings();const at=timeMs,next=await calculate(scenarioWithRunInput(result,listName,entry));
+  adoptRun(next,at);notify('手動入力を追加して再計算しました。表示時刻を維持しています。');}
+async function reserve(event){event.preventDefault();$('reservation-error').hidden=true;try{
   if(!$('permission').checked)throw new Error('explicit permission');
   const palletId=$('temp-pallet').value;if(!palletId)throw new Error('この時刻に利用できる仮置きパレットがありません。');
   if(result.scenario.manualRequests.some(r=>r.palletId===palletId))throw new Error('duplicate reservation');
   const entry={timeMs,kind:reservationKind,palletId,locationId:$('temp-location').value,requestedBy:'local-simulator-ui'};
   if(reservationKind==='04')entry.reentryPermission=true;
   else{entry.storagePermission=true;if(!result.scenario.warehousePolicy)entry.destinationLocationId=$('manual-slot').value;}
-  addInput('manualRequests',entry);$('reservation-dialog').close();
- }catch(error){$('reservation-error').textContent=friendlyError(error);$('reservation-error').hidden=false;}}
-function compare(){pause();clearError();try{const scenario=scenarioFromSettings();comparison=compareRuns(scenario);
-  $('comparison-body').innerHTML=renderComparison(comparison);showView('comparison');notify(comparison.length+'方式を同一入力で比較しました。比較条件はこの結果に保持しています。');
- }catch(error){showError(error,{settings:true});}}
+  const job=addInput('manualRequests',entry);$('reservation-dialog').close();await job;
+ }catch(error){if($('reservation-dialog').open){$('reservation-error').textContent=friendlyError(error);$('reservation-error').hidden=false;}else calculationError(error);}}
+async function compare(){pause();clearError();try{comparison=await calculate(scenarioFromSettings(),'compare');
+  $('comparison-body').innerHTML=comparison.html;showView('comparison');notify(comparison.count+'方式を同一入力で比較しました。比較条件はこの結果に保持しています。');
+ }catch(error){calculationError(error,{settings:true});}}
 
 populateSettings(base);
 $('load-storage-example').addEventListener('click',()=>{clearError();try{const candidate=structuredClone(base);loadSyntheticSettingsExample(candidate);base=candidate;markDirty();notify('行割当を初期値と同じ値に戻しました。「実行」で反映します。');}catch(error){showError(error,{settings:true});}});
@@ -313,7 +340,10 @@ document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',(
 $('settings-form').addEventListener('submit',event=>event.preventDefault());
 $('settings-form').addEventListener('input',event=>{markDirty();clearSettingsErrors($('settings-form'));if(event.target.id==='battery-model')syncBatteryFields();});$('mode').addEventListener('change',()=>{markDirty();$('agf-priority-fields').hidden=$('mode').value!=='source_area_agf_priority';});
 $('scenario-select').addEventListener('change',()=>{pause();base=createScenario($('scenario-select').value);populateSettings(base);markDirty();notify('シナリオを設定欄に読み込みました。「実行」で反映します。');});
-$('run').addEventListener('click',execute);$('run-settings').addEventListener('click',()=>{if(execute())showView('monitor');});
+$('run').addEventListener('click',execute);$('run-settings').addEventListener('click',async()=>{if(await execute())showView('monitor');});
+$('cancel-simulation').addEventListener('click',()=>simulationRunner.cancel());
+$('analysis-body').addEventListener('toggle',event=>{const details=event.target;if(!details.matches('details[data-lazy-analysis]'))return;
+  const body=details.querySelector('[data-analysis-details]');if(details.open)body.innerHTML=analysisDetailsHtml;else body.replaceChildren();},true);
 $('reset').addEventListener('click',()=>{pause();clearError();base=createScenario($('scenario-select').value);populateSettings(base);markDirty(false);showInitialPreview();});
 $('compare').addEventListener('click',compare);$('compare-page').addEventListener('click',compare);
 $('play').addEventListener('click',play);$('pause').addEventListener('click',pause);$('stop').addEventListener('click',()=>{pause();setTime(0);});
@@ -334,8 +364,8 @@ $('warehouse-tier').addEventListener('change',renderWarehouse);$('block-tabs').a
 $('warehouse-body').addEventListener('click',event=>{const b=event.target.closest('[data-slot]');if(b)$('slot-detail').textContent=describeSlot(b.dataset.slot,snapshot());});
 document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>$(b.dataset.close).close()));
 $('manual04').addEventListener('click',()=>openReservation('04'));$('manual05').addEventListener('click',()=>openReservation('05'));$('temp-pallet').addEventListener('change',syncTemporary);$('reservation-form').addEventListener('submit',reserve);
-document.addEventListener('click',event=>{const target=event.target.closest('[data-refill-aligner],[data-refill-all]');if(!target)return;
-  clearError();pause();try{addInput('alignerRefillEvents',{timeMs,alignerId:target.dataset.refillAligner??null,operationType:target.hasAttribute('data-refill-all')?'all':'individual'});}catch(error){showError(error);}});
+document.addEventListener('click',async event=>{const target=event.target.closest('[data-refill-aligner],[data-refill-all]');if(!target)return;
+  clearError();pause();try{await addInput('alignerRefillEvents',{timeMs,alignerId:target.dataset.refillAligner??null,operationType:target.hasAttribute('data-refill-all')?'all':'individual'});}catch(error){calculationError(error);}});
 function downloadCsv(contents,filename){const url=URL.createObjectURL(new Blob([contents],{type:'text/csv;charset=utf-8'}));
   const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify(filename+' を出力しました。保存済みRunの条件を使用しています。');}
 $('csv').addEventListener('click',()=>{if(result)downloadCsv(eventCsv(result,runId),runId+'-events.csv');});

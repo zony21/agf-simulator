@@ -21,6 +21,9 @@ export const evidenceLabel=evidence=>({
   'supplier-assumption-user-relayed':'供給元の想定・ユーザー共有',
   'theoretical-pallet-discharge-100pct':'設備能力100%の理論タクト',
   'explicit-scenario-setting':'この実行の明示条件',
+  'manufacturer-catalogue-reference-not-site-speed':'メーカー公開カタログ上限の参照・CE個体/現場速度未確認',
+  'provisional-normal-transfer-forward':'通常移動は前進とする暫定モデル条件',
+  'user-requested-fork-leading-approach-model':'ユーザー指定・荷役点へフォーク先頭で進入するモデル',
   'simulation-default-task-priorities':'シミュレーション初期設定（変更可能）',
   'user-requested-example-default':'ユーザー指定の初期行割当・既存例と同じ値',
   'user-confirmed-min-two-row-default':'ユーザー指定の初期行割当・各系列2行以上',
@@ -128,9 +131,25 @@ export function customerConditionRows(run){
   }
   for(const [movement,label] of [['empty','空荷走行速度'],['loaded','積載走行速度'],['charge','充電場所への走行速度'],['wait','待機場所への復帰速度']]){
     if(graph){
-      const speeds=[...new Set((s.operationalTopology?.edges??[]).map(edge=>edge.speedMmPerSec?.[movement]).filter(Number.isFinite))].sort((a,b)=>a-b).map(value=>value/1000);
-      add('speed.'+movement,'AGF走行条件',label,speeds.length===1?speeds[0]:speeds.length?speeds.join(' / '):null,'m/s','','synthetic-assumption');
+      const speeds=[...new Set((s.operationalTopology?.edges??[]).flatMap(edge=>[edge.speedMmPerSec?.[movement],
+        ...Object.values(edge.vehicleTravelByTraversal??{}).map(byMovement=>byMovement[movement]?.vehicleSpeedMmPerSec)]).filter(Number.isFinite))].sort((a,b)=>a-b).map(value=>value/1000);
+      add('speed.'+movement,'AGF走行条件',label,speeds.length===1?speeds[0]:speeds.length?speeds.join(' / '):null,'m/s','',s.vehicleTravelProfile?.speedEvidence??'synthetic-assumption');
     }else if(movement!=='wait')add('travel.'+movement,'AGF走行条件',label.replace('速度','固定移動時間'),s.times?.[{empty:'emptyMin',loaded:'loadedMin',charge:'chargeTravelMin'}[movement]],'分');
+  }
+  if(graph&&s.vehicleTravelProfile){
+    const p=s.vehicleTravelProfile;
+    add('vehicle.front','AGF走行条件','車体前方','フォークと反対側','','','user-confirmed');
+    add('vehicle.catalogueModel','AGF走行条件','速度参照型式',p.catalogueModel,'','',p.speedEvidence);
+    add('vehicle.ceVerified','AGF走行条件','CE個体仕様との一致確認',p.ceVariantVerified?'確認済み':'未確認','','',p.speedEvidence);
+    add('vehicle.source','AGF走行条件','速度の参照元',p.sourceUrl,'','',p.speedEvidence);
+    if(p.serviceApproachPolicy)add('vehicle.serviceApproach','AGF走行条件','設備・保管行への進入と退出',
+      '進入は後進（フォーク先頭）／退出は前進。既存の末端アクセス区間に適用。実停止位置・進入距離は未確認。','','',p.serviceApproachEvidence);
+    for(const load of ['empty','loaded'])for(const direction of ['forward','reverse'])
+      add('vehicle.speed.'+load+'.'+direction,'AGF走行条件',(load==='empty'?'空車':'積載')+'・'+(direction==='forward'?'前進':'後進')+'の直進設定',
+        p.straightMmPerSec[load][direction]/1000,'m/s','',p.speedEvidence);
+    for(const [movement,label] of [['empty','空走'],['loaded','積載'],['charge','充電移動'],['wait','待機復帰']])
+      add('vehicle.direction.'+movement,'AGF走行条件',label+'の通路での車体走行方向',
+        p.defaultDirection[movement]==='reverse'?'後進・フォークが先頭':'前進・フォークが後ろ','','',p.directionEvidence);
   }
   const control=s.motionControl??{};
   if(graph){

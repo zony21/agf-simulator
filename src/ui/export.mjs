@@ -16,6 +16,8 @@ export function eventCsv(run,runId) {
   const columns=['runId','mode','timeMs','sequence','type','kind','taskId','reservedTaskId','blockingTaskId','blockingTaskKind','blockingTaskPriority','prioritySourceId','taskPriority','requestSequence','palletId','agfId','originId','destinationId',
     'status','lineId','magazineId','locationId','reason','inputKind','edgeId','laneId','fromNodeId','toNodeId','nodeId','movement','heading','modelDurationMs',
     'headingDeg','fromHeadingDeg','targetHeadingDeg','angleDeg','startedAt','completedAt','turnDurationMs','turnRateDegPerSec','turnRateEvidence',
+    'vehicleTravelDirection','vehicleSpeedMmPerSec','vehicleSpeedEvidence','travelHeadingDeg','forkHeadingDeg',
+    'vehicleDirectionEvidence','serviceNodeId','serviceMotionPhase',
     'phase','phaseDurationMs','handlingEvidence','turningConsumesBattery','turningBatteryEvidence','motionControlJson',
     'planId','otherAgfId','blockedAgfId','agfIds','conflictGroupId','selectionReason','selectionEvidence','dispatchSelection','routeEvidence',
     'resourceIds','temporaryReverseEdgeIds','waitingPositionEvidence','waitMs','reservationCount','inputCount',

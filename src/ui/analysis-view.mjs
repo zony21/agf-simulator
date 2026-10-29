@@ -38,13 +38,15 @@ export function renderBufferAnalysis(run,data=analyzeLineBuffers(run)){
     <p class="method-note">停止時間は、搬送履歴の「系列バッファ満杯・生産停止」から同じ予定パレットの「系列バッファ待ち生産再開」までを集計します。バッファ解放後も空パレット待ちが続く場合は、実際の生産再開まで含めます。未再開の区間は実行終了まで計上します。複数系列が同時に停止した時間は系列ごとに加算するため、合計が実行時間を超えることがあります。空パレット不足だけによる停止は、満杯発生回数・満杯停止時間・遅延PLには含めません。最大在荷も搬出・荷受けの搬送履歴から再計算します。</p></section>`;
 }
 export function renderAnalysis(run,data=analyzeRun(run),context={}){
-  return renderCustomerResults(run,data)+renderBufferAnalysis(run)+`<details class="developer-details"><summary>開発者向け詳細</summary>${renderAnalysisMetrics(run,data)}<p class="method-note">充電待ちのうち充電停止位置の空き待ち：${minutes(data.chargePlaceWaitMs??0)}分（4台合計）。充電待ち時間に含め、別途加算しません。</p>${renderRunConditions(run,context)}</details>`;
+  return renderCustomerResults(run,data)+renderBufferAnalysis(run)+`<details class="developer-details"${context.deferDetails?' data-lazy-analysis':''}><summary>開発者向け詳細</summary><div data-analysis-details>${context.deferDetails?'':renderAnalysisDetails(run,data,context)}</div></details>`;
 }
-export function renderComparison(runs){
-  return renderCustomerComparison(runs)+`<details class="developer-details"><summary>開発者向け比較詳細</summary>${renderComparisonDetails(runs)}</details>`;
+export function renderAnalysisDetails(run,data=analyzeRun(run),context={}){
+  return `${renderAnalysisMetrics(run,data)}<p class="method-note">充電待ちのうち充電停止位置の空き待ち：${minutes(data.chargePlaceWaitMs??0)}分（4台合計）。充電待ち時間に含め、別途加算しません。</p>${renderRunConditions(run,context)}`;
 }
-function renderComparisonDetails(runs) {
-  const data=runs.map(analyzeRun);
+export function renderComparison(runs,data=runs.map(analyzeRun)){
+  return renderCustomerComparison(runs,data)+`<details class="developer-details"><summary>開発者向け比較詳細</summary>${renderComparisonDetails(runs,data)}</details>`;
+}
+function renderComparisonDetails(runs,data) {
   const scenario=runs[0].scenario;
   const conditionsDiffer=customerConditionDifferences(runs).some(row=>row.label!=='AGF選定方式');
   const conditionHeading=conditionsDiffer?'結果Aの条件（結果Bとは条件が異なる）':'比較に使った共通条件';

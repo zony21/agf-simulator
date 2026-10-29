@@ -10,7 +10,7 @@ const categories={RUN:'Run情報・根拠区分',EQUIPMENT:'設備の初期状�
   GRAPH_SPEED:'区間ごとの速度',GRAPH_NODE:'個別停止点・荷役姿勢占有',AVOIDANCE_PLAN:'明示された合成退避経路',
   CHARGING:'充電器・充電場所',BATTERY:'バッテリー・充電条件',MAGAZINE:'空パレットマガジン',
   ALIGNER:'整列機の初期状態・装填ルール',WAREHOUSE:'倉庫の系列割当',MOTION_CONTROL:'停止旋回・荷役姿勢',
-  INPUTS:'手動操作・入力イベント',REPRODUCIBILITY:'再現用Scenario'};
+  VEHICLE_TRAVEL:'車体前後・直進速度',INPUTS:'手動操作・入力イベント',REPRODUCIBILITY:'再現用Scenario'};
 const evidenceNames={'user-confirmed':'ユーザー確認済み','user-confirmed-initial-placement':'ユーザー確認済みの初期配置',
   'user-confirmed-shared-priority':'ユーザー確認済みの共通待機順位','synthetic':'合成値','synthetic-assumption':'合成モデルの仮定',
   'scenario-assumption':'Scenarioの設定・仮定','explicit-scenario-setting':'明示設定',
@@ -171,10 +171,15 @@ export function buildRunConditions(run,{runId=run.runId??null,executedAt=run.exe
   }
   if(graph){
     const topology=s.operationalTopology;
+    if(s.vehicleTravelProfile)for(const [key,value] of Object.entries(s.vehicleTravelProfile))
+      add('VEHICLE_TRAVEL','profile',key,value,key.startsWith('serviceApproach')?s.vehicleTravelProfile.serviceApproachEvidence:
+        ['defaultDirection','directionEvidence'].includes(key)?s.vehicleTravelProfile.directionEvidence:s.vehicleTravelProfile.speedEvidence);
     for(const key of ['graphId','revision','coordinateSystem','coordinateUnit','datasetKind','readiness','metricLayoutProfile'])add('GRAPH','settings',key,topology?.[key],topology?.metricLayoutProfile?.evidence??topology?.evidence??'synthetic-assumption');
     for(const edge of topology?.edges??[]){
       for(const key of ['fromNodeId','toNodeId','distanceMm','displayPath','accessScopes','lanePolicy','lanes','occupancyResourceIds','shutterId','noOvertakingGroupId','noOvertakingForwardDirection'])add('GRAPH_EDGE',edge.id,key,edge[key],topology.metricLayoutProfile?.evidence??topology.evidence??'synthetic-assumption');
-      for(const movement of ['empty','loaded','charge','wait'])add('GRAPH_SPEED',edge.id,movement,edge.speedMmPerSec?.[movement],topology.evidence??'synthetic-assumption',
+      for(const key of ['vehicleTravelDirection','vehicleDirectionOverrides','vehicleSpeedLimitMmPerSec','vehicleTravelByTraversal','vehicleServiceApproach'])
+        if(edge[key]!==undefined)add('GRAPH_EDGE',edge.id,key,edge[key],s.vehicleTravelProfile?.directionEvidence??'explicit-scenario-setting');
+      for(const movement of ['empty','loaded','charge','wait'])add('GRAPH_SPEED',edge.id,movement,edge.speedMmPerSec?.[movement],edge.vehicleSpeedEvidence??topology.evidence??'synthetic-assumption',
         edge.id+' '+({empty:'空走',loaded:'積載',charge:'充電移動',wait:'待機場所へ復帰'})[movement]+'（mm/s）');
     }
     for(const node of topology?.nodes??[])for(const key of ['x','y','interfaceId','kind','handlingGroupId','handlingResourceIds','occupancyResourceIds'])

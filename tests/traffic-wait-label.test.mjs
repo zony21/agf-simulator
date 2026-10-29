@@ -1,12 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createDemoScenario} from '../src/ui/scenario.mjs';
+import {createDemoScenario,createLegacyScenario} from '../src/ui/scenario.mjs';
 import {syntheticMetricLayout} from '../examples/synthetic-metric-layout.mjs';
+import {convertTopologyToMetric} from '../src/map/metric-layout.mjs';
 import {simulate} from '../src/core/simulate.mjs';
 import {buildTransportHistoryRows} from '../src/ui/transport-history.mjs';
 
 test('a front-vehicle constraint before turning retains its actual reason in events and customer history',()=>{
   const s=createDemoScenario('standard',{metricProfile:syntheticMetricLayout});
+  // This collision fixture depends on the historical per-edge synthetic speeds.
+  // Keep the waiting event and every reason assertion instead of weakening them.
+  delete s.vehicleTravelProfile;
+  s.operationalTopology=convertTopologyToMetric(createLegacyScenario('physical').operationalTopology,syntheticMetricLayout);
   s.durationMin=40;s.warehouseRouteMode='detour';s.magazineEmptyRecoveryPolicy='next_takt';
   const r=simulate(s),rows=buildTransportHistoryRows(r);
   const waiting=r.events.filter(e=>e.type==='SEGMENT_WAITING'&&

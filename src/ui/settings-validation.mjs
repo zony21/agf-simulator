@@ -18,6 +18,8 @@ export function describeSettingsError(error){
   const message=error.message??String(error);
   const result={message:message.replace(/^(WAREHOUSE_CONFIG|PRODUCTION_CONFIG|MOTION_CONFIG|TASK_PRIORITY_CONFIG):\s*/,''),selectors:[],section:null,owner:null};
   if(error.settingsFieldSelectors?.length)return {...result,selectors:error.settingsFieldSelectors};
+  if(/VEHICLE_TRAVEL_CONFIG/.test(message))return {...result,section:'#motion-settings',
+    selectors:['[data-vehicle-speed]','[data-vehicle-direction]'],message:message.replace(/^VEHICLE_TRAVEL_CONFIG:\s*/,'')};
   if(/WAREHOUSE_ROUTE_CONFIG/.test(message))return {...result,selectors:['#warehouse-route-mode'],
     message:message.replace(/^WAREHOUSE_ROUTE_CONFIG:\s*/,''),section:'#warehouse-row-fields'};
   if(/TASK_PRIORITY_CONFIG|taskPriorities/.test(message)){

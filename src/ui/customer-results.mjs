@@ -97,8 +97,8 @@ export function renderCustomerResults(run,analysis){
     <details class="panel section customer-time"><summary>稼働時間内訳</summary><p class="method-note">単位：分。移動・荷役・旋回・各待ち・充電を重複なく分類します。表示端数は各AGFの合計が実行時間と一致するよう調整します。</p>${table(['AGF',...data.agfs[0]?.timeGroups.map(group=>group.label)??[]],data.agfs.map(agf=>[agf.id,...agf.timeGroups.map(group=>group.minutes.toFixed(1))]))}</details>`;
 }
 
-export function renderCustomerComparison(runs){
-  const data=runs.map(run=>customerRunSummary(run)),differences=customerConditionDifferences(runs);
+export function renderCustomerComparison(runs,analyses){
+  const data=runs.map((run,i)=>customerRunSummary(run,analyses?.[i])),differences=customerConditionDifferences(runs);
   const headers=runs.map(run=>selectionLabel(run.scenario.mode));
   return `<section class="panel"><div class="panel-heading"><h2>条件の違い</h2><span class="muted">各結果に保存された実行条件を比較</span></div>${differences.length?table(['対象','条件',...headers],differences.map(row=>[row.target||'共通',row.label,...row.values.map(value=>value+(row.unit?' '+row.unit:''))])):'<p class="notice">保存された条件は同じです。</p>'}</section>
     <div class="comparison-grid">${runs.map((run,i)=>`<section class="panel strategy-panel"><h2>${selectionLabel(run.scenario.mode)}</h2><div class="strategy-kpis">${card('搬送完了',data[i].completed,'件','success')+card('未完了搬送',data[i].pending,'件','warning')+card('発行前保留',data[i].preRequestHeld,'PL','warning')}</div>${table(['搬送','完了','未完了','発行前保留（PL）'],data[i].byKind.map(row=>['搬送'+row.kind,row.completed,row.pending,row.preRequestHeld]))}${renderWarehouseShippingResults(run)}</section>`).join('')}</div>`;

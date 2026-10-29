@@ -20,6 +20,14 @@ export const headingLabel=(heading,headingDeg)=>{
   const normalized=((headingDeg%360)+360)%360,exact=({0:'東 →',90:'南 ↓',180:'西 ←',270:'北 ↑'})[normalized];
   return (exact?exact+' · ':'')+normalized.toFixed(1)+'°';
 };
+export const vehicleHeadingLabel=agf=>{
+  const pose=agf.displayPosition??agf,front=pose.headingDeg??agf.headingDeg;
+  const label=headingLabel(pose.heading??agf.heading,front);
+  const direction=pose.vehicleTravelDirection??agf.movement?.current?.vehicleTravelDirection;
+  if(!direction)return label;
+  const travel=pose.travelHeadingDeg??(Number.isFinite(front)?front+(direction==='reverse'?180:0):null);
+  return `車体前方 ${label} / ${direction==='reverse'?'後進':'前進'} / 進行 ${headingLabel(null,travel)}`;
+};
 export const turnDescription=(agf,timeMs)=>{
   if(agf.status!=='turning'||!agf.turn)return '';
   const t=agf.turn,remaining=Math.max(0,t.completedAt-timeMs)/1000;

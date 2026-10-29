@@ -1,4 +1,5 @@
 import {validateMetricLayoutProfile,metricPathLength} from './metric-layout.mjs';
+import {vehicleStepFields} from '../core/vehicle-travel.mjs';
 
 const required=(condition,message)=>{if(!condition)throw new Error(message);};
 const movements=new Set(['empty','loaded','charge','wait']);
@@ -142,6 +143,14 @@ export function validateOperationalTopology(graph){
     required(nodes.has(edge.fromNodeId)&&nodes.has(edge.toNodeId)&&edge.fromNodeId!==edge.toNodeId,
       'invalid edge endpoints '+edge.id);
     required(Number.isFinite(edge.distanceMm)&&edge.distanceMm>0,'invalid distance '+edge.id);
+    if(edge.vehicleTravelDirection!==undefined)for(const [movement,direction] of Object.entries(edge.vehicleTravelDirection))
+      required(movements.has(movement)&&['forward','reverse'].includes(direction),'invalid vehicle direction '+edge.id+'/'+movement);
+    if(edge.vehicleTravelByTraversal!==undefined)for(const [traversal,byMovement] of Object.entries(edge.vehicleTravelByTraversal)){
+      required(['forward','reverse'].includes(traversal),'invalid vehicle traversal '+edge.id);
+      for(const [movement,vehicle] of Object.entries(byMovement))required(movements.has(movement)&&
+        ['forward','reverse'].includes(vehicle.vehicleTravelDirection)&&Number.isFinite(vehicle.vehicleSpeedMmPerSec)&&vehicle.vehicleSpeedMmPerSec>0,
+        'invalid traversal vehicle speed/direction '+edge.id+'/'+movement);
+    }
     for(const movement of ['empty','loaded','charge',...(edge.accessScopes?.some(s=>s.movement==='wait')?['wait']:[])])required(Number.isFinite(edge.speedMmPerSec?.[movement])&&
       edge.speedMmPerSec[movement]>0,'invalid speed '+edge.id+'/'+movement);
     required(edge.approvalState==='synthetic-validated','invalid edge approval '+edge.id);
@@ -330,14 +339,18 @@ export function findOperationalPath(graph,startNodeId,endNodeId,{movement,taskTy
     etaStatus:'synthetic-assumption',measuredDistanceMm:null,modelDistanceMm:0,modelDurationMs:0,steps:[]};
   const adjacency=new Map(graph.nodes.map(node=>[node.id,[]]));
   for(const edge of graph.edges.filter(edge=>operationalEdgeEnabled(graph,edge)&&supports(edge,movement,taskType)).sort((a,b)=>a.id.localeCompare(b.id,'en'))){
-    const durationMs=Math.ceil(edge.distanceMm*1000/edge.speedMmPerSec[movement]);
-    for(const traversal of traversals(edge))adjacency.get(traversal.from).push({
+    for(const traversal of traversals(edge)){
+      const vehicle=vehicleStepFields(edge,movement,traversal.traversal);
+      const durationMs=Math.ceil(edge.distanceMm*1000/(vehicle.vehicleSpeedMmPerSec??edge.speedMmPerSec[movement]));
+      adjacency.get(traversal.from).push({
       edgeId:edge.id,fromNodeId:traversal.from,toNodeId:traversal.to,traversal:traversal.traversal,
       distanceMm:edge.distanceMm,durationMs,shutterId:edge.shutterId??null,
+      ...vehicle,
       ...(edge.noOvertakingGroupId?{noOvertakingGroupId:edge.noOvertakingGroupId,
         noOvertakingForwardDirection:edge.noOvertakingForwardDirection}:{}),
       ...(edge.displayPath?{displayPath:structuredClone(traversal.traversal==='forward'?edge.displayPath:edge.displayPath.toReversed())}:{})
-    });
+      });
+    }
   }
   const best=new Map([[startNodeId,{duration:0,key:'',previous:null,step:null}]]),pending=[startNodeId];
   while(pending.length){

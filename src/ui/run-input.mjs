@@ -2,10 +2,15 @@ import {simulate} from '../core/simulate.mjs';
 
 /** Recalculate first. Callers replace their result only after this succeeds. */
 export function appendRunInput(run,listName,entry){
+  return simulate(scenarioWithRunInput(run,listName,entry));
+}
+
+/** Prepare a candidate for the asynchronous UI without mutating its saved Run. */
+export function scenarioWithRunInput(run,listName,entry){
   if(!run||run.previewOnly)throw new Error('先に設定を反映して実行してください。');
   const candidate=structuredClone(run.scenario);
   (candidate[listName]??=[]).push(structuredClone(entry));
-  return simulate(candidate);
+  return candidate;
 }
 
 /** Initial display only, never a Run or a performance result. Use the engine's

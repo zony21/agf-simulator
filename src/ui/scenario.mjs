@@ -5,6 +5,7 @@ import {defaultWarehousePolicy} from '../../examples/synthetic-warehouse-policy.
 import {convertTopologyToMetric} from '../map/metric-layout.mjs';
 import {DEFAULT_TASK_PRIORITIES} from '../core/task-priority.mjs';
 import {DEFAULT_WAREHOUSE_SHIPPING} from '../core/warehouse-shipping.mjs';
+import {createVnp20TravelProfile,prepareVehicleTravel} from '../core/vehicle-travel.mjs';
 
 // User-confirmed fixed supply correspondence. This does not define CAD positions.
 export const CONFIRMED_LINE_MAGAZINE_MAP=Object.freeze({
@@ -40,6 +41,9 @@ export function createDemoScenario(preset='standard',{metricProfile=null}={}) {
     s.warehousePolicy=defaultWarehousePolicy();
     s.warehouseShipping={...DEFAULT_WAREHOUSE_SHIPPING};
     s.warehouseRouteMode='normal';
+    s.vehicleTravelProfile=createVnp20TravelProfile();
+    s.vehicleTravelProfile.serviceApproachPolicy='fork-leading-entry';
+    s.vehicleTravelProfile.serviceApproachEvidence='user-requested-fork-leading-approach-model';
     s.evidence.warehouseRouteMode='user-confirmed-run-start-route-mode';
     s.warehouse.push(...flexibleWarehouseLocations());
     s.postTaskPolicy={evidence:'user-confirmed-shared-priority',waitingPriority:[...NORMAL_WAITING_PRIORITY]};
@@ -76,7 +80,7 @@ function withMetricLayout(scenario,profile){
     scenario.evidence.coordinates=profile.evidence;
     scenario.evidence.distance=profile.evidence;
   }
-  return scenario;
+  return prepareVehicleTravel(scenario);
 }
 
 /** Explicit legacy/regression fixtures, never the neutral ordinary Run. */

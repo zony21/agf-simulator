@@ -1,7 +1,13 @@
+import {vehicleFrontHeading,forkHeading} from './vehicle-travel.mjs';
 const clamp=value=>Math.max(0,Math.min(1,value));
 const normalize=value=>((value%360)+360)%360;
 const direction=degrees=>({0:'east',90:'south',180:'west',270:'north'})[normalize(degrees)];
 const degreesOf=(dx,dy)=>normalize(Math.atan2(dy,dx)*180/Math.PI);
+const pose=(travelHeadingDeg,driveDirection)=>{
+  const headingDeg=vehicleFrontHeading(travelHeadingDeg,driveDirection);
+  return {headingDeg,heading:direction(headingDeg)??['east','south','west','north'][Math.round(headingDeg/90)%4],...(driveDirection?{travelHeadingDeg,
+    vehicleTravelDirection:driveDirection,forkHeadingDeg:forkHeading(headingDeg)}:{})};
+};
 
 /** Projects a saved synthetic movement. It never plans a route or changes simulation state. */
 export function projectAgfPosition(agf,topology,timeMs){
@@ -29,15 +35,15 @@ export function projectAgfPosition(agf,topology,timeMs){
         if(distance<lengths[i]||i===lengths.length-1){
           const a=points[i],b=points[i+1],part=clamp(distance/lengths[i]),dx=b.x-a.x,dy=b.y-a.y;
           return {x:a.x+dx*part,y:a.y+dy*part,progress,nodeId:null,
-            ...(Number.isFinite(agf.headingDeg)?{headingDeg:degreesOf(dx,dy)}:{}),
-            heading:Math.abs(dx)>=Math.abs(dy)?(dx>=0?'east':'west'):(dy>=0?'south':'north')};
+            ...(Number.isFinite(agf.headingDeg)?pose(degreesOf(dx,dy),current.vehicleTravelDirection):
+              {heading:Math.abs(dx)>=Math.abs(dy)?(dx>=0?'east':'west'):(dy>=0?'south':'north')})};
         }
         distance-=lengths[i];
       }
     }
     const headingDeg=degreesOf(to.x-from.x,to.y-from.y);
     return {x:from.x+(to.x-from.x)*progress,y:from.y+(to.y-from.y)*progress,progress,nodeId:null,
-      ...(Number.isFinite(agf.headingDeg)?{headingDeg,heading:direction(headingDeg)??agf.heading}:{})};
+      ...(Number.isFinite(agf.headingDeg)?pose(headingDeg,current.vehicleTravelDirection):{})};
   }
   const node=nodes.get(agf.currentNodeId);
   return node?{x:node.x,y:node.y,progress:null,nodeId:node.id,

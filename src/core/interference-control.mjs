@@ -1,4 +1,5 @@
 import {validateOperationalTopology,operationalEdgeEnabled} from '../map/operational-topology.mjs';
+import {vehicleStepFields} from './vehicle-travel.mjs';
 
 const required=(condition,message)=>{if(!condition)throw new Error(message);};
 
@@ -44,9 +45,11 @@ const pathFor=(graph,startNodeId,targetNodeId,edgeIds,{movement,taskType,tempora
     if(!traversal||!normalDirection&&!temporaryDirectionException||
       !edge.accessScopes.some(s=>s.movement===movement&&(s.taskTypes.includes('*')||s.taskTypes.includes(taskType))))return null;
     const toNodeId=traversal==='forward'?edge.toNodeId:edge.fromNodeId;
-    const durationMs=Math.ceil(edge.distanceMm*1000/edge.speedMmPerSec[movement]);
+    const vehicle=vehicleStepFields(edge,movement,traversal);
+    const durationMs=Math.ceil(edge.distanceMm*1000/(vehicle.vehicleSpeedMmPerSec??edge.speedMmPerSec[movement]));
     if(!Number.isFinite(durationMs)||durationMs<=0)return null;
     steps.push({edgeId,fromNodeId:current,toNodeId,traversal,distanceMm:edge.distanceMm,durationMs,
+      ...vehicle,
       ...(temporaryDirectionException?{temporaryDirectionException:true}:{}),
       shutterId:edge.shutterId??null,
       ...(edge.displayPath?{displayPath:structuredClone(traversal==='forward'?edge.displayPath:edge.displayPath.toReversed())}:{})});

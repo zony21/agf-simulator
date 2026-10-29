@@ -70,7 +70,8 @@ export function settingsErrorControls(root,error,description=describeSettingsErr
     const bounds=new Map();
     const position=field=>warehouseRowPosition(warehouseRowFromId(field.dataset.rowOwner));
     for(const field of assigned){const {group,index}=position(field),b=bounds.get(group)??[index,index];bounds.set(group,[Math.min(b[0],index),Math.max(b[1],index)]);}
-    return fields.filter(field=>{const {group,index}=position(field),b=bounds.get(group);return b&&index>=b[0]&&index<=b[1];});
+    return fields.filter(field=>{const {group,index}=position(field),b=bounds.get(group);
+      return (!error.warehouseAllocationGroup||group===error.warehouseAllocationGroup)&&b&&index>=b[0]&&index<=b[1];});
   }
   return description.section?all(description.section+' input,'+description.section+' select'):[];
 }

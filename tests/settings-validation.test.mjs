@@ -51,6 +51,13 @@ test('a disconnected bridge allocation also highlights the missing flexible row 
   assert.deepEqual(settingsErrorControls(root(fields),error),fields.slice(1,5));
 });
 
+test('a gap highlights only its allocation region when the same series spans several blocks',()=>{
+  const fields=[field('L1',{rowOwner:'WB1-R01'}),field('L1',{rowOwner:'WB1-R02'}),
+    field('L1',{rowOwner:'WB3-R01'}),field('',{rowOwner:'WB3-R02'}),field('L1',{rowOwner:'WB3-R03'})];
+  const error=Object.assign(new Error('WAREHOUSE_CONFIG: L1の領域が分断されています。'),{warehouseAllocationGroup:'WB3'});
+  assert.deepEqual(settingsErrorControls(root(fields),error),fields.slice(2));
+});
+
 test('a missing series allocation navigates to editable unassigned rows',()=>{
   const policy=syntheticWarehousePolicy();policy.rowAssignments=policy.rowAssignments.filter(a=>a.sourceLineId!=='L8');
   const fields=[field('L7',{rowOwner:'EB1-R03'}),field('',{rowOwner:'EB2-R01'}),field('SPECIAL',{rowOwner:'EB2-R02'})];

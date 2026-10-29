@@ -46,13 +46,14 @@ test('W10 all registered lines require at least one assigned row',()=>{
   const c=context();c.policy.rowAssignments=c.policy.rowAssignments.filter(a=>a.sourceLineId!=='L8');
   assert.throws(()=>validate(c),/L8/);
 });
-test('W11 line assignments cannot be split or shared and unknown cross-block adjacency fails closed',()=>{
+test('W11 line regions cannot be split or shared while independent block allocations are allowed',()=>{
   const c=context();c.policy.rowAssignments.find(a=>a.rowId==='WB1-R02').sourceLineId='L2';
   assert.throws(()=>validate(c),/分断/);
   const shared=context();shared.policy.rowAssignments.push({...shared.policy.rowAssignments[0]});
   assert.throws(()=>validate(shared),/重複/);
-  const cross=context();cross.policy.rowAssignments.find(a=>a.rowId==='WB2-R01').sourceLineId='L1';
-  assert.throws(()=>validate(cross),/ブロック跨ぎ/);
+  const cross=context();cross.policy.rowAssignments.find(a=>a.rowId==='WB3-R01').sourceLineId='L1';
+  cross.policy.rowPriority.L1.push('WB3-R01');cross.policy.rowPriority.L4.shift();
+  assert.doesNotThrow(()=>validate(cross));
 });
 test('W12 special products from every source line use their shared special region',()=>{
   for(const line of lineIds)assert.equal(select(context(product(line,'special'))).location.id,'EB2-R02-C18-T1');

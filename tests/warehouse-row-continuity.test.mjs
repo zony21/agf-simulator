@@ -48,10 +48,44 @@ test('WB1 cannot jump across unassigned flexible storage directly into WB2',()=>
   assert.throws(()=>validate(p),/分断/);
 });
 
-test('the confirmed WB1/flexible/WB2 connection does not authorize other block crossings',()=>{
+test('a series may use multiple warehouse allocation regions without inferred physical adjacency',()=>{
   const p=joinedPolicy();p.rowAssignments.find(a=>a.rowId==='WB3-R01').sourceLineId='L2';
   p.rowPriority.L2.push('WB3-R01');p.rowPriority.L4.shift();
-  assert.throws(()=>validate(p),/ブロック跨ぎ/);
+  p.rowAssignments.find(a=>a.rowId==='EB1-R01').sourceLineId='L2';
+  p.rowPriority.L2.unshift('EB1-R01');p.rowPriority.L7.shift();
+  assert.doesNotThrow(()=>validate(p));
+  assert.doesNotThrow(()=>validate({...p,rowAssignments:p.rowAssignments.toReversed()},locations().toReversed()));
+});
+
+test('SPECIAL may also use rows in multiple blocks while preserving exclusive row ownership',()=>{
+  const p=syntheticWarehousePolicy();
+  Object.assign(p.rowAssignments.find(a=>a.rowId==='WB3-R04'),{usage:'special',sourceLineId:null});
+  p.rowPriority.L4.pop();p.rowPriority.SPECIAL.push('WB3-R04');
+  assert.doesNotThrow(()=>validate(p));
+  const duplicate={...p,rowAssignments:[...p.rowAssignments,{rowId:'WB3-R04',usage:'normal',sourceLineId:'L4'}]};
+  assert.throws(()=>validate(duplicate),/重複/);
+});
+
+test('a gap in one region is still rejected when the same series owns another region',()=>{
+  const p=syntheticWarehousePolicy();
+  for(const rowId of ['WB3-R01','WB3-R03'])p.rowAssignments.find(a=>a.rowId===rowId).sourceLineId='L1';
+  p.rowPriority.L1.push('WB3-R01','WB3-R03');p.rowPriority.L4=['WB3-R02','WB3-R04'];
+  assert.throws(()=>validate(p),error=>{
+    assert.match(error.message,/L1の領域が分断/);
+    assert.equal(error.warehouseAllocationGroup,'WB3');return true;
+  });
+});
+
+test('location selection across west/east blocks follows saved row priority and skips busy rows',()=>{
+  const s=createDemoScenario(),p=s.warehousePolicy;
+  p.rowAssignments.find(a=>a.rowId==='EB1-R01').sourceLineId='L1';
+  p.rowPriority.L7.shift();p.rowPriority.L1.unshift('EB1-R01');validate(p,s.warehouse);
+  const slots=new Map(s.warehouse.map(slot=>[slot.id,{...slot,palletIds:[],reserved:[]}]));
+  const input={policy:p,slots,pallets:new Map(),rowBusy:new Set(),
+    pallet:{sourceLineId:'L1',productType:'normal',loadType:'full'}};
+  assert.equal(chooseWarehouseLocation(input).location.id,'EB1-R01-C18-T1');
+  input.rowBusy.add('EB1-R01');
+  assert.equal(chooseWarehouseLocation(input).location.id,'WB1-R01-C01-T1');
 });
 
 test('ordinary defaults give every source line at least two rows and keep a SPECIAL row',()=>{
@@ -108,4 +142,15 @@ test('actual 02 follows an explicitly ranked cross-block allocation in both rout
     assert.ok(stored);assert.equal(stored.locationId,mode==='normal'?'WB1-WB2-FLEX-R01-C01-T1':'WB2-R01-C01-T1');
     assert.deepEqual(simulate(s).events,r.events);
   }
+});
+
+test('actual 02 can store in an independently assigned east block and replay deterministically',()=>{
+  const s=createDemoScenario();s.durationMin=30;s.lineIntervalsMin.fill(0);
+  s.productStreams.forEach(stream=>{stream.enabled=false;});
+  s.warehousePolicy.rowAssignments.find(a=>a.rowId==='EB1-R01').sourceLineId='L1';
+  s.warehousePolicy.rowPriority.L7.shift();s.warehousePolicy.rowPriority.L1.unshift('EB1-R01');
+  s.productionEvents=[{timeMs:1000,lineId:'L1',palletId:'SYN-MULTI-BLOCK',sourceLineId:'L1',productType:'normal',loadType:'full'}];
+  const run=simulate(s),stored=run.events.find(e=>e.type==='STORE_COMPLETED');
+  assert.ok(stored);assert.equal(stored.locationId,'EB1-R01-C18-T1');
+  assert.deepEqual(simulate(s).events,run.events);
 });

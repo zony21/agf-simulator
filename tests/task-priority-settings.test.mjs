@@ -79,7 +79,8 @@ test('priority settings integrate with existing category, read, dirty, execution
   assert.match(extended,/populateTaskPrioritySettings\(s\)/);assert.match(extended,/readTaskPrioritySettings\(s\)/);
   assert.match(extended,/'搬送タスク優先度'/);
   assert.match(app,/settings-form'\)\.addEventListener\('input',[^\n]*markDirty/);
-  assert.match(app,/simulate\(scenarioFromSettings\(\)\)/);
+  assert.match(app,/await calculate\(scenarioFromSettings\(\)\)/);
+  assert.match(app,/adoptRun\(candidate\)/);
   assert.match(app,/reset'\)\.addEventListener\('click',[^\n]*populateSettings\(base\)/);
 });
 

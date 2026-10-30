@@ -24,6 +24,8 @@ export const evidenceLabel=evidence=>({
   'manufacturer-catalogue-reference-not-site-speed':'メーカー公開カタログ上限の参照・CE個体/現場速度未確認',
   'provisional-normal-transfer-forward':'通常移動は前進とする暫定モデル条件',
   'user-requested-fork-leading-approach-model':'ユーザー指定・荷役点へフォーク先頭で進入するモデル',
+  'user-confirmed-charge-dispatch-resume':'ユーザー確認済み・充電中の搬送復帰可能残量',
+  'user-confirmed-charge-to-full-when-idle':'ユーザー確認済み・割当がなければ満充電まで継続',
   'simulation-default-task-priorities':'シミュレーション初期設定（変更可能）',
   'user-requested-example-default':'ユーザー指定の初期行割当・既存例と同じ値',
   'user-confirmed-min-two-row-default':'ユーザー指定の初期行割当・各系列2行以上',
@@ -166,8 +168,8 @@ export function customerConditionRows(run){
     add('agf.'+a.id+'.position','初期配置・バッテリー','初期位置',customerLocationName(a.currentNodeId),'',a.id);
     add('agf.'+a.id+'.battery','初期配置・バッテリー','初期バッテリー',a.batteryPct,'%',a.id);
   }
-  for(const [key,label,unit] of [['chargeStartPct','充電開始閾値','%'],['chargeTargetPct','充電後の搬送復帰閾値','%'],['chargeMinPerPct','1ポイントの充電時間','分']])
-    if(s.battery?.[key]!==undefined)add('battery.'+key,'バッテリー・充電条件',label,s.battery?.[key],unit,'',key==='chargeTargetPct'?s.evidence?.chargeTargetPct:undefined);
+  for(const [key,label,unit] of [['chargeStartPct','充電開始閾値','%'],['chargeDispatchPct','充電中の搬送復帰可能残量','%'],['chargeTargetPct','最大充電量','%'],['chargeMinPerPct','1ポイントの充電時間','分']])
+    if(s.battery?.[key]!==undefined)add('battery.'+key,'バッテリー・充電条件',label,s.battery?.[key],unit,'',['chargeTargetPct','chargeDispatchPct'].includes(key)?s.evidence?.[key]:undefined);
   const battery=s.battery??{};
   add('battery.basis','バッテリー・充電条件','消費基準',battery.consumptionModel==='active_time'?`${battery.activeReferenceMin}分の走行・荷役で${battery.activeReferenceConsumptionPct}ポイント`:`1搬送あたり${battery.consumptionPct}ポイント`,'','',s.evidence?.batteryConsumption);
   add('battery.turning','バッテリー・充電条件','旋回中の電池消費',control.turningConsumesBattery,'','',control.turningBatteryEvidence);

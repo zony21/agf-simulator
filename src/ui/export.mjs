@@ -28,7 +28,7 @@ export function eventCsv(run,runId) {
     'shipmentId','rowId','forkliftId','palletIds','locationIds','sourceLineCounts','trips','cycleMin','plannedEndMs','batchIndex','timeEvidence',
     'alignerId','quantityBefore','quantityAfter','quantity','refillBatch','refillNeeded','pickedAt','operatedAt','operationType','automatic','trigger','timingEvidence',
     'originalDueAt','blockedSinceMs','lineCapacity','capacity','retry','recoveryPolicy','policy','count','sourceSelectionEvidence','evidence','plannedPalletId','palletStatus','processingTimeStatus','targetIds',
-    'timingStatus','inventoryStatus','batteryModel','batteryConsumptionBasis','batteryScope','scenarioJson'];
+    'batteryPct','chargeDispatchPct','chargeTargetPct','timingStatus','inventoryStatus','batteryModel','batteryConsumptionBasis','batteryScope','scenarioJson'];
   const cell=csvCell;
   const rows=run.events.map((event,index)=>{
     const task=run.snapshots[index].tasks.find(t=>t.id===event.taskId);

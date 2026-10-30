@@ -18,7 +18,8 @@ test('standard Run starts at two charge places and two pillar stops; HP waiting 
   assert.equal(Object.hasOwn(scenario.battery,'taskStartPct'),false,
     'the charge recovery target is not a separate global task-start threshold');
   assert.equal(scenario.battery.chargeStartPct,40);
-  assert.equal(scenario.battery.chargeTargetPct,60);
+  assert.equal(scenario.battery.chargeDispatchPct,60);
+  assert.equal(scenario.battery.chargeTargetPct,100);
 });
 
 test('aligners are a vertical synthetic stack approached from their west side, charges keep their positions',()=>{

@@ -22,7 +22,8 @@ import {escapeHtml as esc,clock,states,stateLabel,taskNames,reasons,eventNames,a
 const $=id=>document.getElementById(id);
 const timeFields=[['emptyMin','空走（分）'],['loadedMin','積載走行（分）'],['pickupMin','荷受け（分）'],
   ['dropoffMin','荷下ろし（分）'],['wrapMin','包装（分）'],['labelMin','ラベル（分）'],['exitMin','出口移送（分）'],['chargeTravelMin','充電場所への移動（分）']];
-const batteryFields=[['reservePct','選定残量下限（%）'],['chargeStartPct','充電要求（%）'],['chargeTargetPct','充電後の搬送復帰残量（%）'],
+const batteryFields=[['reservePct','選定残量下限（%）'],['chargeStartPct','充電要求（%）'],
+  ['chargeDispatchPct','充電中の搬送復帰可能残量（%）'],['chargeTargetPct','最大充電量（%）'],
   ['activeReferenceMin','基準稼働時間（分）'],['activeReferenceConsumptionPct','基準時間での消費（ポイント）'],
   ['consumptionPct','旧方式：1タスク消費（ポイント）'],['chargeMinPerPct','1ポイント充電に要する時間（分）']];
 const numeric=id=>Number($(id).value);
@@ -65,7 +66,8 @@ function populateSettings(scenario) {
   for(const id of ['pickupMin','dropoffMin']){$(id).disabled=phased;$(id).title=phased?'停止旋回・荷役姿勢で4相を明示設定します。既存時間の自動分割はしません。':'';}
   for(const id of ['emptyMin','loadedMin','chargeTravelMin']){$(id).disabled=scenario.motionModel==='synthetic_graph';$(id).title=$(id).disabled?'区間走行ではグラフの距離と速度を使用します。':'';}
   $('battery-fields').innerHTML='<label>消費方式<select id="battery-model"><option value="active_time">走行・荷役の稼働時間</option><option value="per_task">タスク単位（旧シナリオ再現用）</option></select></label>'+
-    batteryFields.map(([id,label])=>input(id,label,scenario.battery[id],['chargeMinPerPct','activeReferenceMin'].includes(id)?.001:0,.001,id.endsWith('Pct')&&id!=='chargeMinPerPct'?100:'')).join('');
+    batteryFields.filter(([id])=>id!=='chargeDispatchPct'||scenario.battery[id]!==undefined).map(([id,label])=>input(id,label,scenario.battery[id],['chargeMinPerPct','activeReferenceMin'].includes(id)?.001:0,.001,id.endsWith('Pct')&&id!=='chargeMinPerPct'?100:'')).join('')+
+    (scenario.battery.chargeDispatchPct!==undefined?'<p class="muted wide">充電中は搬送復帰可能残量以上でタスクの候補になります。実際に割り当てられたときだけ充電を中断します。割当がなければ最大充電量まで続けます。通常稼働中のAGFにこの復帰残量を新たな開始制限として適用しません。</p>':'');
   $('battery-model').value=batteryModel(scenario.battery);syncBatteryFields();
   $('agf-fields').innerHTML=scenario.agfs.map((a,i)=>`<div><h3>${a.id}</h3>${input('initial-battery-'+i,'初期残量（%）',a.batteryPct,0,.1,100)}${scenario.initialParking?
     `<label>初期停止位置<select id="initial-position-${i}">${scenario.initialParking.placeIds.map(id=>`<option value="${id}" ${a.currentNodeId===id?'selected':''}>${esc(locationName(id))}</option>`).join('')}</select></label>`:
@@ -90,9 +92,11 @@ function scenarioFromSettings() {
   scenario.lineIntervalsMin=Array.from({length:8},(_,i)=>numeric('line-'+i));
   scenario.lineStartOffsetsMin=Array.from({length:8},(_,i)=>numeric('offset-'+i));
   scenario.times=Object.fromEntries(timeFields.map(([id])=>[id,numeric(id)]));
-  scenario.battery=Object.fromEntries(batteryFields.map(([id])=>[id,numeric(id)]));
-  scenario.evidence.chargeTargetPct=scenario.battery.chargeTargetPct===60?
-    'user-confirmed-charge-recovery-target':'scenario-assumption';
+  scenario.battery=Object.fromEntries(batteryFields.filter(([id])=>id!=='chargeDispatchPct'||base.battery[id]!==undefined).map(([id])=>[id,numeric(id)]));
+  scenario.evidence.chargeTargetPct=scenario.battery.chargeTargetPct===100&&scenario.battery.chargeDispatchPct!==undefined?
+    'user-confirmed-charge-to-full-when-idle':scenario.battery.chargeTargetPct===base.battery.chargeTargetPct?base.evidence.chargeTargetPct:'scenario-assumption';
+  if(scenario.battery.chargeDispatchPct!==undefined)scenario.evidence.chargeDispatchPct=scenario.battery.chargeDispatchPct===60?
+    'user-confirmed-charge-dispatch-resume':'scenario-assumption';
   scenario.battery.consumptionModel=$('battery-model').value;
   scenario.evidence.batteryConsumption=scenario.battery.consumptionModel==='active_time'&&
     scenario.battery.activeReferenceMin===360&&scenario.battery.activeReferenceConsumptionPct===70?
@@ -122,7 +126,8 @@ function friendlyError(error) {
   if(/aligner supply already ready or reserved/.test(message))return 'この整列機はすでに搬送OK、またはタスクで予約済みです。荷受け完了後に再度準備してください。';
   if(/magazine empty/.test(message))return 'マガジンが空です。補充が完了するまで使用できません。';
   if(/battery depleted/.test(message))return '走行・荷役中に電池残量が不足する条件です。初期残量・消費率・充電要求・工程時間を見直してください。途中での充電割込みは未実装です。';
-  if(/battery/.test(message))return '電池設定を確認してください。基準稼働時間・充電時間は正の値、消費は0〜100ポイント、充電要求は復帰残量未満にしてください。';
+  if(/invalid charge dispatch threshold/.test(message))return '充電要求残量 < 充電中の搬送復帰可能残量 ≤ 最大充電量となるように設定してください。';
+  if(/battery/.test(message))return '電池設定を確認してください。基準稼働時間・充電時間は正の値、消費は0〜100ポイント、充電要求は最大充電量未満にしてください。';
   if(/capacity|overflow|underflow/.test(message))return '設備容量または在荷条件を満たせません。搬出間隔・バッファ容量・手動使用回数を確認してください。';
   return message;
 }

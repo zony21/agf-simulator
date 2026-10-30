@@ -25,10 +25,11 @@ export function createDemoScenario(preset='standard',{metricProfile=null}={}) {
     s.evidence.production='theoretical-pallet-discharge-100pct';
     s.agfPriorities=Object.fromEntries(s.agfs.map((agf,index)=>[agf.id,index+1]));
     s.evidence.agfPriorities='user-confirmed-initial-ranking';
-    // User-confirmed change to charge completion only. Ordinary dispatch keeps
-    // its existing reserve/charging conditions, without a separate start gate.
-    s.battery.chargeTargetPct=60;
-    s.evidence.chargeTargetPct='user-confirmed-charge-recovery-target';
+    // Resume eligibility applies during charging, never as a global task gate.
+    // Continue charging until 100 unless an executable task actually selects it.
+    s.battery.chargeDispatchPct=60;s.battery.chargeTargetPct=100;
+    s.evidence.chargeDispatchPct='user-confirmed-charge-dispatch-resume';
+    s.evidence.chargeTargetPct='user-confirmed-charge-to-full-when-idle';
     s.productionModel='empty_pallet_supply';
     s.lineMagazineMap={...CONFIRMED_LINE_MAGAZINE_MAP};
     s.lineMagazineMapPolicy='fixed';

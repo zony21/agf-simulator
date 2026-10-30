@@ -27,7 +27,7 @@ export const activeConsumptionPct = (battery, elapsedMs) =>
 
 // Pure projection from an event snapshot; never changes the run or creates events.
 export function projectBatteryPct(agf, task, battery, elapsedMs) {
-  if (batteryModel(battery) !== 'active_time') return agf.batteryPct;
+  if (batteryModel(battery) !== 'active_time'&&!(battery.chargeDispatchPct!==undefined&&agf.status==='charging')) return agf.batteryPct;
   const elapsed = Math.max(0, elapsedMs);
   if (isBatteryActive(agf, task))
     return rounded(Math.max(0, agf.batteryPct - activeConsumptionPct(battery, elapsed)));

@@ -36,7 +36,8 @@ export function describeSettingsError(error){
     owner:message.match(/\b(L[1-8]|SPECIAL)\b/)?.[1]??(/特注/.test(message)?'SPECIAL':null),
     kind:/優先順位/.test(message)?'priority':'allocation'};
   if(/initial parking|initial HP capacity|initial parking selection/.test(message))return {...result,section:'#agf-fields',kind:'parking',message:'初期停止位置は4台を重複なく配置してください。'};
-  if(/invalid battery settings/.test(message))return {...result,selectors:['#chargeStartPct','#chargeTargetPct'],message:'充電要求の残量を、復帰残量より小さくしてください。'};
+  if(/invalid charge dispatch threshold/.test(message))return {...result,selectors:['#chargeStartPct','#chargeDispatchPct','#chargeTargetPct'],message:'充電要求残量 < 充電中の搬送復帰可能残量 ≤ 最大充電量となるように設定してください。'};
+  if(/invalid battery settings/.test(message))return {...result,selectors:['#chargeStartPct','#chargeTargetPct'],message:'充電要求の残量を、最大充電量より小さくしてください。'};
   if(/battery/.test(message)){
     const key=message.match(/battery\.([A-Za-z]+)/)?.[1];
     return {...result,selectors:key?['#'+key]:[],section:'#battery-fields',message:'電池・充電条件を確認してください。基準稼働時間と充電時間は正の値、消費は0～100ポイントで指定します。'};

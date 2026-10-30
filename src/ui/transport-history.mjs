@@ -42,6 +42,7 @@ const businessEvents={
   OVERTAKING_STARTED:['交通','包装機入口待ちAGFの横通過開始'],OVERTAKING_COMPLETED:['交通','横通過・正規レーンへの復帰完了'],
   CHARGE_REQUESTED:['充電','充電要求'],CHARGE_ARRIVED:['充電','充電場所到着'],CHARGE_WAITING:['充電','充電待ち'],
   CHARGE_STARTED:['充電','充電開始'],CHARGE_ENDED:['充電','充電完了'],CHARGE_COMPLETED:['充電','充電完了'],
+  CHARGE_DISPATCH_READY:['充電','充電中・搬送復帰可能'],CHARGE_INTERRUPTED:['充電','タスク割当のため充電中断'],
   CHARGE_ROUTE_WAITING:['充電','充電経路の確認待ち'],
   WAIT_RETURN_REQUESTED:['待機','倉庫待機場所へ復帰開始'],WAIT_RETURN_HELD:['搬送保留','待機場所への復帰保留'],
   WAIT_ARRIVED:['待機','倉庫待機場所に到着'],
@@ -165,7 +166,8 @@ function details(event,{task,agf,scenario,chargeStarts}){
     return slot?`${slot[1]}-R${slot[2]}-C${slot[3]}-${slot[4]}段目`:dash;
   }
   if(type==='CHARGE_STARTED')return hasNumber(event.batteryPct)?`${event.batteryPct.toFixed(1)}% → ${scenario.battery?.chargeTargetPct?.toFixed(1)??'未設定'}%（予定）`:dash;
-  if(type==='CHARGE_ENDED'||type==='CHARGE_COMPLETED'){
+  if(type==='CHARGE_DISPATCH_READY')return `残量${event.batteryPct.toFixed(1)}% · 割当なしは${scenario.battery.chargeTargetPct}%まで充電継続`;
+  if(type==='CHARGE_ENDED'||type==='CHARGE_COMPLETED'||type==='CHARGE_INTERRUPTED'){
     const start=chargeStarts.get(event.agfId),end=event.batteryPct??agf?.batteryPct;
     return hasNumber(start)&&hasNumber(end)?`${start.toFixed(1)}% → ${end.toFixed(1)}%`:hasNumber(end)?`残量${end.toFixed(1)}%`:dash;
   }

@@ -34,7 +34,7 @@ export const turnDescription=(agf,timeMs)=>{
   return `${t.fromHeadingDeg.toFixed(1)}° → ${t.targetHeadingDeg.toFixed(1)}° / 必要角度 ${t.angleDeg}° / 残り ${remaining.toFixed(1)}秒 / 並進速度0`;
 };
 export const taskNames={'01':'製品の包装投入','02':'製品の倉庫入庫','03':'空パレット補充','04':'仮置きから再投入','05':'仮置きから入庫'};
-export const reasons={LOCATION_PERMISSION:'入庫許可なし',SAME_ROW_ACTIVE:'同じ行の置きタスク完了待ち',LOCATION_FULL_OR_RESERVED:'入庫先が満杯または予約済み',
+export const reasons={TASK_DISPATCH:'搬送タスクの割当',LOCATION_PERMISSION:'入庫許可なし',SAME_ROW_ACTIVE:'同じ行の置きタスク完了待ち',LOCATION_FULL_OR_RESERVED:'入庫先が満杯または予約済み',
   NO_ASSIGNED_STORAGE:'対象用途の行なし',ROW_PRIORITY_UNRESOLVED:'同用途の行優先順位が未設定',ASSIGNED_STORAGE_FULL:'対象系列／特注領域が満杯',
   HP_TARGET_UNRESOLVED:'復帰先が未設定',HP_CAPACITY_UNRESOLVED:'待機場所の占有・予約の解放待ち',UNREACHABLE_WAIT_ROUTE:'倉庫待機場所への経路が到達不能',
   WRAPPER_INPUT_FULL:'包装機の投入空き待ち',WRAPPER_INBOUND_LIMIT:'包装投入への同時AGF割当が上限（合成条件）',NO_ELIGIBLE_AGF:'実行可能AGF待ち',NO_AREA_AGF:'目的地エリアのAGF待ち',ALIGNER_NOT_READY:'整列機の搬送OK待ち',
@@ -42,6 +42,7 @@ export const reasons={LOCATION_PERMISSION:'入庫許可なし',SAME_ROW_ACTIVE:'
   UNREACHABLE_CHARGE_ROUTE:'充電経路へ到達不能',CHARGE_PLACE_OCCUPIED:'充電停止位置の解放待ち',OCCUPIED:'区間・交差点の解放待ち',SHUTTER:'シャッター許可待ち',
   APPROACH_OCCUPIED:'シャッター接続通路の解放待ち',OPPOSING_PASSAGE_UNCONFIRMED:'対向同時通過未確定・反対方向の通過完了待ち'};
 export const eventNames={RUN_STARTED:'シミュレーション開始',RUN_ENDED:'シミュレーション終了',TASK_PICKED:'荷受け完了',TASK_DROPPED:'荷下ろし完了',CHARGE_ENDED:'充電完了',
+  CHARGE_DISPATCH_READY:'充電中・搬送復帰可能',CHARGE_INTERRUPTED:'タスク割当のため充電中断',
   MANUAL_TASK_RESERVED:'手動搬送予約',MAGAZINE_REFILL_REQUESTED:'空PL補充要求',WRAP_OUTPUT_BLOCKED:'包装機出口待ち',
   SIMULATION_STARTED:'シミュレーション開始',PALLET_EXITED:'系列から搬出',TASK_REQUESTED:'搬送要求',TASK_ASSIGNED:'AGF割当',
   TASK_WAITING:'搬送保留',TASK_02_HELD:'02発行保留',PICKUP_COMPLETED:'荷受け完了',TASK_COMPLETED:'搬送完了',

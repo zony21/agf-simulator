@@ -56,6 +56,10 @@ export function simulate(rawScenario,{onProgress}={}) {
   required(battery.reservePct >= 0 && battery.chargeStartPct >= 0 &&
     battery.chargeStartPct < battery.chargeTargetPct && battery.chargeTargetPct <= 100 &&
     battery.chargeMinPerPct > 0, 'invalid battery settings');
+  if(battery.chargeDispatchPct!==undefined)required(Number.isFinite(battery.chargeDispatchPct)&&
+    battery.chargeStartPct<battery.chargeDispatchPct&&battery.chargeDispatchPct<=battery.chargeTargetPct,
+    'invalid charge dispatch threshold: require chargeStartPct < chargeDispatchPct <= chargeTargetPct');
+  const interruptibleCharging=battery.chargeDispatchPct!==undefined;
   validateBatteryModel(battery);
   required(['area_first','low_battery_first','source_area_agf_priority'].includes(scenario.mode), 'mode required');
   if(scenario.mode==='source_area_agf_priority')required(scenario.agfs?.length===4&&scenario.agfPriorities&&
@@ -1020,7 +1024,8 @@ export function simulate(rawScenario,{onProgress}={}) {
         record('WAREHOUSE_LOCATION_RESERVED',{taskId:t.id,palletId:p.palletId,locationId:choice.location.id});
       }
       const available=(a,evaluation=null)=>{
-        const statusAvailable=a.status==='idle'||(postTaskPolicy&&a.status==='dispatch_pending');
+        const statusAvailable=a.status==='idle'||(postTaskPolicy&&a.status==='dispatch_pending')||
+          (interruptibleCharging&&a.status==='charging'&&a.batteryPct>=battery.chargeDispatchPct);
         const batteryAvailable=!postTaskPolicy||a.batteryPct>battery.chargeStartPct;
         if(evaluation){
           evaluation.evaluationStatus='evaluated';
@@ -1037,7 +1042,7 @@ export function simulate(rawScenario,{onProgress}={}) {
           excluded:evaluations.filter(e=>e.exclusionReason).map(e=>({agfId:e.agfId,exclusionReason:e.exclusionReason})).sort(evaluationOrder)};
         const nodeOrigin=graphMode?graphNodes.get(resolveNode(t.originId)):null;
         const originArea=t.originArea??nodeOrigin?.areaId;
-        const decision=selectAgfWithReason(availableValues.map(a=>a.status==='dispatch_pending'?{...a,status:'idle'}:a),
+        const decision=selectAgfWithReason(availableValues.map(a=>['dispatch_pending','charging'].includes(a.status)?{...a,status:'idle'}:a),
           {originArea,destinationArea:t.destinationArea},{mode:scenario.mode,reservePct:battery.reservePct,
             agfPriorities:scenario.agfPriorities,fallback});
         const selectorEvaluations=new Map(decision.selection.evaluations.map(e=>[e.agfId,e]));
@@ -1083,6 +1088,7 @@ export function simulate(rawScenario,{onProgress}={}) {
         routePair=candidates.find(item=>item.candidate===selected)??null;
         if(!selected||!routePair){if(deferHead(t,'UNREACHABLE_ROUTE',{dispatchSelection}))break;continue;}
       }
+      if(selected.status==='charging')interruptCharge(selected,t.id);
       if(postTaskPolicy)releasePlaces(selected);
       t.status='moving_empty'; t.assignedAt=now; t.agfId=selected.id; t.waitReason=null;
       if(t.priorityBlockingTaskId)t.priorityBlockingTaskId=null;
@@ -1099,6 +1105,18 @@ export function simulate(rawScenario,{onProgress}={}) {
     }
   };
   const chargeQueue = [];
+  const chargeSessions=new Map(),chargeGenerations=new Map();
+  const interruptCharge=(a,taskId)=>{
+    required(interruptibleCharging&&a.status==='charging'&&a.batteryPct>=battery.chargeDispatchPct&&
+      chargers.get(a.chargerId)===a.id&&chargeSessions.has(a.id),'charging interruption without dispatch readiness');
+    const chargerId=a.chargerId;chargeSessions.delete(a.id);
+    batteryLedger?.finishCharge(a);
+    a.status=postTaskPolicy?'dispatch_pending':'idle';a.chargerId=null;chargers.set(chargerId,null);
+    record('CHARGE_INTERRUPTED',{agfId:a.id,chargerId,taskId,batteryPct:a.batteryPct,
+      chargeDispatchPct:battery.chargeDispatchPct,chargeTargetPct:battery.chargeTargetPct,reason:'TASK_DISPATCH'});
+    record('CHARGER_RELEASED',{agfId:a.id,chargerId});
+    if(chargeQueue.length)startCharge(chargeQueue.shift());
+  };
   const startCharge = agfId => {
     const a=agfs.find(a => a.id===agfId);
     if(graphMode)a.movement=null;
@@ -1113,10 +1131,18 @@ export function simulate(rawScenario,{onProgress}={}) {
     a.status='charging'; a.area='WH'; a.chargerId=chargerId; chargers.set(chargerId,agfId);
     batteryLedger?.startCharge(a,now);
     stats.chargingStarts++;
+    let sessionFields={};
+    if(interruptibleCharging){
+      const generation=(chargeGenerations.get(agfId)??0)+1;chargeGenerations.set(agfId,generation);
+      chargeSessions.set(agfId,{generation,startedAt:now,startPct:a.batteryPct});sessionFields={chargeSession:generation};
+    }
     record('CHARGE_STARTED',{agfId,chargerId,batteryPct:a.batteryPct,
       ...(chargePlaces.size?{chargePlaceId:a.currentNodeId}:{})});
     schedule(now+minute((battery.chargeTargetPct-a.batteryPct)*battery.chargeMinPerPct),
-      'CHARGE_ENDED',{agfId,chargerId});
+      'CHARGE_ENDED',{agfId,chargerId,...sessionFields});
+    if(interruptibleCharging&&battery.chargeDispatchPct<battery.chargeTargetPct)
+      schedule(now+Math.max(0,Math.ceil((battery.chargeDispatchPct-a.batteryPct)*battery.chargeMinPerPct*60000)),
+        'CHARGE_DISPATCH_READY',{agfId,chargerId,...sessionFields});
   };
   const releaseCharger=a=>{
     if(a.chargerId&&a.status!=='charging'){
@@ -1334,11 +1360,17 @@ export function simulate(rawScenario,{onProgress}={}) {
       loadPriority(a)-loadPriority(b)||a.order-b.order);
     let e=queue.shift();
     if (e.timeMs>durationMs) break;
+    if(e.chargeSession!==undefined&&chargeSessions.get(e.agfId)?.generation!==e.chargeSession)continue;
     if(e.movementGeneration!==undefined&&agfs.find(a=>a.id===e.agfId)?.movementGeneration!==e.movementGeneration)continue;
     const productionClock=e.productionClockId&&!e.retry?productionClocks.get(e.productionClockId):null;
     if(productionClock&&(productionClock.paused||productionClock.generation!==e.productionGeneration))continue;
     advanceWrapperWait(e.timeMs);
     batteryLedger?.advance(now,e.timeMs,tasks);
+    if(interruptibleCharging&&!batteryLedger)for(const a of agfs){
+      const session=chargeSessions.get(a.id);
+      if(a.status==='charging'&&session)a.batteryPct=Math.round(Math.min(battery.chargeTargetPct,
+        session.startPct+(e.timeMs-session.startedAt)/60000/battery.chargeMinPerPct)*1000000)/1000000;
+    }
     now=e.timeMs;
     if(onProgress&&now>=nextProgressMs){
       onProgress({timeMs:now,durationMs,eventCount:history.length});
@@ -1758,10 +1790,17 @@ export function simulate(rawScenario,{onProgress}={}) {
       required(a?.status==='moving_to_charge','charge arrival without travel');
       a.area='WH';record('CHARGE_ARRIVED',{agfId:a.id});
       startCharge(a.id);
+    } else if(e.type==='CHARGE_DISPATCH_READY'){
+      const a=agfs.find(a=>a.id===e.agfId);
+      required(a?.status==='charging'&&a.chargerId===e.chargerId&&a.batteryPct>=battery.chargeDispatchPct,
+        'charge readiness without active charging at its threshold');
+      record('CHARGE_DISPATCH_READY',{agfId:a.id,chargerId:a.chargerId,batteryPct:a.batteryPct,
+        chargeDispatchPct:battery.chargeDispatchPct,chargeTargetPct:battery.chargeTargetPct});
     } else if (e.type === 'CHARGE_ENDED') {
       const a=agfs.find(a=>a.id===e.agfId);
       required(a?.status==='charging' && a.chargerId===e.chargerId &&
         chargers.get(e.chargerId)===a.id,'invalid charge end');
+      chargeSessions.delete(a.id);
       a.batteryPct=battery.chargeTargetPct;a.status=postTaskPolicy?'dispatch_pending':'idle';
       // The charger is an electrical resource, not the physical stopping place.
       // Release it as soon as charging ends even when the AGF remains parked at
@@ -1779,6 +1818,12 @@ export function simulate(rawScenario,{onProgress}={}) {
     if(!['SEGMENT_REQUEST','HANDLING_REQUEST'].includes(e.type))wakeWrapperInputs();
   }
   advanceWrapperWait(durationMs);
+  if(interruptibleCharging&&!batteryLedger)for(const a of agfs){
+    const session=chargeSessions.get(a.id);
+    if(a.status==='charging'&&session)a.batteryPct=Math.round(Math.min(battery.chargeTargetPct,
+      session.startPct+(durationMs-session.startedAt)/60000/battery.chargeMinPerPct)*1000000)/1000000;
+  }
+  if(interruptibleCharging&&!batteryLedger){now=durationMs;record('RUN_ENDED',{batteryModel:'per_task',chargeModel:'linear-time'});}
   if (batteryLedger) {
     batteryLedger.advance(now,durationMs,tasks);
     now=durationMs;
